@@ -12,6 +12,9 @@ import subprocess
 import sys
 import tempfile
 import hashlib
+import urllib.parse
+import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -298,7 +301,7 @@ def validate_package_root(root: Path) -> None:
         raise PackageError(f"package root not found: {root}")
     expected_top = set(REQUIRED_ROOT_FILES) | set(REQUIRED_ROOT_DIRS)
     actual_top = {path.name for path in root.iterdir()}
-    allowed_local_extras = {"projects", ".DS_Store", "__pycache__", "COMMERCIAL_LICENSE.md", "THIRD_PARTY_NOTICES.md"}
+    allowed_local_extras = {"projects", ".DS_Store", ".codex", "__pycache__", "COMMERCIAL_LICENSE.md", "THIRD_PARTY_NOTICES.md"}
     unexpected = actual_top - expected_top - allowed_local_extras
     if expected_top - actual_top or unexpected:
         raise PackageError(f"top-level structure mismatch; missing={sorted(expected_top - actual_top)}, extra={sorted(unexpected)}")
@@ -372,6 +375,32 @@ def find_ppt_master_root(explicit: str | None = None) -> Path:
         if script.is_file():
             return candidate
     raise PackageError("ppt-master not found; pass --ppt-master-root or set PPT_MASTER_ROOT")
+
+
+def find_ppt_master_skill_dir(explicit: str | None = None) -> Path:
+    """Locate either a full PPT Master worktree or a host's installed skill."""
+    candidates: list[Path] = []
+    if explicit:
+        candidates.append(expand_path(explicit))
+    if os.environ.get("PPT_MASTER_ROOT"):
+        candidates.append(expand_path(os.environ["PPT_MASTER_ROOT"]))
+    candidates.extend([
+        Path.home() / "Documents" / "ppt-master",
+        package_root().parent / "ppt-master",
+        Path.cwd() / "ppt-master",
+        Path.home() / ".claude" / "skills",
+        Path.home() / ".agents" / "skills",
+        Path.home() / ".hermes" / "skills",
+    ])
+    for candidate in dict.fromkeys(path.resolve(strict=False) for path in candidates):
+        for skill_dir in (
+            candidate / "skills" / "ppt-master",
+            candidate / "ppt-master",
+            candidate,
+        ):
+            if (skill_dir / "scripts" / "project_manager.py").is_file():
+                return skill_dir
+    raise PackageError("ppt-master skill not found; pass --ppt-master-root or set PPT_MASTER_ROOT")
 
 
 def run_tool(args: list[str], *, cwd: Path | None = None) -> str:
@@ -536,6 +565,135 @@ def _integration_files(root: Path) -> list[dict[str, Any]]:
         raise PackageError(f"invalid PPT Master manifest: {exc}") from exc
 
 
+def _upstream_lock(root: Path) -> dict[str, Any]:
+    path = root / "integrations" / "ppt-master" / "upstream.lock"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PackageError(f"invalid PPT Master upstream lock: {exc}") from exc
+    for key in ("repository", "commit", "required_capabilities"):
+        if not payload.get(key):
+            raise PackageError(f"PPT Master upstream lock missing {key}")
+    return payload
+
+
+def _relative_skill_path(item: dict[str, Any]) -> Path:
+    relative = Path(item["path"])
+    prefix = Path("skills") / "ppt-master"
+    try:
+        return relative.relative_to(prefix)
+    except ValueError as exc:
+        raise PackageError(f"invalid PPT Master overlay path: {relative}") from exc
+
+
+def verify_master_baseline(root: Path, master_root: Path) -> dict[str, Any]:
+    """Verify the exact files the overlay will replace, without requiring Git."""
+    lock = _upstream_lock(root)
+    missing: list[str] = []
+    mismatched: list[str] = []
+    for item in _integration_files(root):
+        target = master_root / item["path"]
+        expected = item.get("upstream_hash")
+        if expected is None:
+            if target.exists():
+                mismatched.append(item["path"])
+            continue
+        if not target.is_file():
+            missing.append(item["path"])
+        elif sha256_file(target) != expected:
+            mismatched.append(item["path"])
+    if missing or mismatched:
+        detail = []
+        if missing:
+            detail.append(f"missing={', '.join(missing)}")
+        if mismatched:
+            detail.append(f"hash_mismatch={', '.join(mismatched)}")
+        raise PackageError("PPT Master does not match upstream.lock: " + "; ".join(detail))
+    return {
+        "required_commit": lock["commit"],
+        "verification": "overlay upstream hashes",
+        "repository": lock["repository"],
+    }
+
+
+def _codeload_url(lock: dict[str, Any]) -> str:
+    parsed = urllib.parse.urlparse(lock["repository"])
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) < 2:
+        raise PackageError("upstream.lock repository is not a GitHub repository URL")
+    owner, repository = parts[-2], parts[-1].removesuffix(".git")
+    return f"https://codeload.github.com/{owner}/{repository}/zip/{lock['commit']}"
+
+
+def _safe_extract_zip(archive: Path, destination: Path) -> None:
+    try:
+        with zipfile.ZipFile(archive) as package:
+            for member in package.infolist():
+                target = (destination / member.filename).resolve(strict=False)
+                try:
+                    target.relative_to(destination.resolve())
+                except ValueError as exc:
+                    raise PackageError("PPT Master ZIP contains an unsafe path") from exc
+            package.extractall(destination)
+    except zipfile.BadZipFile as exc:
+        raise PackageError("PPT Master ZIP is invalid") from exc
+
+
+def _find_extracted_master_root(destination: Path) -> Path:
+    candidates = [destination, *sorted(path for path in destination.iterdir() if path.is_dir())]
+    for candidate in candidates:
+        if (candidate / "skills" / "ppt-master" / "scripts" / "project_manager.py").is_file():
+            return candidate
+    raise PackageError("PPT Master source does not contain skills/ppt-master")
+
+
+def prepare_master_source(
+    root: Path,
+    staging: Path,
+    *,
+    source_dir: str | None = None,
+    source_zip: str | None = None,
+    codeload_url: str | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Stage a clean source copy from local directory, local ZIP, or codeload ZIP."""
+    root = package_root(root)
+    selected = sum(value is not None for value in (source_dir, source_zip, codeload_url))
+    if selected > 1:
+        raise PackageError("choose only one PPT Master source")
+    source_area = staging / "master-source"
+    source_area.mkdir(parents=True, exist_ok=True)
+    if source_dir:
+        original = expand_path(source_dir)
+        if not original.is_dir():
+            raise PackageError(f"PPT Master source directory not found: {original}")
+        copied = source_area / "local"
+        shutil.copytree(original, copied, ignore=shutil.ignore_patterns(".git", "__pycache__", ".DS_Store"))
+        master = _find_extracted_master_root(copied)
+        method = "local_directory"
+    elif source_zip:
+        archive = expand_path(source_zip)
+        if not archive.is_file():
+            raise PackageError(f"PPT Master source ZIP not found: {archive}")
+        _safe_extract_zip(archive, source_area)
+        master = _find_extracted_master_root(source_area)
+        method = "local_zip"
+    else:
+        lock = _upstream_lock(root)
+        url = codeload_url or _codeload_url(lock)
+        archive = staging / "ppt-master.zip"
+        try:
+            with urllib.request.urlopen(url, timeout=45) as response:
+                archive.write_bytes(response.read())
+        except OSError as exc:
+            raise PackageError(f"unable to download PPT Master codeload ZIP: {exc}") from exc
+        _safe_extract_zip(archive, source_area)
+        master = _find_extracted_master_root(source_area)
+        method = "codeload_zip"
+    verification = verify_master_baseline(root, master)
+    verification["source"] = method
+    return master, verification
+
+
 def _installation_record(master_root: Path) -> Path:
     return master_root / ".ppt-prompt-router-install.json"
 
@@ -544,8 +702,6 @@ def apply_master_overlay(root: Path, master_root: Path) -> Path:
     """Apply only manifest-listed files and preserve every original for rollback."""
     root = package_root(root)
     master_root = master_root.resolve(strict=False)
-    if not (master_root / ".git").exists():
-        raise PackageError("PPT Master root must be a Git worktree")
     record_path = _installation_record(master_root)
     files = _integration_files(root)
     if record_path.exists():
@@ -558,6 +714,8 @@ def apply_master_overlay(root: Path, master_root: Path) -> Path:
             return record_path
         raise PackageError("PPT Master already has a different Router overlay; uninstall it first")
 
+    verify_master_baseline(root, master_root)
+
     backup = master_root / ".ppt-prompt-router-backup"
     staged: list[tuple[Path, Path | None]] = []
     try:
@@ -565,11 +723,6 @@ def apply_master_overlay(root: Path, master_root: Path) -> Path:
             relative = Path(item["path"])
             target = master_root / relative
             source = root / "integrations" / "ppt-master" / "overlay" / relative
-            upstream_hash = item.get("upstream_hash")
-            if target.exists() and upstream_hash and sha256_file(target) != upstream_hash:
-                raise PackageError(f"PPT Master upstream hash mismatch: {relative}")
-            if not target.exists() and upstream_hash:
-                raise PackageError(f"PPT Master file missing: {relative}")
             backup_file = backup / relative if target.exists() else None
             if backup_file:
                 backup_file.parent.mkdir(parents=True, exist_ok=True)
@@ -612,6 +765,132 @@ def uninstall_master_overlay(master_root: Path) -> None:
     record_path.unlink(missing_ok=True)
 
 
+def _runtime_record(target_dir: Path) -> Path:
+    return target_dir / ".ppt-prompt-router-runtime.json"
+
+
+def _runtime_master_dir(target_dir: Path) -> Path:
+    return target_dir / "ppt-master"
+
+
+def deploy_runtime_master(root: Path, staged_master_root: Path, target_dir: Path, verification: dict[str, Any], *, force: bool) -> Path:
+    """Deploy only the final skill into the host's formal skills directory."""
+    source_skill = staged_master_root / "skills" / "ppt-master"
+    if not (source_skill / "scripts" / "project_manager.py").is_file():
+        raise PackageError("staged PPT Master skill is incomplete")
+    target_dir = target_dir.resolve(strict=False)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    runtime = _runtime_master_dir(target_dir)
+    record = _runtime_record(target_dir)
+    persistent_backup = target_dir / ".ppt-prompt-router-runtime-backup"
+    if runtime.exists() or runtime.is_symlink():
+        if record.is_file():
+            try:
+                verify_runtime_integration(root, target_dir)
+                return runtime
+            except PackageError:
+                pass
+        if not force:
+            raise PackageError(f"PPT Master runtime skill already exists: {runtime}; use --force after review")
+        if persistent_backup.exists():
+            raise PackageError("existing PPT Master runtime backup must be restored or removed before --force")
+    staging_parent = Path(tempfile.mkdtemp(prefix=".ppt-master-runtime-", dir=str(target_dir.parent)))
+    staged_skill = staging_parent / "ppt-master"
+    backup = persistent_backup / "ppt-master"
+    record_backup = persistent_backup / "runtime-record.json"
+    try:
+        shutil.copytree(source_skill, staged_skill, ignore=shutil.ignore_patterns("__pycache__", ".DS_Store", "*.pyc"))
+        if runtime.exists() or runtime.is_symlink():
+            persistent_backup.mkdir(parents=True, exist_ok=False)
+            os.replace(runtime, backup)
+        if record.exists():
+            os.replace(record, record_backup)
+        os.replace(staged_skill, runtime)
+        manifest = _integration_files(root)
+        payload = {
+            "schema_version": "1.0",
+            "required_commit": verification["required_commit"],
+            "verification": verification["verification"],
+            "source": verification["source"],
+            "skill_dir": "ppt-master",
+            "overlay_files": [
+                {"path": str(_relative_skill_path(item).as_posix()), "overlay_hash": item["overlay_hash"]}
+                for item in manifest
+            ],
+        }
+        record.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return runtime
+    except Exception:
+        if runtime.exists() or runtime.is_symlink():
+            shutil.rmtree(runtime, ignore_errors=True)
+        if backup.exists() or backup.is_symlink():
+            os.replace(backup, runtime)
+        if record.exists():
+            record.unlink()
+        if record_backup.exists():
+            os.replace(record_backup, record)
+        shutil.rmtree(persistent_backup, ignore_errors=True)
+        raise
+    finally:
+        shutil.rmtree(staging_parent, ignore_errors=True)
+
+
+def verify_runtime_integration(root: Path, target_dir: Path) -> dict[str, Any]:
+    target_dir = target_dir.resolve(strict=False)
+    runtime = _runtime_master_dir(target_dir)
+    record_path = _runtime_record(target_dir)
+    backup = target_dir / ".ppt-prompt-router-runtime-backup"
+    if not record_path.is_file():
+        raise PackageError("PPT Master runtime integration record is missing")
+    try:
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PackageError(f"invalid PPT Master runtime integration record: {exc}") from exc
+    lock = _upstream_lock(root)
+    if record.get("required_commit") != lock["commit"]:
+        raise PackageError("PPT Master runtime commit does not match upstream.lock")
+    if not (runtime / "SKILL.md").is_file() or not (runtime / "scripts" / "project_manager.py").is_file():
+        raise PackageError("PPT Master runtime skill is incomplete")
+    expected = {str(_relative_skill_path(item).as_posix()): item["overlay_hash"] for item in _integration_files(root)}
+    recorded = {item.get("path"): item.get("overlay_hash") for item in record.get("overlay_files", [])}
+    if recorded != expected:
+        raise PackageError("PPT Master runtime overlay record does not match manifest")
+    for relative, digest in expected.items():
+        file_path = runtime / relative
+        if not file_path.is_file() or sha256_file(file_path) != digest:
+            raise PackageError(f"PPT Master runtime overlay hash mismatch: {relative}")
+    return {
+        "status": "verified",
+        "skill_path": str(runtime),
+        "upstream_commit": lock["commit"],
+        "overlay_files": len(expected),
+    }
+
+
+def uninstall_runtime_master(target_dir: Path) -> None:
+    target_dir = target_dir.resolve(strict=False)
+    runtime = _runtime_master_dir(target_dir)
+    record_path = _runtime_record(target_dir)
+    if not record_path.is_file():
+        return
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    if not runtime.is_dir():
+        raise PackageError("PPT Master runtime skill is missing; refusing uninstall")
+    for item in record.get("overlay_files", []):
+        current = runtime / item["path"]
+        if not current.is_file() or sha256_file(current) != item["overlay_hash"]:
+            raise PackageError(f"refusing to remove changed PPT Master runtime file: {item['path']}")
+    shutil.rmtree(runtime)
+    record_path.unlink()
+    backup_skill = backup / "ppt-master"
+    backup_record = backup / "runtime-record.json"
+    if backup_skill.exists() or backup_skill.is_symlink():
+        os.replace(backup_skill, runtime)
+    if backup_record.exists():
+        os.replace(backup_record, record_path)
+    shutil.rmtree(backup, ignore_errors=True)
+
+
 def cmd_detect(args: argparse.Namespace) -> int:
     skills_dir = expand_path(args.skills_dir) if args.skills_dir else None
     adapter = get_adapter(args.host, skills_dir=skills_dir)
@@ -636,6 +915,8 @@ def _target_for_install(args: argparse.Namespace) -> Path:
 def cmd_install(args: argparse.Namespace) -> int:
     target = _target_for_install(args)
     source = package_root()
+    if args.master_root and args.master_source_dir:
+        raise PackageError("--master-root and --master-source-dir cannot be used together")
     destination = destination_root(target)
     rollback_dir: Path | None = None
     rollback_copy: Path | None = None
@@ -649,11 +930,26 @@ def cmd_install(args: argparse.Namespace) -> int:
         else:
             shutil.copytree(destination, rollback_copy)
     destination = install_package(target, force=args.force, source_root=source, mode=args.mode)
+    stage = Path(tempfile.mkdtemp(prefix=".ppt-router-master-stage-"))
+    runtime_deployed = False
     try:
-        if args.master_root:
-            apply_master_overlay(destination, expand_path(args.master_root))
+        source_dir = args.master_source_dir or args.master_root
+        master, verification = prepare_master_source(
+            destination,
+            stage,
+            source_dir=source_dir,
+            source_zip=args.master_source_zip,
+            codeload_url=args.master_codeload_url,
+        )
+        apply_master_overlay(destination, master)
+        runtime = deploy_runtime_master(destination, master, target, verification, force=args.force)
+        runtime_deployed = True
+        validate_package_root(destination)
+        runtime_status = verify_runtime_integration(destination, target)
     except Exception:
-        # Restore the Router destination when Master installation fails.
+        if runtime_deployed:
+            uninstall_runtime_master(target)
+        # Restore the Router destination when PPT Master integration fails.
         if destination.exists() or destination.is_symlink():
             uninstall_package(target)
         if rollback_copy and (rollback_copy.exists() or rollback_copy.is_symlink()):
@@ -662,7 +958,17 @@ def cmd_install(args: argparse.Namespace) -> int:
     finally:
         if rollback_dir:
             shutil.rmtree(rollback_dir, ignore_errors=True)
-    print(f"已安装 Router：{destination}")
+        shutil.rmtree(stage, ignore_errors=True)
+    print(json.dumps({
+        "router": {"status": "verified", "path": str(destination)},
+        "ppt_master_overlay": {
+            "status": "verified",
+            "upstream_commit": verification["required_commit"],
+            "source": verification["source"],
+            "overlay_files": len(_integration_files(destination)),
+        },
+        "runtime_integration": runtime_status,
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -670,16 +976,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
     target = _target_for_install(args)
     destination = destination_root(target)
     validate_package_root(destination)
-    if args.master_root:
-        master = expand_path(args.master_root)
-        record = _installation_record(master)
-        if not record.is_file():
-            raise PackageError("未找到 PPT Master 覆盖层安装记录")
-        for item in json.loads(record.read_text(encoding="utf-8")).get("files", []):
-            target_file = master / item["path"]
-            if not target_file.is_file() or sha256_file(target_file) != item["overlay_hash"]:
-                raise PackageError(f"PPT Master 覆盖层校验失败：{item['path']}")
-    print(f"已验证：{destination}")
+    runtime_status = verify_runtime_integration(destination, target)
+    print(json.dumps({
+        "router": {"status": "verified", "path": str(destination)},
+        "ppt_master_overlay": {
+            "status": "verified",
+            "upstream_commit": _upstream_lock(destination)["commit"],
+            "overlay_files": len(_integration_files(destination)),
+        },
+        "runtime_integration": runtime_status,
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -687,9 +993,12 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     if not args.yes:
         raise PackageError("uninstall requires --yes")
     target = _target_for_install(args)
-    if args.master_root:
-        uninstall_master_overlay(expand_path(args.master_root))
-    print(f"已卸载 Router：{uninstall_package(target)}")
+    uninstall_runtime_master(target)
+    print(json.dumps({
+        "router": {"status": "removed", "path": str(uninstall_package(target))},
+        "ppt_master_overlay": {"status": "removed"},
+        "runtime_integration": {"status": "removed"},
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -700,7 +1009,11 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--host", choices=host_choices(), default="auto")
     install.add_argument("--target", help="兼容旧版：Agent skills parent directory")
     install.add_argument("--router-target", help="Router 安装到的技能父目录")
-    install.add_argument("--master-root", help="标准 PPT Master 根目录")
+    install.add_argument("--master-root", help="兼容旧版：本地 PPT Master 源码目录")
+    source_group = install.add_mutually_exclusive_group()
+    source_group.add_argument("--master-source-dir", help="本地 PPT Master 源码目录，只读使用")
+    source_group.add_argument("--master-source-zip", help="本地 PPT Master ZIP，只读使用")
+    source_group.add_argument("--master-codeload-url", help="指定 codeload ZIP 地址；默认按 upstream.lock 下载")
     install.add_argument("--mode", choices=["copy", "symlink"], default="copy")
     install.add_argument("--force", action="store_true")
     install.set_defaults(func=cmd_install)
@@ -708,13 +1021,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--host", choices=host_choices(), default="auto")
     validate.add_argument("--target", help="兼容旧版：Agent skills parent directory")
     validate.add_argument("--router-target", help="Router 安装到的技能父目录")
-    validate.add_argument("--master-root", help="标准 PPT Master 根目录")
+    validate.add_argument("--master-root", help="兼容参数；运行时验证不读取此目录")
     validate.set_defaults(func=cmd_validate)
     uninstall = sub.add_parser("uninstall")
     uninstall.add_argument("--host", choices=host_choices(), default="auto")
     uninstall.add_argument("--target", help="兼容旧版：Agent skills parent directory")
     uninstall.add_argument("--router-target", help="Router 安装到的技能父目录")
-    uninstall.add_argument("--master-root", help="标准 PPT Master 根目录")
+    uninstall.add_argument("--master-root", help="兼容参数；卸载只恢复正式 skills 目录")
     uninstall.add_argument("--yes", action="store_true")
     uninstall.set_defaults(func=cmd_uninstall)
     detect = sub.add_parser("detect")

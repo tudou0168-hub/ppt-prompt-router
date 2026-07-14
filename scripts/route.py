@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 from install import (  # noqa: E402
     PackageError,
     compile_director_profile,
-    find_ppt_master_root,
+    find_ppt_master_skill_dir,
     load_index,
     prompt_body,
     run_tool,
@@ -235,14 +235,14 @@ def execute_route(args: argparse.Namespace) -> dict[str, Any]:
 
     entry = routed["entry"]
     profile_text = compile_director_profile(ROOT, entry)
-    ppt_master_root = find_ppt_master_root(args.ppt_master_root)
-    manager = ppt_master_root / "skills" / "ppt-master" / "scripts" / "project_manager.py"
+    master_skill_dir = find_ppt_master_skill_dir(args.ppt_master_root)
+    manager = master_skill_dir / "scripts" / "project_manager.py"
     base = Path(args.project_base).expanduser().resolve() if args.project_base else ROOT / "projects"
     base.mkdir(parents=True, exist_ok=True)
     project_name = args.project_name or f"router_{entry['id']}"
     init_output = run_tool(
         [sys.executable, str(manager), "init", project_name, "--format", args.format, "--dir", str(base)],
-        cwd=ppt_master_root,
+        cwd=master_skill_dir.parent,
     )
     project = _project_path_from_init(init_output)
 
@@ -250,7 +250,7 @@ def execute_route(args: argparse.Namespace) -> dict[str, Any]:
     if import_inputs:
         command = [sys.executable, str(manager), "import-sources", str(project), *import_inputs]
         command.append("--move" if args.move else "--copy")
-        run_tool(command, cwd=ppt_master_root)
+        run_tool(command, cwd=master_skill_dir.parent)
     template_path = _imported_template(project, args.template[0] if args.template else None)
     contract_path = _write_contract(
         project,
@@ -264,7 +264,7 @@ def execute_route(args: argparse.Namespace) -> dict[str, Any]:
     )
     accept_output = run_tool(
         [sys.executable, str(manager), "router-accept", str(project)],
-        cwd=ppt_master_root,
+        cwd=master_skill_dir.parent,
     )
     try:
         accepted = json.loads(accept_output[accept_output.index("{"):])
@@ -276,7 +276,7 @@ def execute_route(args: argparse.Namespace) -> dict[str, Any]:
     if args.director_plan:
         run_tool(
             [sys.executable, str(manager), "director-plan", str(project), args.director_plan],
-            cwd=ppt_master_root,
+            cwd=master_skill_dir.parent,
         )
     return {
         "status": "ppt-master-accepted",

@@ -12,6 +12,7 @@ projects/
 
 # 本地环境与缓存
 .DS_Store
+.codex/
 __pycache__/
 *.py[cod]
 .env

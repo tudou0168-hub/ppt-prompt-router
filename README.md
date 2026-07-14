@@ -36,12 +36,12 @@ python3 scripts/route.py \
 
 ```bash
 python3 install.py detect
-python3 install.py install --host codex --master-root <ppt_master_root>
-python3 install.py validate --host codex --master-root <ppt_master_root>
-python3 install.py uninstall --host codex --master-root <ppt_master_root> --yes
+python3 install.py install --host codex
+python3 install.py validate --host codex
+python3 install.py uninstall --host codex --yes
 ```
 
-安装器安装 Router，并只对标准 PPT Master 应用清单声明的最小覆盖层。上游 Hash 不匹配会停止，失败时自动恢复。运行要求为 Python 3.10 或更高版本。
+安装器默认从 `upstream.lock` 指定的 codeload ZIP 获取 PPT Master；也可使用 `--master-source-dir` 或 `--master-source-zip`。上游 Hash 不匹配会停止，失败时自动恢复。安装成功必须同时验证 Router、9 个覆盖文件和宿主正式 skills 目录中的 PPT Master。运行要求为 Python 3.10 或更高版本。
 
 ## 产品边界
 
