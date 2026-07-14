@@ -84,6 +84,11 @@ class InstallTest(unittest.TestCase):
         overlay = ROOT / "integrations" / "ppt-master" / "overlay" / "skills" / "ppt-master" / "scripts" / "reference_elements.py"
         self.assertTrue(overlay.is_file())
 
+    def test_offline_build_excludes_the_development_installer(self) -> None:
+        source = (ROOT / "scripts" / "build_offline_suite.py").read_text(encoding="utf-8")
+        self.assertIn('"install.py"', source)
+        self.assertIn("offline_suite_runtime", source)
+
     def test_overlay_apply_and_uninstall_restore(self) -> None:
         with tempfile.TemporaryDirectory(prefix="router-overlay-") as tmp:
             root = Path(tmp)

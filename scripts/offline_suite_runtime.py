@@ -28,6 +28,16 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def configure_utf8_output() -> None:
+    """Keep Chinese paths and JSON readable on Windows console hosts."""
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8:replace")
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def suite_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
@@ -262,6 +272,7 @@ def _uninstall(target: Path) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_utf8_output()
     parser = argparse.ArgumentParser(description="PPT Director offline suite")
     sub = parser.add_subparsers(dest="command", required=True)
     for command in ("install", "upgrade", "rollback", "validate", "uninstall"):

@@ -1,5 +1,13 @@
 # 更新记录
 
+## 2.2.1
+
+### 修复
+
+- 离线包不再携带开发用 `skills/ppt-prompt-router/install.py`；套件根目录 `install.py` 是唯一安装入口。
+- `route.py` 改用独立的运行时导演编译模块，不再依赖内部安装器。
+- 离线安装器统一使用 `.ppt-director/install_receipt.json`，并显式配置 UTF-8 控制台输出。
+
 ## 2.2.0
 
 ### 新增

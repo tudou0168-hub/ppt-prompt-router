@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -11,10 +12,10 @@ import unittest
 from pathlib import Path
 
 from install import FOCUSED_PROFILE_IDS, PROFILE_FIELDS, compile_director_profile, lint_profiles, prompt_entries
+from scripts import router_profile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PPT_MASTER_ROOT = ROOT.parent / "ppt-master"
 ROUTE_SCRIPT = ROOT / "scripts" / "route.py"
 SPEC = importlib.util.spec_from_file_location("router_v2", ROUTE_SCRIPT)
 assert SPEC and SPEC.loader
@@ -28,6 +29,16 @@ class RouterV2Test(unittest.TestCase):
         self.assertIn("install_receipt.json", route_source)
         self.assertNotIn("PPT_MASTER_ROOT", route_source)
         self.assertNotIn("ppt-master-root", route_source)
+        self.assertIn("scripts.router_profile", route_source)
+        self.assertNotIn("from install import", route_source)
+
+    def test_runtime_profile_compiler_has_no_installer_dependency(self) -> None:
+        profile_source = (ROOT / "scripts" / "router_profile.py").read_text(encoding="utf-8")
+        self.assertNotIn("prepare_master_source", profile_source)
+        self.assertNotIn("apply_master_overlay", profile_source)
+        index = router_profile.load_index(ROOT)
+        government = next(entry for entry in router_profile.prompt_entries(index) if entry["id"] == "government_strategy")
+        self.assertIn("省市专项汇报", router_profile.compile_director_profile(ROOT, government))
 
     def test_compiles_one_director_profile_with_defaults_and_hashable_content(self) -> None:
         index = router.load_index(ROOT)
@@ -118,8 +129,8 @@ class RouterV2Test(unittest.TestCase):
         self.assertEqual(router.detect_template_intent("用这个PPT做", template)["status"], "needs_input")
 
     @unittest.skipUnless(
-        (PPT_MASTER_ROOT / "skills" / "ppt-master" / "scripts" / "project_manager.py").is_file(),
-        "未提供本地 PPT Master，跳过真实 Router 集成测试",
+        os.environ.get("RUN_INSTALLED_ROUTER_INTEGRATION") == "1",
+        "仅对已安装离线套件运行真实 Router 集成测试",
     )
     def test_real_router_accept_without_template(self) -> None:
         with tempfile.TemporaryDirectory(prefix="router-v2-") as tmp:
@@ -130,8 +141,6 @@ class RouterV2Test(unittest.TestCase):
                 [
                     sys.executable,
                     str(ROUTE_SCRIPT),
-                    "--ppt-master-root",
-                    str(PPT_MASTER_ROOT),
                     "--project-base",
                     str(tmpdir / "projects"),
                     "--project-name",

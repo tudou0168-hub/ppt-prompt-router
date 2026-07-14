@@ -41,7 +41,7 @@ python3 install.py validate --host codex
 python3 install.py uninstall --host codex --yes
 ```
 
-`2.2.0` 以离线套件发布：目标电脑不需要 Git、GitHub 或预装 PPT Master。维护端先执行 `python scripts/build_offline_suite.py sync-vendor --master-source <clean-master-clone>`，再执行 `python scripts/build_offline_suite.py build --output-dir "<output-dir>"`。目标电脑从离线包根目录运行 `python install.py install --host <host>`；安装器只校验包内 `manifest.json` 和 `checksums.sha256`，并将 Router、Master 与收据安装到个人 skills 目录。Python 及依赖须预先准备，安装器不会联网安装依赖。
+`2.2.1` 以离线套件发布：目标电脑不需要 Git、GitHub 或预装 PPT Master。维护端先执行 `python scripts/build_offline_suite.py sync-vendor --master-source <clean-master-clone>`，再执行 `python scripts/build_offline_suite.py build --output-dir "<output-dir>"`。目标电脑只能从离线包根目录运行 `python install.py install --host <host>`；根目录入口是唯一交付安装器。安装器只校验包内 `manifest.json` 和 `checksums.sha256`，并将 Router、Master 与唯一收据 `.ppt-director/install_receipt.json` 安装到个人 skills 目录。Python 及依赖须预先准备，安装器不会联网安装依赖。
 
 ## 产品边界
 

@@ -191,7 +191,9 @@ def runtime_smoke(root: Path, workspace: Path) -> None:
     result = subprocess.run([sys.executable, "-c", imports], capture_output=True, text=True)
     if result.returncode:
         raise BuildError(result.stderr or "runtime import failed")
-    sys.path.insert(0, str(root / "skills" / "ppt-prompt-router"))
+    # The released Router deliberately excludes its development installer.
+    # This build-only smoke helper remains in the source repository.
+    sys.path.insert(0, str(ROOT))
     from install import run_master_overlay_smoke  # type: ignore
     smoke = run_master_overlay_smoke(root, workspace)
     if smoke.get("status") != "passed":
@@ -224,7 +226,13 @@ def build(output_dir: Path) -> Path:
     stage = stage_parent / name
     try:
         (stage / "skills").mkdir(parents=True)
-        shutil.copytree(ROOT, stage / "skills" / "ppt-prompt-router", ignore=shutil.ignore_patterns(".git", "vendor", "dist", "docs", "tests", "__pycache__", ".DS_Store", "*.pyc"))
+        shutil.copytree(
+            ROOT,
+            stage / "skills" / "ppt-prompt-router",
+            ignore=shutil.ignore_patterns(
+                ".git", "vendor", "dist", "docs", "tests", "projects", "install.py", "__pycache__", ".DS_Store", "*.pyc"
+            ),
+        )
         shutil.copytree(VENDOR / "skills" / "ppt-master", stage / "skills" / "ppt-master")
         (stage / "LICENSES").mkdir()
         shutil.copy2(VENDOR / "LICENSE", stage / "LICENSES" / "ppt-master-MIT.txt")

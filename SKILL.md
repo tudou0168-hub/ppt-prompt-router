@@ -1,10 +1,10 @@
 ---
 name: ppt-prompt-router
 description: PPT 统一入口。确定性选择导演 Profile、识别模板意图、创建导演合同，并真实交接给 ppt-master。
-version: 2.2.0
+version: 2.2.1
 ---
 
-# ppt-prompt-router 2.2.0
+# ppt-prompt-router 2.2.1
 
 本技能只负责路由与导演交接。它将通用导演协议与场景 Profile 编译为唯一的 `director_profile.md`；页面规划、设计、检查、修复和导出全部由 `ppt-master` 负责。
 
@@ -21,7 +21,7 @@ python3 <skill>/scripts/route.py \
   --audience "<受众>"
 ```
 
-兼容入口 `python3 <skill>/install.py route ...` 必须委托给同一个 `route.py`。
+离线套件仅允许从解压根目录执行 `python install.py <install|upgrade|rollback|validate>`；安装后的 skill 内不提供第二个安装入口。
 
 ## 固定动作
 

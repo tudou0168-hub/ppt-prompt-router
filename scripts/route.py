@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from install import (  # noqa: E402
+from scripts.router_profile import (  # noqa: E402
     PackageError,
     compile_director_profile,
     load_index,
