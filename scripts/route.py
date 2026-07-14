@@ -22,7 +22,6 @@ if str(ROOT) not in sys.path:
 from install import (  # noqa: E402
     PackageError,
     compile_director_profile,
-    find_ppt_master_skill_dir,
     load_index,
     prompt_body,
     run_tool,
@@ -32,6 +31,31 @@ from install import (  # noqa: E402
 
 ROUTER_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 TEMPLATE_INTENTS = {"reference_elements", "native_fill", "reusable_template", "none"}
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def receipt_master_skill() -> Path:
+    """Resolve only the Master installed with this offline Router suite."""
+    skills_root = ROOT.parent
+    receipt_path = skills_root / ".ppt-director" / "install_receipt.json"
+    if not receipt_path.is_file():
+        raise PackageError("offline install receipt is missing; install the PPT Director suite first")
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PackageError("offline install receipt is invalid") from exc
+    master = Path(str((receipt.get("paths") or {}).get("master") or "")).resolve(strict=False)
+    expected = (skills_root / "ppt-master").resolve(strict=False)
+    if master != expected or not (master / "scripts" / "project_manager.py").is_file():
+        raise PackageError("offline receipt does not point to this suite's PPT Master")
+    managed = {row.get("path"): row.get("sha256") for row in receipt.get("managed_files", []) if isinstance(row, dict)}
+    manager_key = "skills/ppt-master/scripts/project_manager.py"
+    if managed.get(manager_key) != _sha256(master / "scripts" / "project_manager.py"):
+        raise PackageError("installed PPT Master is modified or no longer managed by this suite")
+    return master
 
 
 def _terms(entry: dict[str, Any], key: str) -> list[str]:
@@ -235,9 +259,13 @@ def execute_route(args: argparse.Namespace) -> dict[str, Any]:
 
     entry = routed["entry"]
     profile_text = compile_director_profile(ROOT, entry)
-    master_skill_dir = find_ppt_master_skill_dir(args.ppt_master_root)
+    master_skill_dir = receipt_master_skill()
     manager = master_skill_dir / "scripts" / "project_manager.py"
-    base = Path(args.project_base).expanduser().resolve() if args.project_base else ROOT / "projects"
+    base = (
+        Path(args.project_base).expanduser().resolve()
+        if args.project_base
+        else (Path.home() / "PPT Director" / "projects").resolve()
+    )
     base.mkdir(parents=True, exist_ok=True)
     project_name = args.project_name or f"router_{entry['id']}"
     init_output = run_tool(
@@ -304,7 +332,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", default="ppt169")
     parser.add_argument("--project-name")
     parser.add_argument("--project-base")
-    parser.add_argument("--ppt-master-root")
     parser.add_argument("--director-plan")
     parser.add_argument("--host", default="codex", choices=["codex", "hermes", "claude-code", "generic"])
     parser.add_argument("--move", action="store_true")

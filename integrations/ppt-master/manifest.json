@@ -1,11 +1,12 @@
 {
   "schema_version": "1.0",
+  "overlay_version": "2.2.0",
   "files": [
     {
       "path": "skills/ppt-master/SKILL.md",
       "action": "modify",
       "purpose": "激活 Router 受控项目的导演规划、逐页生产和导出门禁说明。",
-      "upstream_hash": "ff00011e53182078bd6386c94eb06fe441b379b6b0e60d9a84e7ae32e6fb4fa2",
+      "upstream_hash": "35da6ac44b48088be140a931477322ae06843213cdb4eb6268d5277a14032986",
       "overlay_hash": "25b414d32c1029fa4416300da1430f0ef38ef6cd38bb8b296c825184c4b671e4",
       "required_by": "Router 2.1 受控生产链路",
       "tested": true
@@ -23,7 +24,7 @@
       "path": "skills/ppt-master/references/strategist.md",
       "action": "modify",
       "purpose": "要求 Strategist 读取导演 Profile 并生成唯一 Director Plan。",
-      "upstream_hash": "158a69275c54e3ebc6994202afeb4bec060bf578be08aa6ee63e6877abd14668",
+      "upstream_hash": "7861e3f1853de8b56ccf03ea98149047e1a89da47bbb26b1e722dcd93c2214e5",
       "overlay_hash": "b9982e6cc924384f021013ddc461ae7817110dcfa0fff71ce1cf71284578fe18",
       "required_by": "Router 2.1 受控生产链路",
       "tested": true
@@ -50,7 +51,7 @@
       "path": "skills/ppt-master/scripts/project_manager.py",
       "action": "modify",
       "purpose": "校验 Router 合同并初始化受控生产。",
-      "upstream_hash": "0a8cd6f0c20f60adcda01e44ac1ce1485bf85be718f2f7a60f49db36ff374a90",
+      "upstream_hash": "1e97897e3e31fd8f2e388c72357b4d9e467fe17e0cd70a348a885d0620ccd57f",
       "overlay_hash": "b96bf239e8c9991ec705d3b4ab5a36d10e110191b4b2832f686019fd3edc6cb9",
       "required_by": "Router 2.1 受控生产链路",
       "tested": true

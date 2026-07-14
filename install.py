@@ -354,55 +354,6 @@ def validate_package_root(root: Path) -> None:
             raise PackageError(f"overlay hash mismatch: {relative}")
 
 
-def find_ppt_master_root(explicit: str | None = None) -> Path:
-    candidates: list[Path] = []
-    if explicit:
-        candidates.append(expand_path(explicit))
-    if os.environ.get("PPT_MASTER_ROOT"):
-        candidates.append(expand_path(os.environ["PPT_MASTER_ROOT"]))
-    candidates.extend([
-        Path.home() / "Documents" / "ppt-master",
-        package_root().parent / "ppt-master",
-        Path.cwd() / "ppt-master",
-    ])
-    seen: set[Path] = set()
-    for candidate in candidates:
-        candidate = candidate.resolve(strict=False)
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        script = candidate / "skills" / "ppt-master" / "scripts" / "project_manager.py"
-        if script.is_file():
-            return candidate
-    raise PackageError("ppt-master not found; pass --ppt-master-root or set PPT_MASTER_ROOT")
-
-
-def find_ppt_master_skill_dir(explicit: str | None = None) -> Path:
-    """Locate either a full PPT Master worktree or a host's installed skill."""
-    candidates: list[Path] = []
-    if explicit:
-        candidates.append(expand_path(explicit))
-    if os.environ.get("PPT_MASTER_ROOT"):
-        candidates.append(expand_path(os.environ["PPT_MASTER_ROOT"]))
-    candidates.extend([
-        Path.home() / "Documents" / "ppt-master",
-        package_root().parent / "ppt-master",
-        Path.cwd() / "ppt-master",
-        Path.home() / ".claude" / "skills",
-        Path.home() / ".agents" / "skills",
-        Path.home() / ".hermes" / "skills",
-    ])
-    for candidate in dict.fromkeys(path.resolve(strict=False) for path in candidates):
-        for skill_dir in (
-            candidate / "skills" / "ppt-master",
-            candidate / "ppt-master",
-            candidate,
-        ):
-            if (skill_dir / "scripts" / "project_manager.py").is_file():
-                return skill_dir
-    raise PackageError("ppt-master skill not found; pass --ppt-master-root or set PPT_MASTER_ROOT")
-
-
 def run_tool(args: list[str], *, cwd: Path | None = None) -> str:
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
@@ -1183,7 +1134,6 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--format", default="ppt169")
     route.add_argument("--project-name")
     route.add_argument("--project-base")
-    route.add_argument("--ppt-master-root")
     route.add_argument("--template-intent", choices=["reference_elements", "native_fill", "reusable_template", "none"])
     route.add_argument("--director-plan")
     route.add_argument("--host", choices=["codex", "hermes", "claude-code", "generic"], default="codex")

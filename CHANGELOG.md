@@ -1,5 +1,16 @@
 # 更新记录
 
+## 2.2.0
+
+### 新增
+
+- 基于固定 PPT Master 提交的 clean-room vendor 与离线套件构建。
+- 离线安装、升级、回滚、卸载、受管文件 receipt 校验和双技能原子部署。
+
+### 变更
+
+- Router 仅通过 `.ppt-director/install_receipt.json` 调用同套件 PPT Master，不再搜索外部目录。
+
 ## 2.1.1
 
 ### 修复

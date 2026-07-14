@@ -23,6 +23,12 @@ SPEC.loader.exec_module(router)
 
 
 class RouterV2Test(unittest.TestCase):
+    def test_router_runtime_requires_install_receipt(self) -> None:
+        route_source = (ROOT / "scripts" / "route.py").read_text(encoding="utf-8")
+        self.assertIn("install_receipt.json", route_source)
+        self.assertNotIn("PPT_MASTER_ROOT", route_source)
+        self.assertNotIn("ppt-master-root", route_source)
+
     def test_compiles_one_director_profile_with_defaults_and_hashable_content(self) -> None:
         index = router.load_index(ROOT)
         entries = prompt_entries(index)

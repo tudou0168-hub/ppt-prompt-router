@@ -13,7 +13,6 @@ from unittest.mock import patch
 from install import (
     apply_master_overlay,
     deploy_runtime_master,
-    find_ppt_master_skill_dir,
     install_package,
     prepare_master_source,
     uninstall_master_overlay,
@@ -190,17 +189,6 @@ class InstallTest(unittest.TestCase):
                 prepared, verification = prepare_master_source(package, root / "stage", codeload_url="https://codeload.example.test/master.zip")
             self.assertEqual(verification["source"], "codeload_zip")
             self.assertFalse((prepared / ".git").exists())
-
-    def test_router_can_discover_host_runtime_skill_directory(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="router-runtime-") as tmp:
-            skills = Path(tmp) / "Claude" / "skills"
-            manager = skills / "ppt-master" / "scripts" / "project_manager.py"
-            manager.parent.mkdir(parents=True)
-            manager.write_text("# placeholder\n", encoding="utf-8")
-            self.assertEqual(
-                find_ppt_master_skill_dir(str(skills)),
-                (skills / "ppt-master").resolve(strict=False),
-            )
 
     @unittest.skipUnless(os.name == "nt", "仅在 Windows 验证盘符路径")
     def test_windows_drive_path_install_source(self) -> None:

@@ -1,4 +1,4 @@
-# PPT Prompt Router 2.1.1
+# PPT Prompt Router 2.2.0
 
 PPT Prompt Router 是 `ppt-master` 的统一导演入口：确定性选择场景 Profile、识别模板用途、将通用导演协议与场景差异编译为唯一导演 Profile，并通过机器握手真实启动 PPT Master。
 
@@ -41,7 +41,7 @@ python3 install.py validate --host codex
 python3 install.py uninstall --host codex --yes
 ```
 
-安装器默认从 `upstream.lock` 指定的 codeload ZIP 获取 PPT Master；也可使用 `--master-source-dir` 或 `--master-source-zip`。上游 Hash 不匹配会停止，失败时自动恢复。安装成功必须同时验证 Router、清单中的全部覆盖文件（当前 10 个）和宿主正式 skills 目录中的 PPT Master。安装前会运行模块导入、`reference_elements` 交接和 Director Plan 烟测。运行要求为 Python 3.10 或更高版本。
+`2.2.0` 以离线套件发布：目标电脑不需要 Git、GitHub 或预装 PPT Master。维护端先执行 `python scripts/build_offline_suite.py sync-vendor --master-source <clean-master-clone>`，再执行 `python scripts/build_offline_suite.py build --output-dir "<output-dir>"`。目标电脑从离线包根目录运行 `python install.py install --host <host>`；安装器只校验包内 `manifest.json` 和 `checksums.sha256`，并将 Router、Master 与收据安装到个人 skills 目录。Python 及依赖须预先准备，安装器不会联网安装依赖。
 
 ## 产品边界
 
