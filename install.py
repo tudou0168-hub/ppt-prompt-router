@@ -867,10 +867,145 @@ def verify_runtime_integration(root: Path, target_dir: Path) -> dict[str, Any]:
     }
 
 
+def _smoke_project_path(output: str) -> Path:
+    for line in output.splitlines():
+        if "Project initialized:" in line:
+            return Path(line.split("Project initialized:", 1)[1].strip())
+    raise PackageError("PPT Master smoke init did not report a project path")
+
+
+def run_master_overlay_smoke(master_root: Path, workspace: Path) -> dict[str, Any]:
+    """Exercise the Router-owned Master entrypoints on a clean staged source."""
+    skill = master_root / "skills" / "ppt-master"
+    scripts = skill / "scripts"
+    required = [
+        scripts / "project_manager.py",
+        scripts / "director_plan.py",
+        scripts / "production.py",
+        scripts / "reference_elements.py",
+        scripts / "pptx_intake.py",
+    ]
+    if any(not path.is_file() for path in required):
+        raise PackageError("PPT Master smoke prerequisites are incomplete")
+    compile_result = subprocess.run(
+        [sys.executable, "-m", "py_compile", *(str(path) for path in required)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if compile_result.returncode:
+        raise PackageError((compile_result.stderr or compile_result.stdout).strip() or "PPT Master py_compile failed")
+    import_code = (
+        "import sys; "
+        f"sys.path.insert(0, {str(scripts)!r}); "
+        "import project_manager, reference_elements, director_plan, production"
+    )
+    import_result = subprocess.run(
+        [sys.executable, "-c", import_code],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if import_result.returncode:
+        raise PackageError((import_result.stderr or import_result.stdout).strip() or "PPT Master module import failed")
+    try:
+        from pptx import Presentation
+    except ImportError as exc:
+        raise PackageError("reference_elements smoke requires python-pptx") from exc
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    reference = workspace / "reference.pptx"
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[1])
+    slide.shapes.title.text = "Reference Elements Smoke"
+    slide.placeholders[1].text = "Visual language extraction validation"
+    presentation.save(reference)
+
+    manager = scripts / "project_manager.py"
+    init_result = subprocess.run(
+        [sys.executable, str(manager), "init", "overlay_smoke", "--format", "ppt169", "--dir", str(workspace)],
+        cwd=str(skill),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if init_result.returncode:
+        raise PackageError((init_result.stderr or init_result.stdout).strip() or "PPT Master smoke init failed")
+    project = _smoke_project_path(init_result.stdout)
+    template = project / "sources" / "reference.pptx"
+    shutil.copy2(reference, template)
+    profile = project / "analysis" / "director_profile.md"
+    profile.write_text("# Smoke Director Profile\n", encoding="utf-8")
+    contract = {
+        "schema_version": "1.0",
+        "router_version": "smoke",
+        "profile": {"id": "government_strategy", "sha256": sha256_file(profile)},
+        "audience": "验收",
+        "purpose": "验证 reference_elements 安装完整性",
+        "page_count": 4,
+        "template_path": str(template),
+        "template_intent": "reference_elements",
+    }
+    (project / "analysis" / "director_contract.json").write_text(
+        json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    accept = subprocess.run(
+        [sys.executable, str(manager), "router-accept", str(project)],
+        cwd=str(skill),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if accept.returncode or '"accepted": true' not in accept.stdout:
+        raise PackageError((accept.stderr or accept.stdout).strip() or "reference_elements router-accept smoke failed")
+    if not (project / "design_spec.md").is_file() or not (project / "spec_lock.md").is_file():
+        raise PackageError("reference_elements smoke did not create design files")
+    plan = {
+        "schema_version": "2.0",
+        "content_map": {
+            "core_argument": "Smoke plan validates Director Plan installation.",
+            "key_findings": ["reference extraction completed"],
+            "root_causes": ["overlay dependency is published"],
+            "recommendations": ["continue controlled production"],
+        },
+        "fact_boundary": {"facts": "smoke artifacts only"},
+        "storyline": {"core_narrative": "Validate planning handoff.", "logic_flow": ["validate", "plan"]},
+        "pages": [
+            {"page_id": "P01", "headline": "Architecture", "page_goal": "Show structure", "page_role": "architecture", "key_message": "Architecture is available.", "relationship_type": "hierarchy", "visual_anchor": "architecture", "evidence_refs": ["smoke"], "rhythm_role": "anchor"},
+            {"page_id": "P02", "headline": "Flow", "page_goal": "Show flow", "page_role": "process_flow", "key_message": "Flow is controlled.", "relationship_type": "process", "visual_anchor": "flow", "evidence_refs": ["smoke"], "rhythm_role": "build"},
+            {"page_id": "P03", "headline": "Comparison", "page_goal": "Show contrast", "page_role": "comparison", "key_message": "Coverage is complete.", "relationship_type": "comparison", "visual_anchor": "comparison", "evidence_refs": ["smoke"], "rhythm_role": "explain"},
+            {"page_id": "P04", "headline": "Roadmap", "page_goal": "Show next step", "page_role": "roadmap", "key_message": "Proceed to production.", "relationship_type": "timeline", "visual_anchor": "timeline", "evidence_refs": ["smoke"], "rhythm_role": "close"},
+        ],
+        "sample_pages": [
+            {"page_id": "P01", "risk_type": "card_stack_risk", "reason": "Smoke risk one"},
+            {"page_id": "P02", "risk_type": "relationship_density", "reason": "Smoke risk two"},
+            {"page_id": "P03", "risk_type": "visual_signature", "reason": "Smoke risk three"},
+        ],
+    }
+    plan_path = workspace / "director_plan.json"
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    director = subprocess.run(
+        [sys.executable, str(manager), "director-plan", str(project), str(plan_path)],
+        cwd=str(skill),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if director.returncode or not (project / "analysis" / "director_plan.json").is_file():
+        raise PackageError((director.stderr or director.stdout).strip() or "director-plan smoke failed")
+    return {"status": "passed", "checks": ["py_compile", "module_import", "router_accept_reference_elements", "director_plan"]}
+
+
 def uninstall_runtime_master(target_dir: Path) -> None:
     target_dir = target_dir.resolve(strict=False)
     runtime = _runtime_master_dir(target_dir)
     record_path = _runtime_record(target_dir)
+    backup = target_dir / ".ppt-prompt-router-runtime-backup"
     if not record_path.is_file():
         return
     record = json.loads(record_path.read_text(encoding="utf-8"))
@@ -942,6 +1077,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             codeload_url=args.master_codeload_url,
         )
         apply_master_overlay(destination, master)
+        smoke = run_master_overlay_smoke(master, stage / "smoke")
         runtime = deploy_runtime_master(destination, master, target, verification, force=args.force)
         runtime_deployed = True
         validate_package_root(destination)
@@ -968,6 +1104,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             "overlay_files": len(_integration_files(destination)),
         },
         "runtime_integration": runtime_status,
+        "installation_status": "COMPLETE",
+        "smoke": smoke,
     }, ensure_ascii=False, indent=2))
     return 0
 

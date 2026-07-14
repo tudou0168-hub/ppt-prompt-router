@@ -17,6 +17,7 @@ from install import (
     install_package,
     prepare_master_source,
     uninstall_master_overlay,
+    uninstall_runtime_master,
     validate_package_root,
     verify_runtime_integration,
 )
@@ -76,6 +77,13 @@ class InstallTest(unittest.TestCase):
             self.assertTrue((destination / "SKILL.md").is_file())
             self.assertFalse((destination / "projects").exists())
             validate_package_root(destination)
+
+    def test_release_manifest_includes_reference_elements_dependency(self) -> None:
+        manifest = json.loads((ROOT / "integrations" / "ppt-master" / "manifest.json").read_text(encoding="utf-8"))
+        paths = {item["path"] for item in manifest["files"]}
+        self.assertIn("skills/ppt-master/scripts/reference_elements.py", paths)
+        overlay = ROOT / "integrations" / "ppt-master" / "overlay" / "skills" / "ppt-master" / "scripts" / "reference_elements.py"
+        self.assertTrue(overlay.is_file())
 
     def test_overlay_apply_and_uninstall_restore(self) -> None:
         with tempfile.TemporaryDirectory(prefix="router-overlay-") as tmp:
@@ -146,6 +154,22 @@ class InstallTest(unittest.TestCase):
             status = verify_runtime_integration(package, target)
             self.assertEqual(status["status"], "verified")
             self.assertEqual((target / "ppt-master" / "scripts" / "project_manager.py").read_text(encoding="utf-8"), "overlay\n")
+
+    def test_runtime_uninstall_restores_existing_skill(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="router-runtime-uninstall-") as tmp:
+            root = Path(tmp)
+            package, master = create_master_fixture(root)
+            prepared, verification = prepare_master_source(package, root / "stage", source_dir=str(master))
+            apply_master_overlay(package, prepared)
+            target = root / "skills"
+            existing = target / "ppt-master"
+            existing.mkdir(parents=True)
+            (existing / "original.txt").write_text("keep\n", encoding="utf-8")
+            deploy_runtime_master(package, prepared, target, verification, force=True)
+            uninstall_runtime_master(target)
+            self.assertTrue((existing / "original.txt").is_file())
+            self.assertFalse((target / ".ppt-prompt-router-runtime.json").exists())
+            self.assertFalse((target / ".ppt-prompt-router-runtime-backup").exists())
 
     def test_local_source_directory_is_copied_before_overlay(self) -> None:
         with tempfile.TemporaryDirectory(prefix="router-local-source-") as tmp:

@@ -19,3 +19,5 @@ python3 install.py install --host claude-code --master-source-zip <template_path
 可用 `--router-target` 指定技能父目录；可用 `--mode symlink` 供本地开发使用。
 
 安装器只应用 `integrations/ppt-master/manifest.json` 声明的文件。上游 Hash 不匹配时会停止，不覆盖用户修改；安装失败时恢复 Router 和 PPT Master 备份。最终安装位置是宿主正式 skills 目录中的 `ppt-master`，不会修改 Claude plugin cache 或 marketplace。
+
+完整安装在部署前必须通过：覆盖文件 `py_compile`、关键模块导入、`router-accept` 的 `reference_elements` 路径，以及 Director Plan 安装烟测。任一失败时不会输出 `installation_status: COMPLETE`。

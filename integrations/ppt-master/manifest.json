@@ -74,6 +74,15 @@
       "tested": true
     },
     {
+      "path": "skills/ppt-master/scripts/reference_elements.py",
+      "action": "add",
+      "purpose": "从参考 PPTX 提炼项目级设计语言，并生成 design_spec 与 spec_lock。",
+      "upstream_hash": null,
+      "overlay_hash": "72ad930a580e72880421e03065174c4ca6fb0062d970390b67e8cca64eb9d78f",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
       "path": "skills/ppt-master/scripts/visual_review.py",
       "action": "modify",
       "purpose": "渲染当前受控页面，供既有视觉复核流程使用。",

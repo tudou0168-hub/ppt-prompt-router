@@ -1,10 +1,10 @@
 ---
 name: ppt-prompt-router
 description: PPT 统一入口。确定性选择导演 Profile、识别模板意图、创建导演合同，并真实交接给 ppt-master。
-version: 2.1.0
+version: 2.1.1
 ---
 
-# ppt-prompt-router 2.1
+# ppt-prompt-router 2.1.1
 
 本技能只负责路由与导演交接。它将通用导演协议与场景 Profile 编译为唯一的 `director_profile.md`；页面规划、设计、检查、修复和导出全部由 `ppt-master` 负责。
 

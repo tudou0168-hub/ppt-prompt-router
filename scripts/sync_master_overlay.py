@@ -20,6 +20,7 @@ ROUTER_OVERLAY_PATHS = (
     "skills/ppt-master/scripts/project_manager.py",
     "skills/ppt-master/scripts/director_plan.py",
     "skills/ppt-master/scripts/production.py",
+    "skills/ppt-master/scripts/reference_elements.py",
     "skills/ppt-master/scripts/visual_review.py",
 )
 FORBIDDEN_MARKERS = ("/" + "Users/", "五" + "寨", "api" + "_key", "app" + "_secret", "tenant" + "_id")
@@ -32,6 +33,7 @@ PURPOSES = {
     "skills/ppt-master/scripts/project_manager.py": "校验 Router 合同并初始化受控生产。",
     "skills/ppt-master/scripts/director_plan.py": "校验唯一 Director Plan、风险样张和页面节奏。",
     "skills/ppt-master/scripts/production.py": "执行逐页 Hash、样张、中途检查、全稿检查和导出放行。",
+    "skills/ppt-master/scripts/reference_elements.py": "从参考 PPTX 提炼项目级设计语言，并生成 design_spec 与 spec_lock。",
     "skills/ppt-master/scripts/visual_review.py": "渲染当前受控页面，供既有视觉复核流程使用。",
 }
 
@@ -40,9 +42,9 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def git_value(root: Path, *args: str) -> str:
-    result = subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True)
-    return result.stdout.strip()
+def git_value(root: Path, *args: str) -> str | None:
+    result = subprocess.run(["git", "-C", str(root), *args], check=False, capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
 def ensure_safe(path: Path) -> None:
@@ -56,8 +58,6 @@ def ensure_safe(path: Path) -> None:
 
 
 def sync(upstream_root: Path, modified_root: Path, output: Path, *, tested: bool = False) -> dict:
-    if not (modified_root / ".git").exists():
-        raise ValueError("modified-root 必须是可识别上游基线的 Git 工作区")
     overlay_root = output / "overlay"
     if overlay_root.exists():
         shutil.rmtree(overlay_root)
@@ -87,12 +87,16 @@ def sync(upstream_root: Path, modified_root: Path, output: Path, *, tested: bool
     output.mkdir(parents=True, exist_ok=True)
     manifest = {"schema_version": "1.0", "files": files}
     (output / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    existing_lock = output / "upstream.lock"
+    previous = json.loads(existing_lock.read_text(encoding="utf-8")) if existing_lock.is_file() else {}
     lock = {
-        "repository": git_value(modified_root, "remote", "get-url", "origin"),
-        "commit": git_value(modified_root, "rev-parse", "HEAD"),
-        "version": "未声明",
+        "repository": git_value(modified_root, "remote", "get-url", "origin") or previous.get("repository"),
+        "commit": git_value(modified_root, "rev-parse", "HEAD") or previous.get("commit"),
+        "version": previous.get("version", "未声明"),
         "required_capabilities": ["router-accept", "director-plan", "production-control", "visual-review"],
     }
+    if not lock["repository"] or not lock["commit"]:
+        raise ValueError("无法确定 PPT Master 上游基线，拒绝生成覆盖层")
     (output / "upstream.lock").write_text(json.dumps(lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {"files": files, "upstream": lock}
 
