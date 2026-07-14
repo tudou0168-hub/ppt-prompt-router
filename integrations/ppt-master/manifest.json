@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "path": "skills/ppt-master/SKILL.md",
+      "action": "modify",
+      "purpose": "激活 Router 受控项目的导演规划、逐页生产和导出门禁说明。",
+      "upstream_hash": "ff00011e53182078bd6386c94eb06fe441b379b6b0e60d9a84e7ae32e6fb4fa2",
+      "overlay_hash": "25b414d32c1029fa4416300da1430f0ef38ef6cd38bb8b296c825184c4b671e4",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/prompt-router-integration.md",
+      "action": "add",
+      "purpose": "定义 Router 与 PPT Master 的唯一合同、规划和生产状态边界。",
+      "upstream_hash": null,
+      "overlay_hash": "9d9505b2176460f5144d5525dc996d24b9181d7b3e8e71d4c430eec4bc5bc6ef",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/strategist.md",
+      "action": "modify",
+      "purpose": "要求 Strategist 读取导演 Profile 并生成唯一 Director Plan。",
+      "upstream_hash": "158a69275c54e3ebc6994202afeb4bec060bf578be08aa6ee63e6877abd14668",
+      "overlay_hash": "b9982e6cc924384f021013ddc461ae7817110dcfa0fff71ce1cf71284578fe18",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/visual-review.md",
+      "action": "modify",
+      "purpose": "复用原生视觉复核规则，并定义受控页面的报告要求。",
+      "upstream_hash": "0157204db1b1c21c52428d46f8bc3689e62df3c9151fbfe04fcf1be371740742",
+      "overlay_hash": "80328ee5564f1762a0a3c2f56807d946cda5c9d9c1159f82a6e3974b6d8185b5",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/workflows/visual-review.md",
+      "action": "modify",
+      "purpose": "将既有视觉复核接入 Router 受控项目的逐页流程。",
+      "upstream_hash": "3986f0a0c69f15706e1ca343177b74f411b8fd5d61e0173686cb97d6ca1a888e",
+      "overlay_hash": "17a634c50f4268ee415325c98a57763a9e706ce2df43b43a7f020c2c83f93a0e",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/project_manager.py",
+      "action": "modify",
+      "purpose": "校验 Router 合同并初始化受控生产。",
+      "upstream_hash": "0a8cd6f0c20f60adcda01e44ac1ce1485bf85be718f2f7a60f49db36ff374a90",
+      "overlay_hash": "b96bf239e8c9991ec705d3b4ab5a36d10e110191b4b2832f686019fd3edc6cb9",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/director_plan.py",
+      "action": "add",
+      "purpose": "校验唯一 Director Plan、风险样张和页面节奏。",
+      "upstream_hash": null,
+      "overlay_hash": "37f24db58dbcd3a303277dfbd7156938283dff35791c4aaeeaf059059e1ff083",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/production.py",
+      "action": "add",
+      "purpose": "执行逐页 Hash、样张、中途检查、全稿检查和导出放行。",
+      "upstream_hash": null,
+      "overlay_hash": "c712c6b78fa2d1e7e47e58939cfac5a116c8331c04a653f8a32bcffc10376d46",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/visual_review.py",
+      "action": "modify",
+      "purpose": "渲染当前受控页面，供既有视觉复核流程使用。",
+      "upstream_hash": "33d75145108d4076ec4cd6313e54dfa046244b12de86e515db3b9230ac0afd58",
+      "overlay_hash": "972269f54f2c39b18eb739c85977e5bfdd375c3c04a911b242a12fff270df065",
+      "required_by": "Router 2.1 受控生产链路",
+      "tested": true
+    }
+  ]
+}
