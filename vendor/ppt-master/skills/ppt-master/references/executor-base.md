@@ -288,10 +288,14 @@ existing SVG, classify path contours, or upgrade ordinary SVG during export.
 helper generates them atomically from the shared 187-shape registry. Rerun the
 helper when geometry or paint changes.
 
-Connector-family presets require `--object-kind connector`, `fill="none"`, and
-a visible stroke. They export as unconnected `p:cxnSp`; do not hand-add
-endpoint/site metadata. `actionButton*` presets provide visual geometry only,
-not actions or hyperlinks.
+For chart-template and diagram authoring, thin relationships use ordinary
+`<line>` / supported open `<path>` geometry with registered arrow markers;
+solid directional blocks use ordinary `shape` presets such as `rightArrow` or
+`chevron`. Do not select a connector-family preset merely because two nodes are
+related, and never hand-add endpoint/site metadata. Connector-family presets
+remain available only for an explicit request for a standalone unconnected
+`p:cxnSp`; imported Connector topology stays under the preserve/mirror contract.
+`actionButton*` presets provide visual geometry only, not actions or hyperlinks.
 
 **Hard rule — narrow helper scope**: the helper prints one shape fragment to
 stdout. It does not write a page or choose layout. Read the fragment and insert
@@ -335,19 +339,22 @@ into `svg_output/`.
 grep "chart-plot-area" <project_path>/svg_output/<current_page>.svg
 ```
 
-> All chart templates in `templates/charts/` include this marker as a reference. If you are drawing a chart and the marker is absent, you have a bug.
+> Calculator-supported data-chart templates in `templates/charts/` include this
+> marker as a reference. If a data chart covered by §3.1 lacks it, that is a
+> bug. Conceptual diagrams, frameworks, and other non-data visualizations in
+> the same library do not use a plot-area marker.
 - **Technical specs**: see [shared-standards.md](shared-standards.md) for SVG/PPT constraints
-- **Card containers — use the documented patterns**: when a content page needs section cards (4 quadrants, parallel aspects, capability blocks, info cards), use the patterns codified in [`templates/charts/CHART_STYLE_GUIDE.md`](../templates/charts/CHART_STYLE_GUIDE.md) §11 — half-rounded section tab (§11.1), nested card border without stroke (§11.2), card-grid skeletons (§11.3), diagonal dashed connector for cross-quadrant relationships (§11.5), ground-anchor ellipse as a non-filter depth marker (§11.6), bidirectional interaction arrows for paired protocols (§11.7). Do not reinvent the "tinted full-rounded rect + white cover-rect to hide the bottom corners" hack; it survives in older templates but breaks SVG→PPTX color editing. Reference templates: [`labeled_card.svg`](../templates/charts/labeled_card.svg), [`quadrant_text_bullets.svg`](../templates/charts/quadrant_text_bullets.svg), [`kpi_cards.svg`](../templates/charts/kpi_cards.svg), [`matrix_2x2.svg`](../templates/charts/matrix_2x2.svg), [`team_roster.svg`](../templates/charts/team_roster.svg), [`client_server_flow.svg`](../templates/charts/client_server_flow.svg).
+- **Card containers — use the documented patterns**: when a content page needs section cards (4 quadrants, parallel aspects, capability blocks, info cards), use the patterns codified in [`templates/charts/CHART_STYLE_GUIDE.md`](../templates/charts/CHART_STYLE_GUIDE.md) §11 — half-rounded section tab (§11.1), nested card border without stroke (§11.2), card-grid skeletons (§11.3), diagonal dashed relationship arrow for cross-quadrant relationships (§11.5), ground-anchor ellipse as a non-filter depth marker (§11.6), bidirectional interaction arrows for paired protocols (§11.7). Do not reinvent the "tinted full-rounded rect + white cover-rect to hide the bottom corners" hack; it survives in older templates but breaks SVG→PPTX color editing. Reference templates: [`labeled_card.svg`](../templates/charts/labeled_card.svg), [`quadrant_text_bullets.svg`](../templates/charts/quadrant_text_bullets.svg), [`kpi_cards.svg`](../templates/charts/kpi_cards.svg), [`matrix_2x2.svg`](../templates/charts/matrix_2x2.svg), [`team_roster.svg`](../templates/charts/team_roster.svg), [`client_server_flow.svg`](../templates/charts/client_server_flow.svg).
 - **Reference — prefer semantic shapes over preset stacks (not a constraint)**: when a slide needs to express "ascending / converging / breaking through / stacking" — i.e., a relationship that goes beyond a generic arrow — prefer a single custom `<polygon>` or `<path>` that encodes the semantics geometrically, rather than stacking multiple preset arrows. A converging-tip path or a podium polygon reads faster than three arrows pointing at a label. Examples of this technique appear in many imported corporate decks; see `projects/01_template_import/svg_output/slide_01.svg` shape-158 for a reference (gradient-filled inward-pointing arrow). Do not codify these as templates — they are page-specific; the rule is just "consider polygon before stacking presets."
 - **Reference — visual depth through restraint (not a constraint)**: layered depth comes from rhythm (flat vs lifted, dense vs spacious), not from shadows everywhere. Shadow typically suits 2-3 genuinely floating elements per page (cards on photos, primary CTA, overlays); keep peer-grid cards, dividers, body containers flat. Reach for typography weight, spacing, accent bars, subtle tints **before** shadow.
 
-### 3.2 Native Object Metadata Marker (MANDATORY on eligible data-chart and text-grid table pages)
+### 3.2 PowerPoint-Native Chart/Table Replacement Marker (MANDATORY on eligible data-chart and text-grid table pages)
 
-> `svg_to_pptx.py --native-objects` converts marked groups into real PowerPoint chart/table objects (charts get an embedded Excel workbook). Markers stay dormant in the default export — pages render from their SVG children — but a deck without markers can never form native objects. Write the marker at draw time: the data is already in hand, and recovering it later costs a full re-read pass.
+> `svg_to_pptx.py --native-charts-and-tables` replaces marked groups with PowerPoint-native Chart/Table objects (charts get an embedded Excel workbook). Markers stay dormant in the default export, whose SVG children become independently editable DrawingML shapes, but a deck without markers can never form data-backed native Chart/Table objects. Write the marker at draw time: the data is already in hand, and recovering it later costs a full re-read pass.
 
-**Hard rule**: every data chart whose type appears in the **Supported chart types** list of [shared-standards.md](shared-standards.md) "Native PPTX Table / Chart Markers" (the single authority for the eligible set, marker contract, and JSON schemas) gets `data-pptx-native="chart"` plus a `<metadata data-pptx-native="chart">` JSON child on its top-level `<g>`, transcribing the same data just plotted. Every pure text-grid data table gets `data-pptx-native="table"` the same way, transcribing all visible cell text into `columns` / `rows`.
+**Hard rule**: every data chart whose type appears in the **Supported chart types** list of [shared-standards.md](shared-standards.md) "PowerPoint-Native Chart / Table Replacement Markers" (the single authority for the eligible set, marker contract, and JSON schemas) gets `data-pptx-replace-with="chart"` plus one `<metadata type="application/json">` JSON child on its top-level `<g>`, transcribing the same data just plotted. Every pure text-grid data table gets `data-pptx-replace-with="table"` the same way, transcribing all visible cell text into `columns` / `rows`. The parent marker determines the JSON schema; do not duplicate a chart/table kind on the metadata child.
 
-`data-pptx-native` is a **data-backed replacement claim**, not a generic label for a group that contains numbers. Add it only when the matching JSON payload can be written in the same edit; if the object is meant to remain SVG geometry, do not add the marker.
+`data-pptx-replace-with` is a **data-backed replacement claim**, not a generic label for a group that contains numbers and not a marker for ordinary PowerPoint shapes or connectors. Add it only when the matching JSON payload can be written in the same edit; if the object is meant to remain SVG geometry, do not add the marker.
 
 - Chart types absent from that list and conceptual/diagrammatic graphics (process flows, cycles, quadrant cards, timelines, KPI cards) get **no marker** — `svg_quality_checker.py` rejects unsupported marker types.
 - Canonical rectangular merged text cells may carry a table marker by putting anchor-only `row_span` / `col_span` in metadata and leaving covered cells blank. Nonrectangular/overlapping merges, nonblank covered cells, and graphical cells (icons, harvey balls, rating dots) get **no table marker** and stay on the SVG fallback route.
@@ -362,12 +369,12 @@ grep "chart-plot-area" <project_path>/svg_output/<current_page>.svg
 - Native chart typography mirrors the SVG fallback. Copy the fallback's shared chart font into `style.font_family` and visible chart text sizes into the matching metadata fields (`title_font_size`, `subtitle_font_size`, `axis_font_size`, `note_font_size`, etc.) only when role sizes differ; otherwise let the exporter infer them from visible fallback text. When a visible chart title, subtitle, or axis title needs its own size/color/font, write that field as an object with `text`, `font_size`, `font_family`, and `color`. Use `axis_title_font_size`, `legend_font_size`, or companion per-entry `font_size` only when the fallback visibly uses a separate size.
 - Native table typography mirrors the SVG fallback. Write `style.font_family` and `style.font_size` from the visible table text; use `header_font_size` or per-cell `font_size` only when the fallback visibly does so. If the fallback has no explicit table font, fall back to the deck body family and locked body size from `spec_lock.md typography`.
 - The marker group's transform stays translate/scale only (no rotate / matrix / skew).
-- Visual parity is not a goal: the SVG drawing remains the designed visual; the native object is a data-editable counterpart with PowerPoint-default styling that users restyle by hand after export. Never simplify the SVG design to match what a native object could show.
+- Visual parity is not a goal: the SVG drawing remains the designed visual and exports as editable DrawingML shapes; the native object is the data-backed counterpart with PowerPoint's chart/table-specific model. Never simplify the SVG design to match what a native object could show.
 
 **Per-page verification** — after writing each eligible data-chart or text-grid table page, confirm the marker exists:
 
 ```bash
-grep "data-pptx-native" <project_path>/svg_output/<current_page>.svg
+grep "data-pptx-replace-with" <project_path>/svg_output/<current_page>.svg
 ```
 
 ### SVG File Naming Convention

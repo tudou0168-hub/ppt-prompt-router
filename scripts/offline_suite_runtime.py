@@ -1,4 +1,4 @@
-"""Offline suite installer shared by the released install entrypoints."""
+"""Transactional installer for the PPT Director 3.0 single-Skill suite."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -21,15 +22,17 @@ class SuiteError(RuntimeError):
     pass
 
 
-MANAGED_PREFIXES = ("skills/ppt-prompt-router/", "skills/ppt-master/")
+class SuiteConflict(SuiteError):
+    def __init__(self, paths: list[Path]):
+        self.paths = paths
+        super().__init__("discoverable PPT Skill conflict")
 
 
-def sha256(path: Path) -> str:
+def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def configure_utf8_output() -> None:
-    """Keep Chinese paths and JSON readable on Windows console hosts."""
+def _configure_utf8() -> None:
     os.environ.setdefault("PYTHONUTF8", "1")
     os.environ.setdefault("PYTHONIOENCODING", "utf-8:replace")
     for stream in (sys.stdout, sys.stderr):
@@ -38,45 +41,41 @@ def configure_utf8_output() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
-def suite_root() -> Path:
+def _bundle_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-def _load_manifest(root: Path) -> dict[str, Any]:
+def _manifest(root: Path) -> dict[str, Any]:
     path = root / "manifest.json"
     if not path.is_file():
         raise SuiteError("offline manifest.json is missing")
     data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("schema_version") != "1.0" or not isinstance(data.get("files"), list):
+    if data.get("schema_version") != "2.0" or not isinstance(data.get("files"), list):
         raise SuiteError("offline manifest is invalid")
     return data
 
 
-def verify_bundle(root: Path) -> dict[str, Any]:
-    manifest = _load_manifest(root)
-    checksums = root / "checksums.sha256"
-    if not checksums.is_file():
+def _verify_bundle(root: Path) -> dict[str, Any]:
+    data = _manifest(root)
+    checksum_file = root / "checksums.sha256"
+    if not checksum_file.is_file():
         raise SuiteError("checksums.sha256 is missing")
-    expected = {
-        row["path"]: row["sha256"]
-        for row in manifest["files"]
-        if isinstance(row, dict) and isinstance(row.get("path"), str) and isinstance(row.get("sha256"), str)
-    }
-    if not expected:
-        raise SuiteError("offline manifest has no managed files")
-    checksum_rows = {}
-    for line in checksums.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        digest, relative = line.split("  ", 1)
-        checksum_rows[relative] = digest
-    if checksum_rows != expected:
+    expected = {row["path"]: row["sha256"] for row in data["files"]}
+    actual: dict[str, str] = {}
+    for line in checksum_file.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            digest, relative = line.split("  ", 1)
+            actual[relative] = digest
+    if actual != expected:
         raise SuiteError("manifest and checksums.sha256 disagree")
     for relative, digest in expected.items():
-        target = root / relative
-        if not target.is_file() or sha256(target) != digest:
+        path = root / relative
+        if not path.is_file() or _sha256(path) != digest:
             raise SuiteError(f"offline bundle hash mismatch: {relative}")
-    return manifest
+    installs = list(root.rglob("install.py"))
+    if installs != [root / "install.py"]:
+        raise SuiteError("offline suite must contain exactly one root install.py")
+    return data
 
 
 def _target(args: argparse.Namespace) -> Path:
@@ -101,66 +100,143 @@ def _backup(target: Path, name: str) -> Path:
     return _state_dir(target) / "backups" / name
 
 
-def _live(target: Path) -> dict[str, Path]:
-    return {
-        "router": target / "ppt-prompt-router",
-        "master": target / "ppt-master",
-        "receipt": _receipt_path(target),
-    }
+def _read_skill_name(path: Path) -> str | None:
+    skill = path / "SKILL.md"
+    if not skill.is_file():
+        return None
+    for line in skill.read_text(encoding="utf-8", errors="replace").splitlines()[:20]:
+        if line.strip().startswith("name:"):
+            return line.split(":", 1)[1].strip()
+    return path.name
 
 
-def _copy_if_present(source: Path, destination: Path) -> None:
-    if not (source.exists() or source.is_symlink()):
-        return
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if source.is_symlink():
-        destination.symlink_to(source.readlink(), target_is_directory=True)
-    elif source.is_dir():
-        shutil.copytree(source, destination)
-    else:
-        shutil.copy2(source, destination)
+def _known_discovery_roots(host: str) -> list[Path]:
+    home = Path.home()
+    if host == "claude-code":
+        return [home / ".claude" / "plugins" / "cache", home / ".claude" / "plugins" / "marketplaces"]
+    if host == "codex":
+        return [home / ".codex" / "plugins" / "cache"]
+    return []
 
 
-def _move_set(source: dict[str, Path], destination: dict[str, Path]) -> None:
-    for name, path in source.items():
-        if path.exists() or path.is_symlink():
-            target = destination[name]
-            target.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(path, target)
+def _discover(args: argparse.Namespace, target: Path) -> list[tuple[str, Path]]:
+    adapter = get_adapter(args.host)
+    roots = [target] if args.skills_dir and args.host == "generic" else adapter.discover_skills_dirs()
+    roots.extend(path for path in _known_discovery_roots(args.host) if path.is_dir())
+    found: dict[Path, str] = {}
+    for root in roots:
+        root = Path(root).expanduser().resolve(strict=False)
+        if not root.is_dir():
+            continue
+        candidates = list(root.iterdir()) if root == target else [path.parent for path in root.rglob("SKILL.md")]
+        for candidate in candidates:
+            if not candidate.is_dir():
+                continue
+            name = _read_skill_name(candidate)
+            if name in {"ppt-master", "ppt-prompt-router"}:
+                found[candidate.resolve(strict=False)] = name
+    return sorted(((name, path) for path, name in found.items()), key=lambda item: str(item[1]))
 
 
-def _paths_from_receipt(target: Path, receipt: dict[str, Any]) -> dict[str, Path]:
-    paths = receipt.get("paths") or {}
-    expected = _live(target)
-    resolved = {name: Path(str(paths.get(name, ""))).resolve(strict=False) for name in ("router", "master")}
-    if any(resolved[name] != expected[name].resolve(strict=False) for name in resolved):
-        raise SuiteError("receipt paths do not match this skills directory")
-    return expected
+def _load_receipt(target: Path) -> dict[str, Any] | None:
+    path = _receipt_path(target)
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def verify_install(target: Path) -> dict[str, Any]:
-    receipt_path = _receipt_path(target)
-    if not receipt_path.is_file():
-        raise SuiteError("install receipt is missing")
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    if receipt.get("schema_version") != "1.0":
-        raise SuiteError("unsupported install receipt")
-    _paths_from_receipt(target, receipt)
-    for row in receipt.get("managed_files", []):
-        relative = row.get("path")
-        digest = row.get("sha256")
-        if not isinstance(relative, str) or not relative.startswith(MANAGED_PREFIXES):
-            raise SuiteError("invalid managed file in receipt")
-        target_file = target / relative.removeprefix("skills/")
-        if not target_file.is_file() or sha256(target_file) != digest:
+def _verify_rows(target: Path, rows: list[dict[str, Any]]) -> None:
+    for row in rows:
+        relative, digest = row.get("path"), row.get("sha256")
+        if not isinstance(relative, str) or not relative.startswith("skills/ppt-prompt-router/"):
+            raise SuiteError("receipt contains an invalid managed path")
+        path = target / relative.removeprefix("skills/")
+        if not path.is_file() or _sha256(path) != digest:
             raise SuiteError(f"managed file changed: {relative}")
-    return receipt
+
+
+def _managed_old_master(target: Path, receipt: dict[str, Any] | None) -> bool:
+    master = target / "ppt-master"
+    if not master.is_dir() or not receipt:
+        return False
+    rows = [row for row in receipt.get("managed_files", []) if str(row.get("path", "")).startswith("skills/ppt-master/")]
+    if not rows:
+        return False
+    for row in rows:
+        path = target / str(row["path"]).removeprefix("skills/")
+        if not path.is_file() or _sha256(path) != row.get("sha256"):
+            return False
+    return True
+
+
+def _conflicts(args: argparse.Namespace, target: Path, receipt: dict[str, Any] | None) -> list[Path]:
+    conflicts: list[Path] = []
+    for name, path in _discover(args, target):
+        if name == "ppt-master":
+            if path == (target / "ppt-master").resolve(strict=False) and _managed_old_master(target, receipt):
+                continue
+            conflicts.append(path)
+        elif path != (target / "ppt-prompt-router").resolve(strict=False):
+            conflicts.append(path)
+    return sorted(set(conflicts))
+
+
+def _runtime_probe(target: Path) -> dict[str, str]:
+    router = target / "ppt-prompt-router"
+    route = router / "scripts" / "route.py"
+    code = f"""
+import importlib, importlib.util, json, pathlib, sys
+route = pathlib.Path({str(route)!r})
+spec = importlib.util.spec_from_file_location('ppt_director_route_probe', route)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+paths = {{'route': str(route.resolve())}}
+with module.master_modules():
+    for name in ('project_manager', 'director_plan', 'production', 'visual_review', 'runtime_guard'):
+        item = importlib.import_module(name)
+        paths[name] = str(pathlib.Path(item.__file__).resolve())
+print(json.dumps(paths))
+"""
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run([sys.executable, "-c", code], cwd=target, env=env, capture_output=True, text=True, encoding="utf-8")
+    if result.returncode:
+        raise SuiteError(f"installed runtime probe failed: {(result.stderr or result.stdout).strip()}")
+    paths = json.loads(result.stdout.splitlines()[-1])
+    runtime = (router / "runtime" / "ppt-master").resolve()
+    for name, raw in paths.items():
+        if name == "route":
+            continue
+        try:
+            Path(raw).relative_to(runtime)
+        except ValueError as exc:
+            raise SuiteError(f"module loaded outside internal runtime: {name}={raw}") from exc
+    return paths
+
+
+def _verify_install(args: argparse.Namespace, target: Path) -> dict[str, Any]:
+    receipt = _load_receipt(target)
+    if not receipt or receipt.get("schema_version") != "3.0":
+        raise SuiteError("install receipt is missing or invalid")
+    if Path(receipt.get("skills_root", "")).resolve(strict=False) != target.resolve(strict=False):
+        raise SuiteError("receipt skills_root does not match target")
+    _verify_rows(target, list(receipt.get("managed_files") or []))
+    router = target / "ppt-prompt-router"
+    runtime = router / "runtime" / "ppt-master"
+    if not (router / "SKILL.md").is_file() or not (runtime / "MASTER.md").is_file():
+        raise SuiteError("installed single-Skill runtime is incomplete")
+    if any(runtime.rglob("SKILL.md")) or any(runtime.rglob("install.py")):
+        raise SuiteError("internal runtime exposes a Skill or installer")
+    conflicts = _conflicts(args, target, receipt)
+    if conflicts:
+        raise SuiteConflict(conflicts)
+    paths = _runtime_probe(target)
+    return {"receipt": receipt, "module_files": paths}
 
 
 def _dependency_status() -> dict[str, Any]:
-    modules = ("pptx", "xlsxwriter")
     available, missing = [], []
-    for module in modules:
+    for module in ("pptx", "xlsxwriter"):
         try:
             __import__(module)
             available.append(module)
@@ -170,110 +246,148 @@ def _dependency_status() -> dict[str, Any]:
 
 
 def _receipt(target: Path, manifest: dict[str, Any], bundle: Path, host: str) -> dict[str, Any]:
+    rows = [row for row in manifest["files"] if row["path"].startswith("skills/ppt-prompt-router/")]
     return {
-        "schema_version": "1.0",
+        "schema_version": "3.0",
         "suite_version": manifest["suite_version"],
-        "router_version": manifest["router_version"],
-        "master_upstream_commit": manifest["master_upstream_commit"],
+        "router_baseline_commit": manifest["router_baseline_commit"],
+        "master_baseline_commit": manifest["master_baseline_commit"],
         "overlay_version": manifest["overlay_version"],
         "overlay_hash": manifest["overlay_hash"],
+        "runtime_hash": manifest["runtime_hash"],
         "skills_root": str(target),
-        "paths": {"router": str(target / "ppt-prompt-router"), "master": str(target / "ppt-master")},
-        "manifest_hash": sha256(bundle / "manifest.json"),
-        "checksums_hash": sha256(bundle / "checksums.sha256"),
-        "managed_files": [row for row in manifest["files"] if row["path"].startswith(MANAGED_PREFIXES)],
+        "router_path": str(target / "ppt-prompt-router"),
+        "manifest_hash": _sha256(bundle / "manifest.json"),
+        "checksums_hash": _sha256(bundle / "checksums.sha256"),
+        "managed_files": rows,
         "host": host,
         "installed_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
-def _write_receipt(path: Path, payload: dict[str, Any]) -> None:
+def _write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _copy_existing(path: Path, destination: Path) -> None:
+    if not path.exists() and not path.is_symlink():
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_dir() and not path.is_symlink():
+        shutil.copytree(path, destination)
+    elif path.is_symlink():
+        destination.symlink_to(path.readlink(), target_is_directory=True)
+    else:
+        shutil.copy2(path, destination)
 
 
 def _install(bundle: Path, args: argparse.Namespace, *, upgrade: bool) -> dict[str, Any]:
-    manifest = verify_bundle(bundle)
+    manifest = _verify_bundle(bundle)
     target = _target(args)
     target.mkdir(parents=True, exist_ok=True)
-    state = _state_dir(target)
-    state.mkdir(parents=True, exist_ok=True)
-    live = _live(target)
-    receipt_exists = live["receipt"].is_file()
-    if receipt_exists:
-        verify_install(target)
-    elif upgrade:
-        raise SuiteError("upgrade requires an existing managed offline suite")
-
-    stage = Path(tempfile.mkdtemp(prefix=".ppt-director-stage-", dir=str(target)))
-    staged = {"router": stage / "ppt-prompt-router", "master": stage / "ppt-master", "receipt": stage / "install_receipt.json"}
-    backup_name = "previous" if receipt_exists else "baseline"
-    backup = _backup(target, backup_name)
-    backup_paths = {name: backup / name for name in live}
-    moved = False
+    old_receipt = _load_receipt(target)
+    if upgrade:
+        _verify_install(args, target)
+    conflicts = _conflicts(args, target, old_receipt)
+    if conflicts:
+        raise SuiteConflict(conflicts)
+    managed_master = _managed_old_master(target, old_receipt)
+    stage = Path(tempfile.mkdtemp(prefix=".ppt-director-stage-", dir=target))
+    staged_router = stage / "ppt-prompt-router"
+    staged_receipt = stage / "install_receipt.json"
+    backup = _backup(target, "previous" if old_receipt else "baseline")
+    live_router = target / "ppt-prompt-router"
+    live_master = target / "ppt-master"
+    live_receipt = _receipt_path(target)
     try:
-        shutil.copytree(bundle / "skills" / "ppt-prompt-router", staged["router"])
-        shutil.copytree(bundle / "skills" / "ppt-master", staged["master"])
-        _write_receipt(staged["receipt"], _receipt(target, manifest, bundle, args.host))
+        shutil.copytree(bundle / "skills" / "ppt-prompt-router", staged_router)
+        _write_json(staged_receipt, _receipt(target, manifest, bundle, args.host))
         if backup.exists():
             shutil.rmtree(backup)
         backup.mkdir(parents=True)
-        _move_set(live, backup_paths)
-        moved = True
-        os.replace(staged["router"], live["router"])
-        os.replace(staged["master"], live["master"])
-        os.replace(staged["receipt"], live["receipt"])
+        _copy_existing(live_router, backup / "ppt-prompt-router")
+        _copy_existing(live_receipt, backup / "install_receipt.json")
+        if managed_master:
+            _copy_existing(live_master, backup / "ppt-master")
+        old_router = stage / "old-router"
+        old_master = stage / "old-master"
+        old_receipt_path = stage / "old-receipt.json"
+        if live_router.exists() or live_router.is_symlink():
+            os.replace(live_router, old_router)
+        if managed_master:
+            os.replace(live_master, old_master)
+        if live_receipt.exists():
+            os.replace(live_receipt, old_receipt_path)
+        os.replace(staged_router, live_router)
+        live_receipt.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(staged_receipt, live_receipt)
+        verified = _verify_install(args, target)
     except Exception:
-        for path in (live["router"], live["master"], live["receipt"]):
-            if path.exists() or path.is_symlink():
-                shutil.rmtree(path) if path.is_dir() and not path.is_symlink() else path.unlink()
-        if moved:
-            _move_set(backup_paths, live)
+        if live_router.exists() or live_router.is_symlink():
+            shutil.rmtree(live_router) if live_router.is_dir() and not live_router.is_symlink() else live_router.unlink()
+        if live_receipt.exists():
+            live_receipt.unlink()
+        if (stage / "old-router").exists():
+            os.replace(stage / "old-router", live_router)
+        if (stage / "old-master").exists():
+            os.replace(stage / "old-master", live_master)
+        if (stage / "old-receipt.json").exists():
+            live_receipt.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(stage / "old-receipt.json", live_receipt)
         raise
     finally:
         shutil.rmtree(stage, ignore_errors=True)
-    return {"status": "COMPLETE", "skills_root": str(target), "receipt": str(live["receipt"]), "dependencies": _dependency_status()}
+    return {
+        "status": "COMPLETE",
+        "skills_root": str(target),
+        "receipt": str(live_receipt),
+        "module_files": verified["module_files"],
+        "dependencies": _dependency_status(),
+    }
 
 
-def _rollback(target: Path) -> dict[str, Any]:
-    verify_install(target)
+def _rollback(args: argparse.Namespace, target: Path) -> dict[str, Any]:
+    _verify_install(args, target)
     previous = _backup(target, "previous")
     if not previous.is_dir():
-        raise SuiteError("no previous suite is available for rollback")
-    stage = Path(tempfile.mkdtemp(prefix=".ppt-director-rollback-", dir=str(target)))
-    live = _live(target)
+        raise SuiteError("no previous version is available")
+    live_router, live_receipt = target / "ppt-prompt-router", _receipt_path(target)
+    stage = Path(tempfile.mkdtemp(prefix=".ppt-director-rollback-", dir=target))
     try:
-        staged = {name: stage / name for name in live}
-        previous_paths = {name: previous / name for name in live}
-        _move_set(live, staged)
-        _move_set(previous_paths, live)
-        _move_set(staged, previous_paths)
+        os.replace(live_router, stage / "ppt-prompt-router")
+        os.replace(live_receipt, stage / "install_receipt.json")
+        os.replace(previous / "ppt-prompt-router", live_router)
+        os.replace(previous / "install_receipt.json", live_receipt)
+        os.replace(stage / "ppt-prompt-router", previous / "ppt-prompt-router")
+        os.replace(stage / "install_receipt.json", previous / "install_receipt.json")
+        _verify_install(args, target)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return {"status": "ROLLED_BACK", "skills_root": str(target)}
 
 
-def _uninstall(target: Path) -> dict[str, Any]:
-    verify_install(target)
-    live = _live(target)
+def _uninstall(args: argparse.Namespace, target: Path) -> dict[str, Any]:
+    _verify_install(args, target)
     baseline = _backup(target, "baseline")
-    stage = Path(tempfile.mkdtemp(prefix=".ppt-director-uninstall-", dir=str(target)))
-    try:
-        staged = {name: stage / name for name in live}
-        _move_set(live, staged)
-        if baseline.is_dir():
-            _move_set({name: baseline / name for name in live}, live)
-    except Exception:
-        _move_set(staged, live)
-        raise
-    finally:
-        shutil.rmtree(stage, ignore_errors=True)
-    return {"status": "REMOVED", "skills_root": str(target), "baseline_restored": baseline.is_dir()}
+    router, receipt = target / "ppt-prompt-router", _receipt_path(target)
+    shutil.rmtree(router)
+    receipt.unlink()
+    restored = False
+    if baseline.is_dir():
+        if (baseline / "ppt-prompt-router").exists():
+            os.replace(baseline / "ppt-prompt-router", router)
+        if (baseline / "ppt-master").exists():
+            os.replace(baseline / "ppt-master", target / "ppt-master")
+        if (baseline / "install_receipt.json").exists():
+            os.replace(baseline / "install_receipt.json", receipt)
+        restored = True
+    return {"status": "REMOVED", "skills_root": str(target), "baseline_restored": restored}
 
 
 def main(argv: list[str] | None = None) -> int:
-    configure_utf8_output()
-    parser = argparse.ArgumentParser(description="PPT Director offline suite")
+    _configure_utf8()
+    parser = argparse.ArgumentParser(description="PPT Director 3.0 offline suite")
     sub = parser.add_subparsers(dest="command", required=True)
     for command in ("install", "upgrade", "rollback", "validate", "uninstall"):
         item = sub.add_parser(command)
@@ -283,31 +397,27 @@ def main(argv: list[str] | None = None) -> int:
             item.add_argument("--yes", action="store_true")
     args = parser.parse_args(argv)
     try:
-        root = suite_root()
-        if args.command in {"install", "upgrade"}:
-            result = _install(root, args, upgrade=args.command == "upgrade")
+        root, target = _bundle_root(), _target(args)
+        if args.command == "install":
+            result = _install(root, args, upgrade=False)
+        elif args.command == "upgrade":
+            result = _install(root, args, upgrade=True)
+        elif args.command == "validate":
+            verified = _verify_install(args, target)
+            result = {"status": "VERIFIED", "skills_root": str(target), "suite_version": verified["receipt"]["suite_version"], "module_files": verified["module_files"], "dependencies": _dependency_status()}
+        elif args.command == "rollback":
+            result = _rollback(args, target)
         else:
-            target = _target(args)
-            if args.command == "validate":
-                receipt = verify_install(target)
-                result = {
-                    "status": "VERIFIED",
-                    "skills_root": str(target),
-                    "suite_version": receipt["suite_version"],
-                    "master_upstream_commit": receipt["master_upstream_commit"],
-                    "managed_file_count": len(receipt["managed_files"]),
-                    "dependencies": _dependency_status(),
-                }
-            elif args.command == "rollback":
-                result = _rollback(target)
-            else:
-                if not args.yes:
-                    raise SuiteError("uninstall requires --yes")
-                result = _uninstall(target)
+            if not args.yes:
+                raise SuiteError("uninstall requires --yes")
+            result = _uninstall(args, target)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    except SuiteConflict as exc:
+        print(json.dumps({"status": "CONFLICT", "conflicts": [str(path) for path in exc.paths]}, ensure_ascii=False, indent=2))
+        return 4
     except (SuiteError, HostError, OSError, json.JSONDecodeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(json.dumps({"status": "ERROR", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
 
 

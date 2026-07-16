@@ -1,0 +1,243 @@
+[
+  {
+    "topic": "director_design_boundary",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/skills.ts:160-220",
+      "packages/coding-agent/src/core/extensions/loader.ts:217-253"
+    ],
+    "current_director_design": "Director Plan 3.1 forbids layout, color, composition and visual resource fields; PPT Master owns page design.",
+    "decision": "keep",
+    "reason": "The current boundary already separates instruction/discovery from executable design capability and does not duplicate PPT Master.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "capability_four_states",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/skills.ts:83-85",
+      "packages/coding-agent/src/core/resource-loader.ts:38-47"
+    ],
+    "current_director_design": "Capabilities use available_tool, available_model_workflow, degraded and unavailable, with execution_type and verified=false for model workflows.",
+    "decision": "keep",
+    "reason": "Four states plus evidence distinguish deterministic tools from instruction-driven workflows without adding false precision.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "capability_semantic_dependency_hash",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/resource-loader.ts:338-436",
+      "packages/coding-agent/src/core/resource-loader.ts:530-567"
+    ],
+    "current_director_design": "The snapshot uses a hand-maintained runtime fingerprint and raw file hashes that include captured_at, absolute paths and display fields.",
+    "decision": "adjust",
+    "reason": "Freshness must follow the actual capability entry/reference closure and dependency versions while excluding timestamps and presentation-only fields.",
+    "affected_files": [
+      "scripts/director_runtime.py",
+      "integrations/ppt-master/overlay/skills/ppt-master/scripts/production.py",
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "context_rehydrate_structure",
+    "pi_evidence": [
+      "packages/agent/src/types.ts:398-406",
+      "packages/agent/src/agent.ts:527-573"
+    ],
+    "current_director_design": "A single context_rehydrate.md lists required files, hashes and the current page, but includes refreshed_at and absolute paths.",
+    "decision": "adjust",
+    "reason": "Keep one derived context view, but make its schema, logical paths, ordering and semantic hash deterministic; it must not become state.",
+    "affected_files": [
+      "scripts/director_runtime.py",
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "deterministic_tool_event_lifecycle",
+    "pi_evidence": [
+      "packages/agent/src/types.ts:415-430",
+      "packages/agent/src/agent-loop.ts:435-555",
+      "packages/agent/src/agent-loop.ts:668-771"
+    ],
+    "current_director_design": "route.py appends capability_preflight_started and finished only after dispatch has completed.",
+    "decision": "adjust",
+    "reason": "Started must be emitted before the call, followed by completed or failed with the same operation id; post-hoc lifecycle events are misleading.",
+    "affected_files": [
+      "scripts/route.py",
+      "scripts/run_log.py",
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "unobservable_model_workflow_events",
+    "pi_evidence": [
+      "packages/agent/src/agent-loop.ts:668-771"
+    ],
+    "current_director_design": "Mode selection can return model_workflow_required, but logging may still label template analysis as finished.",
+    "decision": "adjust",
+    "reason": "When the host cannot observe the model call, record context_issued and later artifacts_observed or gate_failed, never a fabricated started/completed pair.",
+    "affected_files": [
+      "scripts/route.py",
+      "scripts/run_log.py",
+      "scripts/director_runtime.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "append_only_events_separate_from_state",
+    "pi_evidence": [
+      "packages/agent/src/agent.ts:527-573",
+      "packages/coding-agent/src/core/session-manager.ts:946-979"
+    ],
+    "current_director_design": "events.jsonl is append-only while production_state.json stores only the current workflow gate.",
+    "decision": "keep",
+    "reason": "This separation provides audit history without turning Production State into an event store.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "abc_candidate_branching",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/session-manager.ts:1283-1364"
+    ],
+    "current_director_design": "Three bounded directories hold A/B/C artifacts for the same two pages, with per-file hashes and a selected_sample record.",
+    "decision": "keep",
+    "reason": "File branches exactly match the bounded decision; a full Session tree would add replay, migration and second-state complexity without benefit.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "pi_session_tree_for_samples",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/session-manager.ts:30-152",
+      "packages/coding-agent/src/core/session-manager.ts:1490-1540"
+    ],
+    "current_director_design": "Production State and selected sample files already model the complete PPT workflow and bounded candidate decision.",
+    "decision": "reject",
+    "reason": "Pi Session stores complete conversational history and arbitrary forks; importing it would create a second Agent framework and state model.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": false
+  },
+  {
+    "topic": "production_state_scope",
+    "pi_evidence": [
+      "packages/agent/src/types.ts:322-346",
+      "packages/agent/src/agent.ts:527-573"
+    ],
+    "current_director_design": "A single Production State stores stage, active page, hashes, samples, pages, reviews and export gate.",
+    "decision": "keep",
+    "reason": "It is a current-state projection and already covers every deterministic transition required by PPT production.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "grouped_sample_invalidation",
+    "pi_evidence": [
+      "packages/agent/src/agent.ts:527-573"
+    ],
+    "current_director_design": "Global hash changes reset samples to a generic standard structure and can drop three_groups directions.",
+    "decision": "adjust",
+    "reason": "Invalidation must preserve the selected mode's state shape by reusing the existing _sample_state helper, not create a new state model.",
+    "affected_files": [
+      "integrations/ppt-master/overlay/skills/ppt-master/scripts/production.py",
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "premium_plan_design_spec_order",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/skills.ts:327-355",
+      "packages/coding-agent/src/core/extensions/loader.ts:295-328"
+    ],
+    "current_director_design": "Premium plan is blocked until templates/design_spec.md exists, even though the fixed pipeline creates the project design system after the Director Plan.",
+    "decision": "adjust",
+    "reason": "Mode handling may invoke Master tools and issue workflow context, but the Director must not own or require the final project design spec before planning.",
+    "affected_files": [
+      "scripts/route.py",
+      "scripts/director_runtime.py",
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "configuration_state_separation",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/resource-loader.ts:338-436"
+    ],
+    "current_director_design": "generation_modes.yaml defines static modes, generation_mode.json records the project choice, and production_state.json records current execution state.",
+    "decision": "keep",
+    "reason": "The current separation is clear and does not require a generic configuration or session service.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "skill_extension_runtime",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/extensions/types.ts:1166-1228",
+      "packages/coding-agent/src/core/resource-loader.ts:290-325"
+    ],
+    "current_director_design": "A single public Skill dispatches to a fixed internal PPT Master runtime.",
+    "decision": "reject",
+    "reason": "Adding Pi-style dynamic extensions or resource discovery would duplicate the fixed Master runtime and violate the single-Skill boundary.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": false
+  },
+  {
+    "topic": "compatibility_migration_framework",
+    "pi_evidence": [
+      "packages/coding-agent/src/core/session-manager.ts:226-291",
+      "packages/coding-agent/src/migrations.ts:1-15"
+    ],
+    "current_director_design": "3.1 retains narrow compatibility for existing plan and production formats without a general migration framework.",
+    "decision": "reject",
+    "reason": "No current 3.1 requirement needs arbitrary historical session migration; add a narrow migration only after a concrete persisted-format break appears.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": false
+  },
+  {
+    "topic": "page_review_export_gates",
+    "pi_evidence": [
+      "packages/agent/src/agent-loop.ts:435-555"
+    ],
+    "current_director_design": "PPT Master machine check, rendering, Visual Review, midpoint, deck review and can-export are reused through the production module.",
+    "decision": "keep",
+    "reason": "These are deterministic calls already owned by PPT Master; adding parallel Review or export receipts would duplicate proven mechanisms.",
+    "affected_files": [],
+    "implementation_size": "none",
+    "required_for_3_1": true
+  },
+  {
+    "topic": "focused_release_gates",
+    "pi_evidence": [
+      "package.json:16-24",
+      "package.json:29-38"
+    ],
+    "current_director_design": "Existing tests cover mode availability and grouped sample equality but not event ordering, semantic hash stability, grouped invalidation or premium ordering.",
+    "decision": "adjust",
+    "reason": "Add only narrow regression tests for the identified gaps; do not copy Pi's workspace-wide release system.",
+    "affected_files": [
+      "tests/test_director31.py"
+    ],
+    "implementation_size": "small",
+    "required_for_3_1": true
+  }
+]

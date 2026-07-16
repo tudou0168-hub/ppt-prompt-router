@@ -27,7 +27,10 @@ from pptx_to_svg.preset_authoring import (
 from resource_paths import icon_search_dirs_for_svg
 
 from .context import ConvertContext, ShapeResult
-from .paths import project_freeform_geometry_errors
+from .paths import (
+    project_freeform_geometry_errors,
+    project_gradient_geometry_errors,
+)
 from .theme_colors import ThemeColorSpec
 from .theme_fonts import ThemeFontSpec
 from .utils import (
@@ -38,7 +41,16 @@ from .utils import (
     parse_svg_length,
     parse_transform_operations,
     parse_transform_matrix,
+    project_definition_errors,
+    project_definition_index,
+    project_filter_errors,
     project_geometry_length_errors,
+    project_gradient_errors,
+    project_image_aspect_ratio_errors,
+    project_opacity_errors,
+    project_paint_errors,
+    project_paint_reference_errors,
+    project_stroke_style_errors,
     project_transform_errors,
     resolve_url_id,
     supports_full_project_transform,
@@ -56,15 +68,54 @@ from .elements import (
 )
 from ..animation_config import is_chrome_id
 from ..native_objects import (
+    NativeMarkerAttributeError,
     convert_native_object,
+    native_metadata_payload_matches,
+    native_replacement_kind,
     native_marker_transform,
     snapshot_native_fallback_freshness,
 )
+from ..native_objects.marker_status import native_marker_status_errors
 from ..semantic_markers import is_static_page_frame
 
 
 class SvgNativeConversionError(RuntimeError):
     """Raised when an SVG cannot be faithfully converted to native DrawingML."""
+
+
+def _require_chart_table_marker_attributes(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject contradictory chart/table marker aliases before either route."""
+    errors: list[str] = []
+    for elem in root.iter():
+        if elem.tag.rsplit('}', 1)[-1] == 'metadata':
+            continue
+        marker_errors = native_marker_status_errors(elem)
+        if marker_errors:
+            marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
+            errors.extend(f'{marker_id}: {error}' for error in marker_errors)
+            continue
+        marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
+        kind = native_replacement_kind(elem)
+        if not kind:
+            continue
+        for child in elem:
+            if child.tag.rsplit('}', 1)[-1] != 'metadata':
+                continue
+            try:
+                native_metadata_payload_matches(child, kind)
+            except NativeMarkerAttributeError as exc:
+                errors.append(f'{marker_id}: {exc}')
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid chart/table replacement metadata: '
+        f'{preview}{suffix}'
+    )
 
 
 def _require_project_freeform_geometry(
@@ -95,6 +146,134 @@ def _require_project_transforms(
     suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
     raise SvgNativeConversionError(
         f'{Path(svg_path).name}: invalid project transform(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_stroke_styles(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid project line-style syntax and mappings before conversion."""
+    errors = project_stroke_style_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project line style(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_image_aspect_ratios(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject ambiguous image fit/crop values before native conversion."""
+    errors = project_image_aspect_ratio_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project image aspect ratio(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_opacities(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject malformed opacity values before native conversion."""
+    errors = project_opacity_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project opacity value(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_paints(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid paint values before native conversion."""
+    errors = project_paint_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project paint value(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_definitions(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject definitions outside the direct, unique local-ref contract."""
+    errors = project_definition_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project definition(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_paint_references(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject unresolved or context-invalid local paint references."""
+    errors = project_paint_reference_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project paint reference(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_gradients(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject gradients outside the normalized native interface."""
+    errors = project_gradient_errors(root) + project_gradient_geometry_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project gradient(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_filters(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject filters outside the native shadow/glow interface."""
+    errors = project_filter_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project filter(s): '
         f'{preview}{suffix}'
     )
 
@@ -317,7 +496,7 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """
     transform = elem.get('transform', '')
     native_subtree_active = ctx.native_objects_enabled and any(
-        descendant.get('data-pptx-native')
+        native_replacement_kind(descendant)
         and descendant.tag.replace(f'{{{SVG_NS}}}', '') != 'metadata'
         for descendant in elem.iter()
     )
@@ -403,8 +582,9 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
     if native_subtree_active and child_ctx.opacity_multiplier < 1.0:
         raise SvgNativeConversionError(
-            "Group opacity cannot be applied to data-pptx-native table/chart "
-            "objects; export without --native-objects to use the SVG fallback"
+            "Group opacity cannot be applied to data-pptx-replace-with chart/table "
+            "objects; export without --native-charts-and-tables to use the "
+            "shape-based SVG fallback"
         )
 
     if child_ctx.native_objects_enabled:
@@ -777,19 +957,8 @@ def _extract_background_candidate(
 
 def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
     """Collect all <defs> children into an {id: element} dictionary."""
-    defs: dict[str, ET.Element] = {}
-    for defs_elem in root.iter(f'{{{SVG_NS}}}defs'):
-        for child in defs_elem:
-            elem_id = child.get('id')
-            if elem_id:
-                defs[elem_id] = child
-    # Also check for defs without namespace
-    for defs_elem in root.iter('defs'):
-        for child in defs_elem:
-            elem_id = child.get('id')
-            if elem_id:
-                defs[elem_id] = child
-    return defs
+    definitions, _duplicates = project_definition_index(root)
+    return definitions
 
 
 def _build_source_shape_id_map(root: ET.Element) -> dict[tuple[str, str], int]:
@@ -1066,8 +1235,8 @@ def convert_svg_to_slide_shapes(
             size from rendered SVG boxes.
         image_scale: Target image pixels per SVG display pixel.
         image_quality: JPEG quality used for opaque optimized rasters.
-        native_objects: Convert explicit ``data-pptx-native`` table/chart
-            markers to native PowerPoint objects. Default off.
+        native_objects: Convert explicit ``data-pptx-replace-with`` chart/table
+            markers to native PowerPoint Chart/Table objects. Default off.
         animation_group_overrides: Explicit top-level SVG group ids from
             ``animations.json`` that override the legacy chrome-name fallback.
             Explicit structural layer/role/placeholder markers remain excluded.
@@ -1097,6 +1266,7 @@ def convert_svg_to_slide_shapes(
     """
     tree = ET.parse(str(svg_path))
     root = tree.getroot()
+    _require_chart_table_marker_attributes(root, svg_path)
     authored_errors = validate_authored_preset_tree(root)
     if authored_errors:
         raise SvgNativeConversionError(
@@ -1105,7 +1275,13 @@ def convert_svg_to_slide_shapes(
     _mark_unchanged_txbody_groups(root)
     _mark_unchanged_preset_previews(root)
     if native_objects:
-        snapshot_native_fallback_freshness(root)
+        try:
+            snapshot_native_fallback_freshness(root)
+        except NativeMarkerAttributeError as exc:
+            raise SvgNativeConversionError(
+                f'{Path(svg_path).name}: conflicting chart/table replacement '
+                f'metadata: {exc}'
+            ) from exc
     trace_events: list[dict[str, Any]] | None = [] if trace_out is not None else None
     trace_steps: list[dict[str, Any]] = []
 
@@ -1143,6 +1319,14 @@ def convert_svg_to_slide_shapes(
         )
 
     _require_project_freeform_geometry(root, svg_path)
+    _require_project_stroke_styles(root, svg_path)
+    _require_project_opacities(root, svg_path)
+    _require_project_paints(root, svg_path)
+    _require_project_definitions(root, svg_path)
+    _require_project_paint_references(root, svg_path)
+    _require_project_gradients(root, svg_path)
+    _require_project_filters(root, svg_path)
+    _require_project_image_aspect_ratios(root, svg_path)
     _require_project_transforms(root, svg_path)
 
     viewport_width, viewport_height = _root_viewport_size(root)
@@ -1202,6 +1386,14 @@ def convert_svg_to_slide_shapes(
             print(f'  Expanded {expanded_local} local <use href="#..."/> instance(s)')
 
     # Recheck compiler-injected icon/use wrappers and cloned definition trees.
+    _require_project_stroke_styles(root, svg_path)
+    _require_project_opacities(root, svg_path)
+    _require_project_paints(root, svg_path)
+    _require_project_definitions(root, svg_path)
+    _require_project_paint_references(root, svg_path)
+    _require_project_gradients(root, svg_path)
+    _require_project_filters(root, svg_path)
+    _require_project_image_aspect_ratios(root, svg_path)
     _require_project_transforms(root, svg_path)
 
     # Flatten positional <tspan> (those with x/y/non-zero dy) into independent

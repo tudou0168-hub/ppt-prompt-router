@@ -57,19 +57,44 @@ try:
         DRAWINGML_TEXT_FONT_SIZE_MAX as _DRAWINGML_TEXT_FONT_SIZE_MAX,
         DRAWINGML_TEXT_FONT_SIZE_MIN as _DRAWINGML_TEXT_FONT_SIZE_MIN,
         IDENTITY_MATRIX as _IDENTITY_MATRIX,
+        PROJECT_OPACITY_PROPERTIES as _OPACITY_PROPERTIES,
+        PROJECT_PAINT_PROPERTIES as _PAINT_PROPERTIES,
+        PROJECT_PERCENTAGE_OPACITY_PROPERTIES as _PERCENTAGE_OPACITY_PROPERTIES,
         format_project_geometry_length as _format_project_geometry_length,
+        format_project_image_aspect_ratio as _format_project_image_aspect_ratio,
+        format_project_opacity as _format_project_opacity,
         font_px_to_hpt as _font_px_to_hpt,
         is_canonical_project_geometry_length as _is_canonical_project_geometry_length,
+        is_project_opacity_default_form as _is_project_opacity_default_form,
+        is_project_paint_default_form as _is_project_paint_default_form,
         iter_project_geometry_lengths as _iter_project_geometry_lengths,
+        iter_project_image_aspect_ratios as _iter_project_image_aspect_ratios,
+        iter_project_opacities as _iter_project_opacities,
+        iter_project_paints as _iter_project_paints,
+        iter_project_stroke_styles as _iter_project_stroke_styles,
         iter_project_transforms as _iter_project_transforms,
         matrix_multiply as _matrix_multiply,
+        noncanonical_stroke_dash_numbers as _noncanonical_stroke_dash_numbers,
         noncanonical_transform_numbers as _noncanonical_transform_numbers,
         parse_transform_matrix as _parse_transform_matrix,
         parse_font_family as _parse_export_font_family,
         parse_inline_style as _parse_inline_style,
         parse_project_geometry_length as _parse_project_geometry_length,
+        parse_project_image_aspect_ratio as _parse_project_image_aspect_ratio,
+        parse_project_opacity as _parse_project_opacity,
+        parse_project_paint as _parse_project_paint,
+        parse_project_stroke_dasharray as _parse_project_stroke_dasharray,
+        parse_project_stroke_enum as _parse_project_stroke_enum,
         parse_svg_color as _parse_export_color,
         parse_svg_length as _parse_export_length,
+        project_definition_errors as _project_definition_errors,
+        project_filter_errors as _project_filter_errors,
+        project_gradient_errors as _project_gradient_errors,
+        project_image_aspect_ratio_errors as _project_image_aspect_ratio_errors,
+        project_opacity_errors as _project_opacity_errors,
+        project_paint_errors as _project_paint_errors,
+        project_paint_reference_errors as _project_paint_reference_errors,
+        project_stroke_style_errors as _project_stroke_style_errors,
         project_transform_errors as _project_transform_errors,
         rect_to_dml_xfrm as _rect_to_dml_xfrm,
         validate_dml_shape_matrix as _validate_dml_shape_matrix,
@@ -78,19 +103,44 @@ except ImportError:
     _DRAWINGML_TEXT_FONT_SIZE_MAX = None
     _DRAWINGML_TEXT_FONT_SIZE_MIN = None
     _IDENTITY_MATRIX = None
+    _OPACITY_PROPERTIES = None
+    _PAINT_PROPERTIES = None
+    _PERCENTAGE_OPACITY_PROPERTIES = None
     _format_project_geometry_length = None
+    _format_project_image_aspect_ratio = None
+    _format_project_opacity = None
     _font_px_to_hpt = None
     _is_canonical_project_geometry_length = None
+    _is_project_opacity_default_form = None
+    _is_project_paint_default_form = None
     _iter_project_geometry_lengths = None
+    _iter_project_image_aspect_ratios = None
+    _iter_project_opacities = None
+    _iter_project_paints = None
+    _iter_project_stroke_styles = None
     _iter_project_transforms = None
     _matrix_multiply = None
+    _noncanonical_stroke_dash_numbers = None
     _noncanonical_transform_numbers = None
     _parse_transform_matrix = None
     _parse_export_font_family = None
     _parse_inline_style = None
     _parse_project_geometry_length = None
+    _parse_project_image_aspect_ratio = None
+    _parse_project_opacity = None
+    _parse_project_paint = None
+    _parse_project_stroke_dasharray = None
+    _parse_project_stroke_enum = None
     _parse_export_color = None
     _parse_export_length = None
+    _project_definition_errors = None
+    _project_filter_errors = None
+    _project_gradient_errors = None
+    _project_image_aspect_ratio_errors = None
+    _project_opacity_errors = None
+    _project_paint_errors = None
+    _project_paint_reference_errors = None
+    _project_stroke_style_errors = None
     _project_transform_errors = None
     _rect_to_dml_xfrm = None
     _validate_dml_shape_matrix = None
@@ -100,11 +150,13 @@ try:
         iter_project_freeform_geometry as _iter_project_freeform_geometry,
         noncanonical_path_numbers as _noncanonical_path_numbers,
         noncanonical_points_numbers as _noncanonical_points_numbers,
+        project_gradient_geometry_errors as _project_gradient_geometry_errors,
     )
 except ImportError:
     _iter_project_freeform_geometry = None
     _noncanonical_path_numbers = None
     _noncanonical_points_numbers = None
+    _project_gradient_geometry_errors = None
 
 try:
     from svg_to_pptx.drawingml.converter import (
@@ -160,6 +212,19 @@ try:
     )
 except ImportError:
     _native_object_marker_warnings = None
+
+try:
+    from svg_to_pptx.native_objects import (
+        native_fallback_kind as _native_fallback_kind,
+        native_marker_legacy_warnings as _native_marker_legacy_warnings,
+        native_replacement_kind as _native_replacement_kind,
+        native_replacement_status as _native_replacement_status,
+    )
+except ImportError:
+    _native_fallback_kind = None
+    _native_marker_legacy_warnings = None
+    _native_replacement_kind = None
+    _native_replacement_status = None
 
 try:
     from svg_to_pptx.native_objects.marker_status import (
@@ -281,15 +346,6 @@ _CHECK_PPTX_STRUCTURED_PROJECT = True
 _BARE_HEX_VALUE_RE = re.compile(
     r"(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})"
 )
-_CANONICAL_SOLID_PAINT_RE = re.compile(r"#[0-9A-F]{6}")
-_CANONICAL_PAINT_PROPERTIES = (
-    'fill',
-    'stroke',
-    'stop-color',
-    'flood-color',
-    'data-pptx-fg',
-    'data-pptx-bg',
-)
 _CANONICAL_PAINT_ALPHA_PROPERTY = {
     'fill': 'fill-opacity',
     'stroke': 'stroke-opacity',
@@ -332,35 +388,7 @@ _PPTX_STRUCTURE_SECTION_RE = re.compile(
 _PPTX_STRUCTURE_MODE_RE = re.compile(
     r"(?m)^-[ \t]+mode[ \t]*:[ \t]*([^\s#]+)[ \t]*(?:#.*)?$"
 )
-_SUPPORTED_FILTER_PRIMITIVES = frozenset({
-    'feDropShadow',
-    'feGaussianBlur',
-    'feOffset',
-    'feFlood',
-    'feComposite',
-    'feMerge',
-    'feMergeNode',
-    'feComponentTransfer',
-    'feFuncA',
-})
-_FILTER_EFFECT_PRIMITIVES = frozenset({'feDropShadow', 'feGaussianBlur'})
-_FILTER_PUBLIC_TARGETS = frozenset({'rect', 'circle', 'path', 'text'})
 _CLIP_SHAPE_TAGS = frozenset({'circle', 'ellipse', 'rect', 'path', 'polygon'})
-_DEFINITION_TAGS = frozenset({
-    'clipPath',
-    'filter',
-    'linearGradient',
-    'marker',
-    'pattern',
-    'radialGradient',
-})
-_ALPHA_PROPERTIES = (
-    'opacity',
-    'fill-opacity',
-    'stroke-opacity',
-    'stop-opacity',
-    'flood-opacity',
-)
 _SUPPORTED_INLINE_STYLE_PROPERTIES = frozenset({
     'cx', 'cy', 'fill', 'fill-opacity', 'filter', 'flood-color',
     'flood-opacity', 'font-family', 'font-size', 'font-style', 'font-weight',
@@ -786,67 +814,6 @@ def _element_label(elem: ET.Element) -> str:
     return f'<{tag} id="{elem_id}">' if elem_id else f'<{tag}>'
 
 
-def _finite_unit_interval(raw: str) -> float | None:
-    """Parse a finite unitless number in the closed interval ``0..1``."""
-    if re.fullmatch(_NUMBER_TOKEN, raw.strip()) is None:
-        return None
-    try:
-        value = float(raw)
-    except ValueError:
-        return None
-    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
-        return None
-    return value
-
-
-def _compatible_opacity(
-    raw: str,
-    *,
-    allow_percentage: bool = False,
-) -> float | None:
-    """Parse a finite opacity form supported by the matching converter path.
-
-    Every exported opacity path accepts and clamps unitless numbers. Gradient
-    stops and filter flood alpha additionally accept percentages; ordinary
-    element, fill, stroke, text, picture, and group opacity paths do not.
-    """
-    value_text = raw.strip()
-    is_percent = value_text.endswith('%')
-    if is_percent and not allow_percentage:
-        return None
-    if is_percent:
-        value_text = value_text[:-1].strip()
-    if re.fullmatch(_NUMBER_TOKEN, value_text) is None:
-        return None
-    try:
-        value = float(value_text)
-    except ValueError:
-        return None
-    if not math.isfinite(value):
-        return None
-    if is_percent:
-        value /= 100.0
-    return max(0.0, min(1.0, value))
-
-
-def _normalized_gradient_value(raw: str) -> float | None:
-    """Parse a normalized gradient coordinate or percentage."""
-    value_text = raw.strip()
-    is_percent = value_text.endswith('%')
-    if is_percent:
-        value_text = value_text[:-1].strip()
-    if re.fullmatch(_NUMBER_TOKEN, value_text) is None:
-        return None
-    try:
-        value = float(value_text)
-    except ValueError:
-        return None
-    if not math.isfinite(value):
-        return None
-    value = value / 100.0 if is_percent else value
-    return value if 0.0 <= value <= 1.0 else None
-
-
 def _marker_polygon_vertex_count(raw: str) -> int | None:
     """Return the number of finite polygon vertices, or ``None``."""
     tokens = [token for token in re.split(r'[\s,]+', raw.strip()) if token]
@@ -1084,25 +1051,35 @@ class SVGQualityChecker:
                 # 2a. Validate direct geometry lengths and stroke widths.
                 self._check_geometry_length_values(root, result)
 
-                # 2b. Validate complete path-data and point-list grammar.
+                # 2b. Validate line-presentation grammar and mappings.
+                self._check_stroke_style_values(root, result)
+
+                # 2c. Validate image fit/crop grammar and mappings.
+                self._check_image_aspect_ratio_values(root, result)
+
+                # 2d. Validate complete path-data and point-list grammar.
                 self._check_freeform_geometry_values(root, result)
 
-                # 2c. Validate complete transform grammar and native mappings.
+                # 2e. Validate complete transform grammar and native mappings.
                 self._check_transform_values(root, result)
 
-                # 2d. Validate the closed authoring-property surface and
+                # 2f. Validate opacity grammar and native alpha mappings.
+                self._check_opacity_values(root, result)
+
+                # 2g. Validate the closed authoring-property surface and
                 # conditional definition interfaces before export.
                 self._check_authoring_property_contract(root, result)
                 self._check_paint_compatibility(root, result)
                 self._check_reference_spelling(root, result)
                 self._check_definition_contract(root, result)
+                self._check_paint_reference_contract(root, result)
                 self._check_marker_contract(root, result)
                 self._check_clip_path_contract(root, result)
 
-                # 2e. Validate the supported shadow/glow filter interface.
+                # 2h. Validate the supported shadow/glow filter interface.
                 self._check_filter_effects(root, result)
 
-                # 2f. Validate gradient definitions, stops, and coordinates.
+                # 2i. Validate gradient definitions, stops, and coordinates.
                 self._check_gradient_interfaces(root, result)
 
                 # 3. Check font-size values
@@ -1328,97 +1305,6 @@ class SVGQualityChecker:
         if 'iframe' in local_names:
             result['errors'].append("Detected <iframe> element (should not appear in SVG)")
 
-        # Paint-server references must match the exact definitions consumed by
-        # drawingml.converter.collect_defs: direct children of <defs> only.
-        defs_by_id = {}
-        for defs_elem in elems:
-            if _local_name(defs_elem).lower() != 'defs':
-                continue
-            for child in defs_elem:
-                child_id = child.get('id')
-                if child_id:
-                    defs_by_id[child_id] = child
-        pattern_descendant_ids = {
-            id(descendant)
-            for pattern in elems
-            if _local_name(pattern).lower() == 'pattern'
-            for descendant in pattern.iter()
-            if descendant is not pattern
-        }
-        fill_shape_tags = {'rect', 'circle', 'ellipse', 'path', 'polygon', 'polyline'}
-        stroke_shape_tags = fill_shape_tags | {'line'}
-        paint_reference_errors = set()
-        for elem in elems:
-            style_values = (
-                _parse_inline_style(elem.get('style'))
-                if _parse_inline_style is not None else {}
-            )
-            for attr in ('fill', 'stroke'):
-                value = style_values.get(attr) or elem.get(attr)
-                match = re.fullmatch(r'url\(#([^)]+)\)', (value or '').strip())
-                if match is None:
-                    continue
-                ref_id = match.group(1)
-                target = defs_by_id.get(ref_id)
-                elem_tag = _local_name(elem)
-                elem_tag_lower = elem_tag.lower()
-                if target is None:
-                    paint_reference_errors.add(
-                        f"<{elem_tag}> {attr}=url(#{ref_id}) has no matching "
-                        "direct <defs> definition"
-                    )
-                    continue
-                has_text_descendant = any(
-                    _local_name(descendant).lower() in {'text', 'tspan'}
-                    for descendant in elem.iter()
-                    if descendant is not elem
-                )
-                if id(elem) in pattern_descendant_ids:
-                    allowed_tags = ()
-                elif attr == 'fill' and elem_tag_lower in fill_shape_tags:
-                    allowed_tags = ('lineargradient', 'radialgradient', 'pattern')
-                elif attr == 'stroke' and elem_tag_lower in stroke_shape_tags:
-                    allowed_tags = ('lineargradient', 'radialgradient')
-                elif attr == 'fill' and elem_tag_lower in {'text', 'tspan'}:
-                    allowed_tags = ('lineargradient', 'radialgradient')
-                elif attr == 'fill' and elem_tag_lower == 'g':
-                    allowed_tags = (
-                        ('lineargradient', 'radialgradient')
-                        if has_text_descendant
-                        else ('lineargradient', 'radialgradient', 'pattern')
-                    )
-                elif attr == 'stroke' and elem_tag_lower == 'g' and not has_text_descendant:
-                    allowed_tags = ('lineargradient', 'radialgradient')
-                else:
-                    allowed_tags = ()
-                target_tag = _local_name(target).lower()
-                if not allowed_tags:
-                    paint_reference_errors.add(
-                        f"<{elem_tag}> {attr}=url(#{ref_id}) is not supported "
-                        "by native PPTX conversion in this context"
-                    )
-                    continue
-                if target_tag not in allowed_tags:
-                    tag_labels = {
-                        'lineargradient': 'linearGradient',
-                        'radialgradient': 'radialGradient',
-                        'pattern': 'pattern',
-                    }
-                    expected = '/'.join(
-                        tag_labels[tag] for tag in allowed_tags
-                    )
-                    paint_reference_errors.add(
-                        f"<{elem_tag}> {attr}=url(#{ref_id}) resolves to "
-                        f"<{_local_name(target)}>; expected {expected}"
-                    )
-        result['errors'].extend(sorted(paint_reference_errors))
-
-    @staticmethod
-    def _canonical_alpha_literal(value: float) -> str:
-        """Return a compact deterministic alpha literal in the closed interval."""
-        bounded = max(0.0, min(1.0, value))
-        return f'{bounded:.6f}'.rstrip('0').rstrip('.') or '0'
-
     def _check_paint_compatibility(
         self,
         root: ET.Element,
@@ -1430,15 +1316,25 @@ class SVGQualityChecker:
         valid input; the checker only warns when that spelling differs from the
         generated-SVG default (uppercase ``#RRGGBB`` plus explicit alpha).
         """
-        if _parse_export_color is None:
+        helpers = (
+            _PAINT_PROPERTIES,
+            _PERCENTAGE_OPACITY_PROPERTIES,
+            _format_project_opacity,
+            _is_project_paint_default_form,
+            _iter_project_paints,
+            _parse_inline_style,
+            _parse_project_opacity,
+            _parse_project_paint,
+            _project_paint_errors,
+        )
+        if any(helper is None for helper in helpers):
             result['warnings'].append(
-                "Unable to import svg_to_pptx color parser; skipped paint syntax check"
+                "Unable to import svg_to_pptx paint parsers; skipped paint syntax check"
             )
             return
 
-        unsupported: Counter[tuple[str, str]] = Counter()
+        result['errors'].extend(_project_paint_errors(root))
         recommendations: Counter[tuple[str, str, str]] = Counter()
-        unsupported_examples: Dict[tuple[str, str], List[str]] = defaultdict(list)
         recommendation_examples: Dict[tuple[str, str, str], List[str]] = defaultdict(list)
 
         def remember_example(store: Dict, key: tuple, label: str) -> None:
@@ -1446,104 +1342,61 @@ class SVGQualityChecker:
             if label not in labels and len(labels) < 3:
                 labels.append(label)
 
-        for elem in root.iter():
-            label = _element_label(elem)
-            style_declarations: list[tuple[str, str]] = []
-            for fragment in (elem.get('style') or '').split(';'):
-                fragment = fragment.strip()
-                if not fragment or ':' not in fragment:
-                    continue
-                name, value = fragment.split(':', 1)
-                name = name.strip().lower()
-                value = value.strip()
-                if name and value:
-                    style_declarations.append((name, value))
-            style_values = dict(style_declarations)
+        for elem, name, raw_value, source in _iter_project_paints(root):
+            try:
+                kind, normalized, color_alpha = _parse_project_paint(
+                    raw_value,
+                    name,
+                )
+            except ValueError:
+                continue
+            if _is_project_paint_default_form(raw_value, name):
+                continue
 
-            paint_entries = [
-                (name, elem.get(name), 'attribute')
-                for name in _CANONICAL_PAINT_PROPERTIES
-                if elem.get(name) is not None
-            ]
-            paint_entries.extend(
-                (name, value, 'inline style')
-                for name, value in style_declarations
-                if name in _CANONICAL_PAINT_PROPERTIES
-            )
-
-            for name, raw_value, source in paint_entries:
-                assert raw_value is not None
-                value = raw_value.strip()
-                source_label = f'{label} {source}'
-
-                if name in {'fill', 'stroke'}:
-                    if value == 'none' or re.fullmatch(r'url\(#[^)]+\)', value):
-                        continue
-                    if value.lower() == 'none':
-                        key = (name, raw_value, f'{name}="none"')
-                        recommendations[key] += 1
-                        remember_example(recommendation_examples, key, source_label)
-                        continue
-                    if value.lower() == 'transparent':
-                        key = (name, raw_value, f'{name}="none"')
-                        recommendations[key] += 1
-                        remember_example(recommendation_examples, key, source_label)
-                        continue
-
-                if _CANONICAL_SOLID_PAINT_RE.fullmatch(value):
-                    continue
-
-                color, color_alpha = _parse_export_color(value)
-                if color is None:
-                    key = (name, raw_value)
-                    unsupported[key] += 1
-                    remember_example(unsupported_examples, key, source_label)
-                    continue
-
-                replacement = f'{name}=\"#{color}\"'
+            source_label = f'{_element_label(elem)} {source}'
+            if kind == 'none':
+                replacement = f'{name}="none"'
+            elif kind == 'reference':
+                replacement = f'{name}="url(#{normalized})"'
+            elif name in {'fill', 'stroke'} and raw_value.strip().lower() == 'transparent':
+                replacement = f'{name}="none"'
+            else:
+                replacement = f'{name}="#{normalized}"'
                 alpha_name = _CANONICAL_PAINT_ALPHA_PROPERTY.get(name)
                 if color_alpha < 1.0 and alpha_name is not None:
+                    style_values = _parse_inline_style(elem.get('style'))
                     existing_alpha_raw = (
                         style_values.get(alpha_name) or elem.get(alpha_name)
                     )
-                    existing_alpha = (
-                        _compatible_opacity(
-                            existing_alpha_raw,
-                            allow_percentage=alpha_name in {
-                                'stop-opacity',
-                                'flood-opacity',
-                            },
-                        )
-                        if existing_alpha_raw is not None else 1.0
-                    )
+                    if existing_alpha_raw is None:
+                        existing_alpha = 1.0
+                    else:
+                        try:
+                            existing_alpha = _parse_project_opacity(
+                                existing_alpha_raw,
+                                allow_percentage=(
+                                    alpha_name in _PERCENTAGE_OPACITY_PROPERTIES
+                                ),
+                            )
+                        except ValueError:
+                            existing_alpha = None
                     effective_alpha = (
                         color_alpha * existing_alpha
                         if existing_alpha is not None else color_alpha
                     )
                     replacement += (
-                        f' {alpha_name}=\"'
-                        f'{self._canonical_alpha_literal(effective_alpha)}\"'
+                        f' {alpha_name}="'
+                        f'{_format_project_opacity(effective_alpha)}"'
                     )
                 elif color_alpha < 1.0:
                     replacement += (
                         '; put alpha on the matching pattern child fill/stroke '
                         'opacity'
                     )
-                key = (name, raw_value, replacement)
-                recommendations[key] += 1
-                remember_example(recommendation_examples, key, source_label)
 
-        for (name, raw_value), count in sorted(unsupported.items()):
-            allowed = (
-                '#RRGGBB, none, or url(#id)'
-                if name in {'fill', 'stroke'} else '#RRGGBB'
-            )
-            examples = ', '.join(unsupported_examples[(name, raw_value)])
-            result['errors'].append(
-                f"Unsupported SVG paint {name}={raw_value!r} in {count} "
-                f"location(s) ({examples}); use {allowed} or another color "
-                "accepted by svg_to_pptx"
-            )
+            key = (name, raw_value, replacement)
+            recommendations[key] += 1
+            remember_example(recommendation_examples, key, source_label)
 
         for (name, raw_value, replacement), count in sorted(recommendations.items()):
             examples = ', '.join(
@@ -1573,36 +1426,123 @@ class SVGQualityChecker:
                 "href. No change is required for export."
             )
 
+    def _check_opacity_values(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reject malformed opacity and advise generated-SVG values."""
+        helpers = (
+            _PERCENTAGE_OPACITY_PROPERTIES,
+            _format_project_opacity,
+            _is_project_opacity_default_form,
+            _iter_project_opacities,
+            _parse_inline_style,
+            _parse_project_opacity,
+            _project_opacity_errors,
+        )
+        if any(helper is None for helper in helpers):
+            result['warnings'].append(
+                "Unable to import svg_to_pptx opacity validators; native "
+                "export will still validate opacity syntax."
+            )
+            return
+
+        result['errors'].extend(_project_opacity_errors(root))
+        recommendations: Counter[tuple[str, str, str]] = Counter()
+        examples: Dict[tuple[str, str, str], List[str]] = defaultdict(list)
+        fidelity_warnings: set[str] = set()
+
+        for elem, property_name, raw, source in _iter_project_opacities(root):
+            try:
+                value = _parse_project_opacity(
+                    raw,
+                    allow_percentage=(
+                        property_name in _PERCENTAGE_OPACITY_PROPERTIES
+                    ),
+                )
+            except ValueError:
+                continue
+            if _is_project_opacity_default_form(raw):
+                continue
+            normalized = _format_project_opacity(value)
+            key = (property_name, raw, normalized)
+            recommendations[key] += 1
+            label = f'{_element_label(elem)} {source}'
+            if label not in examples[key] and len(examples[key]) < 3:
+                examples[key].append(label)
+
+        for elem in root.iter():
+            if _local_name(elem).lower() != 'g':
+                continue
+            style_values = _parse_inline_style(elem.get('style'))
+            raw_opacity = (
+                style_values['opacity']
+                if 'opacity' in style_values else elem.get('opacity')
+            )
+            if raw_opacity is None:
+                continue
+            try:
+                opacity = _parse_project_opacity(raw_opacity)
+            except ValueError:
+                continue
+            if opacity < 1.0:
+                fidelity_warnings.add(
+                    f"Fidelity warning: {_element_label(elem)} uses group "
+                    f"opacity={raw_opacity!r}. The converter distributes this "
+                    "alpha to descendants and cannot preserve isolated group "
+                    "compositing; generated SVG should prefer descendant alpha. "
+                    "Existing input remains convertible and does not require "
+                    "modification."
+                )
+
+        for (property_name, raw, normalized), count in sorted(
+            recommendations.items()
+        ):
+            shown_examples = ', '.join(
+                examples[(property_name, raw, normalized)]
+            )
+            result['warnings'].append(
+                f"Recommendation: {property_name}={raw!r} is "
+                f"converter-compatible in {count} location(s) "
+                f"({shown_examples}); generated SVG should prefer "
+                f'{property_name}="{normalized}". No change is required '
+                "for export."
+            )
+        result['warnings'].extend(sorted(fidelity_warnings))
+
     def _check_authoring_property_contract(
         self,
         root: ET.Element,
         result: Dict,
     ) -> None:
-        """Validate inline CSS and alpha values against the authoring surface."""
+        """Validate inline CSS and attributes against the authoring surface."""
         errors: set[str] = set()
-        recommendations: set[str] = set()
-        fidelity_warnings: set[str] = set()
+        validated_value_properties = set(_OPACITY_PROPERTIES or ())
+        validated_value_properties.update(_PAINT_PROPERTIES or ())
         for elem in root.iter():
             label = _element_label(elem)
-            style_declarations: list[tuple[str, str]] = []
             for fragment in (elem.get('style') or '').split(';'):
                 fragment = fragment.strip()
                 if not fragment:
                     continue
                 if ':' not in fragment:
-                    errors.add(
-                        f"{label} has malformed inline style declaration {fragment!r}"
-                    )
+                    if fragment.lower() not in validated_value_properties:
+                        errors.add(
+                            f"{label} has malformed inline style declaration "
+                            f"{fragment!r}"
+                        )
                     continue
                 name, value = fragment.split(':', 1)
                 name = name.strip().lower()
                 value = value.strip()
                 if not name or not value:
-                    errors.add(
-                        f"{label} has malformed inline style declaration {fragment!r}"
-                    )
+                    if name not in validated_value_properties:
+                        errors.add(
+                            f"{label} has malformed inline style declaration "
+                            f"{fragment!r}"
+                        )
                     continue
-                style_declarations.append((name, value))
                 if name in _BAKE_REQUIRED_VISUAL_PROPERTIES:
                     errors.add(
                         f"{label} uses Bake-required visual property {name!r}; "
@@ -1626,63 +1566,7 @@ class SVGQualityChecker:
                         "bake the effect or rebuild it with supported geometry"
                     )
 
-            for name in _ALPHA_PROPERTIES:
-                direct_value = elem.get(name)
-                alpha_entries = []
-                if direct_value is not None:
-                    alpha_entries.append((name, direct_value))
-                alpha_entries.extend(
-                    (f'style {name}', style_value)
-                    for style_name, style_value in style_declarations
-                    if style_name == name
-                )
-                for entry_name, raw_value in alpha_entries:
-                    allow_percentage = name in {'stop-opacity', 'flood-opacity'}
-                    compatible_value = _compatible_opacity(
-                        raw_value,
-                        allow_percentage=allow_percentage,
-                    )
-                    if compatible_value is None:
-                        accepted_form = (
-                            'a finite number or percentage opacity'
-                            if allow_percentage
-                            else 'a finite unitless numeric opacity'
-                        )
-                        errors.add(
-                            f"{label} {entry_name} must be {accepted_form}; "
-                            f"got {raw_value!r}"
-                        )
-                    elif _finite_unit_interval(raw_value) is None:
-                        recommendations.add(
-                            f"Recommendation: {label} {entry_name}={raw_value!r} "
-                            "is converter-compatible; generated SVG should prefer "
-                            f"the unitless 0..1 value "
-                            f"{self._canonical_alpha_literal(compatible_value)!r}. "
-                            "No change is required for export."
-                        )
-
-            if _local_name(elem).lower() != 'g':
-                continue
-            style_opacity = next((
-                value for name, value in reversed(style_declarations)
-                if name == 'opacity'
-            ), None)
-            raw_opacity = style_opacity if style_opacity is not None else elem.get('opacity')
-            if raw_opacity is None:
-                continue
-            opacity = _compatible_opacity(raw_opacity)
-            if opacity is not None and opacity < 1.0:
-                fidelity_warnings.add(
-                    f"Fidelity warning: {label} uses group opacity={raw_opacity!r}. "
-                    "The converter distributes this alpha to descendants and "
-                    "cannot preserve isolated group compositing; generated SVG "
-                    "should prefer descendant alpha. Existing input remains "
-                    "convertible and does not require modification."
-                )
-
         result['errors'].extend(sorted(errors))
-        result['warnings'].extend(sorted(recommendations))
-        result['warnings'].extend(sorted(fidelity_warnings))
 
     def _check_definition_contract(
         self,
@@ -1690,42 +1574,27 @@ class SVGQualityChecker:
         result: Dict,
     ) -> None:
         """Require conditional definitions to be direct, uniquely identified defs."""
-        parent_by_id = {
-            id(child): parent
-            for parent in root.iter()
-            for child in list(parent)
-        }
-        definitions, duplicate_definition_ids = _direct_defs_index(root)
-        issues = {
-            f'Duplicate direct <defs> id {definition_id!r} makes local references ambiguous'
-            for definition_id in duplicate_definition_ids
-        }
-        all_id_counts = Counter(
-            elem.get('id')
-            for elem in root.iter()
-            if (elem.get('id') or '').strip()
-        )
-        for definition_id in definitions:
-            if all_id_counts[definition_id] > 1:
-                issues.add(
-                    f'Definition id {definition_id!r} is duplicated in the SVG; '
-                    'local references require one unique target'
-                )
+        if _project_definition_errors is None:
+            result['warnings'].append(
+                "Unable to import the shared definition validator; native "
+                "export will still validate local definitions."
+            )
+            return
+        result['errors'].extend(_project_definition_errors(root))
 
-        for elem in root.iter():
-            tag = _local_name(elem)
-            if tag not in _DEFINITION_TAGS:
-                continue
-            label = _element_label(elem)
-            parent = parent_by_id.get(id(elem))
-            if parent is None or _local_name(parent) != 'defs':
-                issues.add(
-                    f"{label} must be a direct child of <defs>"
-                )
-            if not (elem.get('id') or '').strip():
-                issues.add(f"{label} requires a non-empty unique id")
-
-        result['errors'].extend(sorted(issues))
+    def _check_paint_reference_contract(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Validate paint-server resolution and native target contexts."""
+        if _project_paint_reference_errors is None:
+            result['warnings'].append(
+                "Unable to import the shared paint-reference validator; native "
+                "export will still validate local paint references."
+            )
+            return
+        result['errors'].extend(_project_paint_reference_errors(root))
 
     def _check_marker_contract(
         self,
@@ -1930,203 +1799,42 @@ class SVGQualityChecker:
 
     def _check_filter_effects(self, root: ET.Element, result: Dict) -> None:
         """Validate filters against the native shadow/glow approximation."""
-        elems = list(root.iter())
-        definitions, _duplicates = _direct_defs_index(root)
-        direct_filters = [
-            elem for elem in definitions.values()
-            if _local_name(elem) == 'filter'
-        ]
-        filters_by_id = {
-            filter_id: elem
-            for filter_id, elem in definitions.items()
-            if _local_name(elem) == 'filter'
-        }
-
-        issues = set()
-        for elem in elems:
-            tag = _local_name(elem).lower()
-            label = _element_label(elem)
-            style_values = (
-                _parse_inline_style(elem.get('style'))
-                if _parse_inline_style is not None else {}
+        if _project_filter_errors is None:
+            result['warnings'].append(
+                "Unable to import the shared filter validator; native export "
+                "will still validate shadow/glow filters."
             )
-            if style_values.get('filter'):
-                issues.add(
-                    f"{label} filter must use a direct filter=\"url(#id)\" "
-                    "attribute; inline style filters are not supported"
-                )
-
-            raw_filter = elem.get('filter')
-            if raw_filter is None:
-                continue
-            if tag not in _FILTER_PUBLIC_TARGETS:
-                issues.add(
-                    f"{label} cannot use filter; supported native targets are "
-                    "rect, circle, path, and text"
-                )
-            match = re.fullmatch(r'url\(#([^)]+)\)', raw_filter.strip())
-            if match is None:
-                issues.add(
-                    f"{label} filter must be an exact local url(#id) reference; "
-                    f"got {raw_filter!r}"
-                )
-                continue
-            filter_id = match.group(1)
-            if filter_id not in filters_by_id:
-                issues.add(
-                    f"{label} filter=url(#{filter_id}) has no matching direct "
-                    f"<defs><filter id=\"{filter_id}\"> definition"
-                )
-
-        for filter_elem in direct_filters:
-            filter_id = filter_elem.get('id')
-            label = f"filter #{filter_id}" if filter_id else '<filter> without id'
-            primitives = [
-                _local_name(descendant)
-                for descendant in filter_elem.iter()
-                if descendant is not filter_elem
-            ]
-            unsupported = sorted(
-                set(primitives) - _SUPPORTED_FILTER_PRIMITIVES
-            )
-            if unsupported:
-                issues.add(
-                    f"{label} uses unsupported filter primitive(s): "
-                    f"{', '.join(unsupported)}"
-                )
-            effect_primitives = [
-                primitive for primitive in primitives
-                if primitive in _FILTER_EFFECT_PRIMITIVES
-            ]
-            if not effect_primitives:
-                issues.add(
-                    f"{label} must contain feDropShadow or feGaussianBlur"
-                )
-            elif len(effect_primitives) > 1:
-                issues.add(
-                    f"{label} contains multiple shadow/glow primitives; one "
-                    "filter must map to exactly one native effect"
-                )
-            if any(
-                _local_name(descendant) == 'feFuncA'
-                and descendant.get('type') != 'linear'
-                for descendant in filter_elem.iter()
-            ):
-                issues.add(f"{label} requires feFuncA type=\"linear\"")
-
-            for primitive in filter_elem.iter():
-                primitive_tag = _local_name(primitive)
-                numeric_attrs: tuple[tuple[str, bool], ...] = ()
-                if primitive_tag in {'feDropShadow', 'feGaussianBlur'}:
-                    numeric_attrs = (('stdDeviation', True),)
-                elif primitive_tag == 'feOffset':
-                    numeric_attrs = (('dx', False), ('dy', False))
-                elif primitive_tag == 'feFuncA':
-                    numeric_attrs = (('slope', True),)
-                if primitive_tag == 'feDropShadow':
-                    numeric_attrs += (('dx', False), ('dy', False))
-                for attr_name, non_negative in numeric_attrs:
-                    raw_value = primitive.get(attr_name)
-                    if raw_value is None:
-                        continue
-                    try:
-                        value = float(raw_value)
-                    except ValueError:
-                        value = math.nan
-                    if (
-                        not math.isfinite(value)
-                        or (non_negative and value < 0)
-                        or (
-                            primitive_tag == 'feFuncA'
-                            and attr_name == 'slope'
-                            and value > 1
-                        )
-                    ):
-                        qualifier = ' from 0 to 1' if primitive_tag == 'feFuncA' else ''
-                        issues.add(
-                            f"{label} <{primitive_tag}> {attr_name} must be a "
-                            f"finite number{qualifier}; got {raw_value!r}"
-                        )
-
-        result['errors'].extend(sorted(issues))
+            return
+        result['errors'].extend(_project_filter_errors(root))
 
     def _check_gradient_interfaces(self, root: ET.Element, result: Dict) -> None:
         """Validate the normalized native gradient authoring interface."""
-        issues = set()
-        for gradient in root.iter():
-            tag = _local_name(gradient)
-            if tag not in {'linearGradient', 'radialGradient'}:
-                continue
-            gradient_id = gradient.get('id')
-            label = f"<{tag} id=\"{gradient_id}\">" if gradient_id else f'<{tag}>'
-            attribute_names = {
-                name.rsplit('}', 1)[-1]
-                for name in gradient.attrib
-            }
-            if 'href' in attribute_names:
-                issues.add(
-                    f"{label} cannot inherit from href/xlink:href; "
-                    "define gradient stops directly"
-                )
-            if 'gradientTransform' in attribute_names:
-                issues.add(f"{label} cannot use gradientTransform")
-            if 'spreadMethod' in attribute_names:
-                issues.add(f"{label} cannot use spreadMethod")
-            gradient_units = gradient.get('gradientUnits')
-            if gradient_units not in {None, 'objectBoundingBox'}:
-                issues.add(
-                    f"{label} cannot use gradientUnits={gradient_units!r}; "
-                    "use normalized objectBoundingBox coordinates"
-                )
-
-            coordinate_names = (
-                ('x1', 'y1', 'x2', 'y2')
-                if tag == 'linearGradient'
-                else ('cx', 'cy', 'r', 'fx', 'fy')
+        if (
+            _project_gradient_errors is None
+            or _project_gradient_geometry_errors is None
+        ):
+            result['warnings'].append(
+                "Unable to import the shared gradient validator; native export "
+                "will still validate gradient definitions."
             )
-            for coordinate_name in coordinate_names:
-                raw_coordinate = gradient.get(coordinate_name)
-                if raw_coordinate is None:
-                    continue
-                coordinate = _normalized_gradient_value(raw_coordinate)
-                if coordinate is None:
-                    issues.add(
-                        f"{label} {coordinate_name} must be a normalized finite "
-                        f"value from 0 to 1 or 0% to 100%; got {raw_coordinate!r}"
-                    )
-                elif coordinate_name == 'r' and coordinate <= 0:
-                    issues.add(f"{label} r must be greater than 0")
-
-            stops = []
-            for child in list(gradient):
-                child_tag = _local_name(child)
-                if child_tag in _NON_VISUAL_SVG_TAGS:
-                    continue
-                if child_tag != 'stop':
-                    issues.add(
-                        f"{label} has unsupported direct child <{child_tag}>; "
-                        "gradient definitions may contain only direct <stop> children"
-                    )
-                    continue
-                stops.append(child)
-            if not stops:
-                issues.add(f"{label} requires at least one direct <stop> child")
-            for index, stop in enumerate(stops, start=1):
-                stop_label = f"{label} stop #{index}"
-                raw_offset = stop.get('offset')
-                if raw_offset is None or _normalized_gradient_value(raw_offset) is None:
-                    issues.add(
-                        f"{stop_label} offset must be explicit and within 0..1 "
-                        f"or 0%..100%; got {raw_offset!r}"
-                    )
-                style_values = (
-                    _parse_inline_style(stop.get('style'))
-                    if _parse_inline_style is not None else {}
+            return
+        gradient_errors = set(_project_gradient_errors(root))
+        gradient_errors.update(_project_gradient_geometry_errors(root))
+        if (
+            _expand_local_use_references is not None
+            and _UseExpansionError is not None
+        ):
+            expanded_root = copy.deepcopy(root)
+            try:
+                _expand_local_use_references(expanded_root)
+            except _UseExpansionError:
+                # The local-reference check owns the actionable diagnostic.
+                pass
+            else:
+                gradient_errors.update(
+                    _project_gradient_geometry_errors(expanded_root)
                 )
-                if not (style_values.get('stop-color') or stop.get('stop-color')):
-                    issues.add(f"{stop_label} requires an explicit stop-color")
-
-        result['errors'].extend(sorted(issues))
+        result['errors'].extend(sorted(gradient_errors))
 
     def _check_geometry_length_values(
         self,
@@ -2173,6 +1881,155 @@ class SVGQualityChecker:
                 f"converter-compatible in {count} location(s) ({shown_examples}); "
                 f"generated SVG should prefer the unitless px spelling "
                 f'{attribute}="{normalized}". No change is required for export.'
+            )
+
+    def _check_stroke_style_values(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reject invalid line styles and advise project-canonical spellings."""
+        helpers = (
+            _format_project_geometry_length,
+            _is_canonical_project_geometry_length,
+            _iter_project_stroke_styles,
+            _noncanonical_stroke_dash_numbers,
+            _parse_project_geometry_length,
+            _parse_project_stroke_dasharray,
+            _parse_project_stroke_enum,
+            _project_stroke_style_errors,
+        )
+        if any(helper is None for helper in helpers):
+            result['warnings'].append(
+                "Unable to import svg_to_pptx line-style validators; native "
+                "export will still validate line-presentation syntax."
+            )
+            return
+
+        result['errors'].extend(_project_stroke_style_errors(root))
+        recommendations: Counter[tuple[str, str, str, str]] = Counter()
+        examples: Dict[tuple[str, str, str, str], List[str]] = defaultdict(list)
+
+        for elem, attribute, raw, source in _iter_project_stroke_styles(root):
+            label = f'{_element_label(elem)} {source}'
+            normalized = None
+            reason = ''
+
+            if attribute == 'stroke-dasharray':
+                try:
+                    parsed = _parse_project_stroke_dasharray(
+                        raw,
+                        allow_zero_gap=True,
+                    )
+                    noncanonical = _noncanonical_stroke_dash_numbers(raw)
+                except ValueError:
+                    continue
+                if parsed is None:
+                    if raw != 'none':
+                        normalized = 'none'
+                        reason = 'remove surrounding whitespace'
+                else:
+                    preset, values = parsed
+                    longer_custom = preset is None and len(values) > 2
+                    if noncanonical or longer_custom or raw != raw.strip():
+                        kept_values = values[:2] if longer_custom else values
+                        normalized = ' '.join(
+                            _format_project_geometry_length(value)
+                            for value in kept_values
+                        )
+                        reasons = []
+                        if noncanonical:
+                            reasons.append('use ordinary decimal numbers')
+                        if longer_custom:
+                            reasons.append(
+                                'make the first-pair export normalization explicit'
+                            )
+                        if raw != raw.strip():
+                            reasons.append('remove surrounding whitespace')
+                        reason = '; '.join(reasons)
+            elif attribute == 'stroke-dashoffset':
+                try:
+                    value = _parse_project_geometry_length(raw, attribute)
+                except ValueError:
+                    continue
+                if not _is_canonical_project_geometry_length(raw):
+                    normalized = _format_project_geometry_length(value)
+                    reason = 'use the unitless px spelling'
+            else:
+                try:
+                    value = _parse_project_stroke_enum(attribute, raw)
+                except ValueError:
+                    continue
+                if raw != value:
+                    normalized = value
+                    reason = 'remove surrounding whitespace'
+
+            if normalized is None:
+                continue
+            key = (attribute, raw, normalized, reason)
+            recommendations[key] += 1
+            if label not in examples[key] and len(examples[key]) < 3:
+                examples[key].append(label)
+
+        for (attribute, raw, normalized, reason), count in sorted(
+            recommendations.items()
+        ):
+            shown_examples = ', '.join(
+                examples[(attribute, raw, normalized, reason)]
+            )
+            result['warnings'].append(
+                f"Recommendation: line style {attribute}={raw!r} is "
+                f"converter-compatible in {count} location(s) "
+                f"({shown_examples}); generated SVG should prefer "
+                f'{attribute}="{normalized}" to {reason}. No change is '
+                "required for export."
+            )
+
+    def _check_image_aspect_ratio_values(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reject ambiguous image fit/crop values and advise canonical forms."""
+        helpers = (
+            _format_project_image_aspect_ratio,
+            _iter_project_image_aspect_ratios,
+            _parse_project_image_aspect_ratio,
+            _project_image_aspect_ratio_errors,
+        )
+        if any(helper is None for helper in helpers):
+            result['warnings'].append(
+                "Unable to import svg_to_pptx image aspect-ratio validators; "
+                "native export will still validate image fit/crop syntax."
+            )
+            return
+
+        result['errors'].extend(_project_image_aspect_ratio_errors(root))
+        recommendations: Counter[tuple[str, str]] = Counter()
+        examples: Dict[tuple[str, str], List[str]] = defaultdict(list)
+
+        for elem, raw in _iter_project_image_aspect_ratios(root):
+            try:
+                align, mode = _parse_project_image_aspect_ratio(raw)
+            except ValueError:
+                continue
+            normalized = _format_project_image_aspect_ratio(align, mode)
+            if raw == normalized:
+                continue
+            key = (raw, normalized)
+            recommendations[key] += 1
+            label = _element_label(elem)
+            if label not in examples[key] and len(examples[key]) < 3:
+                examples[key].append(label)
+
+        for (raw, normalized), count in sorted(recommendations.items()):
+            shown_examples = ', '.join(examples[(raw, normalized)])
+            result['warnings'].append(
+                f"Recommendation: image preserveAspectRatio={raw!r} is "
+                f"converter-compatible in {count} location(s) "
+                f"({shown_examples}); generated SVG should prefer "
+                f'preserveAspectRatio="{normalized}". No change is required '
+                "for export."
             )
 
     def _check_freeform_geometry_values(
@@ -2921,19 +2778,25 @@ class SVGQualityChecker:
         """Validate opt-in native table/chart markers before PPTX export."""
         invalid_status_elements: set[ET.Element] = set()
         for elem in root.iter():
+            marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
             if elem.tag.rsplit('}', 1)[-1] == 'metadata':
                 continue
             has_status = any(
                 elem.get(name) is not None
                 for name in (
+                    'data-pptx-replace-with',
+                    'data-pptx-native',
+                    'data-pptx-fallback-kind',
                     'data-pptx-visual-status',
                     'data-pptx-route-status',
+                    'data-pptx-replacement-status',
                     'data-pptx-native-status',
+                    'data-pptx-import-source',
+                    'data-pptx-native-source',
                 )
             )
             if not has_status:
                 continue
-            marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
             if (
                 _native_marker_status_errors is None
                 or _native_marker_release_block_reason is None
@@ -2951,10 +2814,27 @@ class SVGQualityChecker:
             if status_errors:
                 invalid_status_elements.add(elem)
                 continue
-            if elem.get('data-pptx-route-status') == 'reconstruction-only':
+            if _native_marker_legacy_warnings is not None:
+                for warning in _native_marker_legacy_warnings(elem):
+                    result['warnings'].append(
+                        f"PPTX replacement marker {marker_id}: {warning}"
+                    )
+            try:
+                fallback_kind = (
+                    _native_fallback_kind(elem)
+                    if _native_fallback_kind is not None else None
+                )
+                replacement_kind = (
+                    _native_replacement_kind(elem)
+                    if _native_replacement_kind is not None else ''
+                )
+            except ValueError:
+                # The shared status validator reported the alias conflict.
+                continue
+            if fallback_kind == 'placeholder':
                 route = (
-                    "--native-objects may reconstruct its active native marker"
-                    if (elem.get('data-pptx-native') or '').strip()
+                    "the native Chart/Table route may reconstruct its active marker"
+                    if replacement_kind
                     else "default export keeps the visible placeholder"
                 )
                 result['warnings'].append(
@@ -2963,10 +2843,16 @@ class SVGQualityChecker:
                 )
 
         for elem in root.iter():
-            status = elem.get('data-pptx-native-status')
-            if not status or elem.tag.rsplit('}', 1)[-1] == 'metadata':
+            if elem.tag.rsplit('}', 1)[-1] == 'metadata':
                 continue
-            if elem.get('data-pptx-native'):
+            if _native_replacement_status is None or _native_replacement_kind is None:
+                continue
+            try:
+                status = _native_replacement_status(elem)
+                replacement_kind = _native_replacement_kind(elem)
+            except ValueError:
+                continue
+            if not status or replacement_kind:
                 continue
             marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
             result['warnings'].append(
@@ -2976,16 +2862,17 @@ class SVGQualityChecker:
         markers = [
             elem for elem in root.iter()
             if (
-                elem.get('data-pptx-native')
+                _native_replacement_kind is not None
                 and elem.tag.rsplit('}', 1)[-1] != 'metadata'
                 and elem not in invalid_status_elements
+                and _native_replacement_kind(elem)
             )
         ]
         if not markers:
             return
         if _validate_native_object_marker is None:
             result['warnings'].append(
-                "Detected data-pptx-native markers, but native-object validator "
+                "Detected data-pptx-replace-with markers, but replacement validator "
                 "could not be imported; export-time validation will still run."
             )
             return
@@ -2995,6 +2882,18 @@ class SVGQualityChecker:
             for parent in root.iter()
             for child in parent
         }
+
+        def append_metadata_legacy_warnings(marker: ET.Element) -> None:
+            if _native_marker_legacy_warnings is None:
+                return
+            marker_id = marker.get('id') or '<unnamed>'
+            for child in marker:
+                if child.tag.rsplit('}', 1)[-1] != 'metadata':
+                    continue
+                for warning in _native_marker_legacy_warnings(child):
+                    result['warnings'].append(
+                        f"PPTX replacement marker {marker_id}: {warning}"
+                    )
 
         for marker in markers:
             marker_id = marker.get('id') or '<unnamed>'
@@ -3014,22 +2913,24 @@ class SVGQualityChecker:
                     )
                 except RuntimeError as exc:
                     result['errors'].append(
-                        f"Invalid data-pptx-native marker {marker_id}: {exc}"
+                        f"Invalid data-pptx-replace-with marker {marker_id}: {exc}"
                     )
                     continue
                 for warning in warnings:
                     result['warnings'].append(
-                        f"data-pptx-native marker {marker_id}: {warning}"
+                        f"data-pptx-replace-with marker {marker_id}: {warning}"
                     )
+                append_metadata_legacy_warnings(marker)
                 continue
 
             try:
                 _validate_native_object_marker(marker, ancestors=ancestors_tuple)
             except RuntimeError as exc:
                 result['errors'].append(
-                    f"Invalid data-pptx-native marker {marker_id}: {exc}"
+                    f"Invalid data-pptx-replace-with marker {marker_id}: {exc}"
                 )
                 continue
+            append_metadata_legacy_warnings(marker)
             if _native_object_marker_warnings is None:
                 continue
             for warning in _native_object_marker_warnings(
@@ -3038,7 +2939,7 @@ class SVGQualityChecker:
                 document_root=root,
             ):
                 result['warnings'].append(
-                    f"data-pptx-native marker {marker_id}: {warning}"
+                    f"data-pptx-replace-with marker {marker_id}: {warning}"
                 )
 
     def _check_pptx_structure_metadata(
@@ -3283,10 +3184,7 @@ class SVGQualityChecker:
 
         # Scan SVG for used values
         color_drifts = set()
-        for attr in (
-            'fill', 'stroke', 'stop-color', 'flood-color',
-            'data-pptx-fg', 'data-pptx-bg',
-        ):
+        for attr in _PAINT_PROPERTIES or ():
             for raw_value in self._svg_property_values(content, attr):
                 normalized = raw_value.strip()
                 if normalized.lower() in {'none', 'transparent'} or re.fullmatch(

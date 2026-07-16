@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "modes": {
+    "standard": {
+      "display_name": "文档导演模式",
+      "description": "由 PPT Master 完成内容导演和自由设计。",
+      "required_inputs": ["source_document"],
+      "required_capabilities": ["strategist", "executor", "quality_checker", "visual_review", "exporter", "page_gate"],
+      "template_analysis_level": "none_or_light",
+      "sample_strategy": "single",
+      "estimated_time_level": "low",
+      "estimated_token_level": "low",
+      "ppt_master_call_strategy": "main_pipeline"
+    },
+    "template": {
+      "display_name": "模板元素模式",
+      "description": "使用 PPT Master 的 PPTX intake 和模板分析上下文继承参考设计语言。",
+      "required_inputs": ["source_document", "reference_pptx"],
+      "required_capabilities": ["strategist", "executor", "quality_checker", "visual_review", "exporter", "page_gate", "pptx_intake", "template_analysis"],
+      "template_analysis_level": "light",
+      "sample_strategy": "three_groups",
+      "estimated_time_level": "medium",
+      "estimated_token_level": "medium",
+      "ppt_master_call_strategy": "intake_then_main_pipeline"
+    },
+    "premium": {
+      "display_name": "精品复刻模式",
+      "description": "使用 PPT Master 的 fidelity 模板工作流完成深度分析和重新设计。",
+      "required_inputs": ["source_document", "reference_pptx"],
+      "required_capabilities": ["strategist", "executor", "quality_checker", "visual_review", "exporter", "page_gate", "pptx_intake", "template_analysis", "pptx_template_import", "authoring_view", "vector_extraction", "create_template", "template_designer", "fidelity_workflow"],
+      "template_analysis_level": "deep",
+      "sample_strategy": "three_groups",
+      "estimated_time_level": "high",
+      "estimated_token_level": "high",
+      "ppt_master_call_strategy": "fidelity_template_then_main_pipeline"
+    }
+  }
+}

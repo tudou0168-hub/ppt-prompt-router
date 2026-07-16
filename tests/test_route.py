@@ -8,8 +8,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from install import FOCUSED_PROFILE_IDS, PROFILE_FIELDS, compile_director_profile, lint_profiles, prompt_entries
 from scripts import router_profile
@@ -24,13 +26,64 @@ SPEC.loader.exec_module(router)
 
 
 class RouterV2Test(unittest.TestCase):
-    def test_router_runtime_requires_install_receipt(self) -> None:
+    def test_start_only_imports_inputs_and_runs_capability_preflight(self) -> None:
+        class FakeManager:
+            def __init__(self, base: str | Path):
+                self.base = Path(base)
+
+            def init_project(self, name: str, _format: str, _base: str) -> str:
+                project = self.base / name
+                for relative in ("analysis", "sources"):
+                    (project / relative).mkdir(parents=True, exist_ok=True)
+                return str(project)
+
+            def import_sources(self, project: str, sources: list[str], **_kwargs: object) -> dict:
+                destination = Path(project) / "sources"
+                for raw in sources:
+                    source = Path(raw)
+                    (destination / source.name).write_bytes(source.read_bytes())
+                return {"imported": sources}
+
+        class FakeProduction:
+            @staticmethod
+            def initialize_project(project: str | Path) -> None:
+                write = Path(project) / "analysis" / "production_state.json"
+                write.write_text(json.dumps({"stage": "director_pending"}), encoding="utf-8")
+
+        with tempfile.TemporaryDirectory(prefix="router31-start-") as temp:
+            root = Path(temp)
+            source = root / "材料.md"; source.write_text("# 材料\n事实", encoding="utf-8")
+            template = root / "参考.pptx"; template.write_bytes(b"pptx")
+            args = router.build_parser().parse_args([
+                "start", "--request", "政务专项规划，4页，给政府领导汇报，参考模板元素",
+                "--source", str(source), "--template", str(template), "--page-count", "4",
+                "--prompt-id", "government_strategy", "--project-base", str(root / "projects"),
+                "--project-name", "start-boundary",
+            ])
+            with mock.patch.object(router, "capability_preflight", return_value={"modes": {"standard": {"status": "available_model_workflow"}}}) as preflight:
+                project, result = router.command_start(
+                    args,
+                    {"project_manager": types.SimpleNamespace(ProjectManager=FakeManager), "production": FakeProduction},
+                )
+            preflight.assert_called_once()
+            self.assertEqual(result["next_allowed_actions"], ["mode-propose"])
+            self.assertTrue((project / "sources" / "材料.md").is_file())
+            self.assertTrue((project / "references" / "参考.pptx").is_file())
+            for forbidden in ("analysis/director_plan.json", "design_spec.md", "spec_lock.md", "analysis/template_intake"):
+                self.assertFalse((project / forbidden).exists(), forbidden)
+
+    def test_router_runtime_is_internal_and_receipt_independent(self) -> None:
         route_source = (ROOT / "scripts" / "route.py").read_text(encoding="utf-8")
-        self.assertIn("install_receipt.json", route_source)
+        self.assertNotIn("install_receipt.json", route_source)
         self.assertNotIn("PPT_MASTER_ROOT", route_source)
         self.assertNotIn("ppt-master-root", route_source)
         self.assertIn("scripts.router_profile", route_source)
         self.assertNotIn("from install import", route_source)
+        self.assertIn('RUNTIME = ROOT / "runtime" / "ppt-master"', route_source)
+        self.assertEqual(
+            router.PUBLIC_COMMANDS,
+            ("start", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin", "page-check", "page-review", "page-pass", "sample-confirm", "sample-reject", "review", "status", "export"),
+        )
 
     def test_runtime_profile_compiler_has_no_installer_dependency(self) -> None:
         profile_source = (ROOT / "scripts" / "router_profile.py").read_text(encoding="utf-8")
@@ -66,7 +119,7 @@ class RouterV2Test(unittest.TestCase):
             "content_map",
             "整体 Storyline",
             "每页只表达一个核心观点",
-            "主要视觉锚点",
+            "主要内容关系",
             "事实、推断、目标和建议",
         ):
             self.assertIn(required, protocol)
@@ -126,7 +179,9 @@ class RouterV2Test(unittest.TestCase):
             "reusable_template",
         )
         self.assertEqual(router.detect_template_intent("自由设计", [])["intent"], "none")
-        self.assertEqual(router.detect_template_intent("用这个PPT做", template)["status"], "needs_input")
+        deferred = router.detect_template_intent("用这个PPT做", template)
+        self.assertEqual(deferred["status"], "selected")
+        self.assertEqual(deferred["intent"], "reference_elements")
 
     @unittest.skipUnless(
         os.environ.get("RUN_INSTALLED_ROUTER_INTEGRATION") == "1",
@@ -141,6 +196,7 @@ class RouterV2Test(unittest.TestCase):
                 [
                     sys.executable,
                     str(ROUTE_SCRIPT),
+                    "start",
                     "--project-base",
                     str(tmpdir / "projects"),
                     "--project-name",
@@ -166,8 +222,8 @@ class RouterV2Test(unittest.TestCase):
                 errors="replace",
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            self.assertIn('"status": "ppt-master-accepted"', result.stdout)
-            self.assertIn('"accepted": true', result.stdout)
+            self.assertIn('"status": "director_pending"', result.stdout)
+            self.assertIn('"next_allowed_actions": [', result.stdout)
             matches = re.findall(r'"project": "([^"]+)"', result.stdout)
             self.assertTrue(matches, msg=result.stdout)
             project = Path(matches[-1])
@@ -180,7 +236,7 @@ class RouterV2Test(unittest.TestCase):
             contract = json.loads(contract_path.read_text(encoding="utf-8"))
             self.assertEqual(contract["profile"]["id"], "government_strategy")
             self.assertEqual(contract["profile"]["validation_status"], "validated")
-            self.assertEqual(contract["template_intent"], "none")
+            self.assertEqual(contract["template"]["intent"], "none")
             profile = profile_path.read_text(encoding="utf-8")
             self.assertIn("## Universal Director Protocol", profile)
             self.assertEqual(

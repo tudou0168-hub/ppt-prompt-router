@@ -214,7 +214,7 @@ the original `<use>` / `<symbol>` structure.
 | Aspect ratio | Default/aligned `meet` values and plain `preserveAspectRatio="none"` are supported. `slice`, `refX`, and `refY` are forbidden. |
 | Viewport boundary | Symbol artwork MUST stay inside its `viewBox`; expansion does not reproduce symbol overflow clipping. |
 | Internal references | Author exact `href="#id"` and `url(#id)` fragments. The expander also reads legacy `xlink:href="#id"` and rewrites all instance-local cloned IDs. |
-| Structural metadata | Neither the `<use>` instance nor its referenced subtree may carry `data-pptx-layer*`, `data-pptx-native*`, or `data-pptx-placeholder*`. Author those objects directly instead of reusing them. |
+| Structural metadata | Neither the `<use>` instance nor its referenced subtree may carry `data-pptx-layer*`, chart/table replacement metadata (`data-pptx-replace-with`, `data-pptx-replacement-*`, `data-pptx-import-source`, or `data-pptx-fallback-*`), or `data-pptx-placeholder*`. Author those objects directly instead of reusing them. |
 | Safety limits | A reachable reference chain may contain at most 64 instances, and one SVG may expand at most 10,000 local `<use>` instances. |
 
 **Forbidden — unsafe local references**:
@@ -289,8 +289,8 @@ SVG fallback. Do not use this normalization to change ownership or appearance.
 an authored template. Keep the full lossless import SVG separately as the
 audit/fallback source. Mirror may reuse only metadata already supported by the
 converter on unchanged Slide-local/slot objects; unsupported or edited objects
-use the current SVG fallback. `data-pptx-native` remains reserved for native
-chart/table markers.
+use the current SVG fallback. `data-pptx-replace-with` remains reserved for the
+optional PowerPoint-native Chart/Table replacement contract.
 
 **Registry and rendering rules**:
 
@@ -450,7 +450,7 @@ group value is distributed across them.
 
 The converter nevertheless accepts `<g opacity="...">` and inline group
 `opacity` by multiplying group alpha into descendants. That path is
-`Approximate`; nested group/child alpha multiplies, and `--native-objects`
+`Approximate`; nested group/child alpha multiplies, and `--native-charts-and-tables`
 rejects transparent native table/chart markers. The quality checker reports a
 non-blocking fidelity warning so existing or intentionally authored input can
 continue without modification.
@@ -591,6 +591,10 @@ as uppercase six-digit `#RRGGBB`. `fill` / `stroke` may instead use lowercase
 short/alpha HEX, functional colors, and bare legacy HEX remain supported input.
 The quality checker prints an optional canonical rewrite as a recommendation
 warning; it does not require modification or block export.
+Explicit empty, malformed, or unrecognized paint values are errors in both
+Checker and exporter preflight; neither converts unknown intent into
+`noFill` or default black. Omitted properties still follow their own element
+contract, such as SVG's default fill or §6.3's required gradient-stop color.
 
 | Intent | Canonical authoring | Native result / fidelity |
 |---|---|---|
@@ -628,8 +632,8 @@ alias for `rgba()` on a fill-only object.
 accepts finite numeric values that SVG/CSS clamps into that interval;
 `stop-opacity` and `flood-opacity` additionally accept finite percentages. The
 checker reports those supported non-default spellings as recommendation warnings.
-Malformed or non-finite values remain errors because the exporter cannot
-preserve their intent.
+Malformed or non-finite values are errors in both Checker and exporter
+preflight; neither substitutes an opaque default for unknown intent.
 `fill="transparent"` / `stroke="transparent"` become no fill/line; use a color
 plus alpha when a painted transparent layer must remain represented. Prefer
 descendant alpha over group opacity when isolated compositing matters (§2.2).
@@ -657,7 +661,15 @@ Linear export preserves stops/alpha/direction but reduces coordinates to an
 angle. Radial export becomes a centered circular gradient and does not preserve
 `cx/cy/r/fx/fy`. Gradient strokes remain editable, but PPTX-to-SVG re-import may
 retain only the first stop. Stop alpha and element opacity multiply.
-The quality checker validates definition location, references, and paint context.
+The quality checker and exporter preflight both validate definition location,
+references, gradient structure, and paint context from the same closed contract.
+
+**Hard rule — non-degenerate gradient geometry**: an `objectBoundingBox`
+gradient stroke requires non-zero intrinsic width and height. SVG stroke width
+does not expand that object bounding box, so a perfectly horizontal or vertical
+gradient ribbon disappears even when its stroke is thick. Author such a ribbon
+as a closed shape with gradient `fill`, or use a path whose intrinsic geometry
+has both dimensions. Checker and exporter reject the degenerate stroke form.
 
 ```xml
 <defs>
@@ -684,6 +696,7 @@ Filters are native-effect metadata, not a general pixel-filter surface.
 | Public targets | `<rect>`, `<circle>`, `<path>`, `<text>` |
 | Required primitive | `feDropShadow` or `feGaussianBlur` |
 | Accepted helpers | `feOffset`, `feFlood`, `feComposite`, `feMerge`, `feMergeNode`, `feComponentTransfer`, linear `feFuncA` |
+| Numeric values | Finite unitless values; non-negative `stdDeviation`; finite `dx` / `dy`; `feFuncA slope` within `0..1` |
 | Classification | Meaningful non-zero offset → one outer shadow; zero/no offset → one glow |
 | Fidelity | `Approximate`; one filter becomes one DrawingML effect |
 
@@ -694,6 +707,9 @@ Native export does not preserve filter-region, `in/in2/result`, merge order, or
 composite topology. Other primitives, multiple independent effects, filters on
 `<image>` / `<tspan>` / `<g>` / unsupported targets are forbidden; apply the
 effect to supported objects or use explicit layers.
+The quality checker and exporter preflight enforce the same definition,
+reference, primitive, target, and numeric-value contract; malformed values are
+never replaced by effect defaults during native export.
 
 ```xml
 <defs>
@@ -758,6 +774,17 @@ alpha `0.03–0.05`, increasing offset/radius, and optional same-family tint nea
 | Uniform fade | `<image opacity="...">` | Native picture alpha |
 | Shaped picture | §1.2 image-only `clip-path` | Preset/custom picture geometry |
 
+**Hard rule — closed image aspect-ratio grammar**: on `<image>`, omit
+`preserveAspectRatio` for the default `xMidYMid meet`, use `none` alone for
+stretch, or use one of the nine case-sensitive alignments (`xMinYMin`,
+`xMidYMin`, `xMaxYMin`, `xMinYMid`, `xMidYMid`, `xMaxYMid`, `xMinYMax`,
+`xMidYMax`, `xMaxYMax`) followed by explicit `meet` or `slice`. Generated SVG
+always includes the mode on an aligned value. An alignment without a mode and
+values needing whitespace normalization are compatible input and receive a
+Checker recommendation. Empty values, `defer`, unknown/wrong-case alignments or
+modes, `none` with a mode, and extra tokens are errors; the converter never
+guesses a fallback.
+
 **Hard rule — fit/clip interaction**: a non-trivial clip disables `meet`
 frame-fit. Match the image box to the source ratio or use `slice`. Do not apply
 filters directly to `<image>`.
@@ -782,12 +809,28 @@ fidelity.
 | Surface | Contract / native result |
 |---|---|
 | Solid stroke/width/alpha | `Native-stable` editable line |
-| `4,4`; `2,2`; `8,4`; `8,4,2,4` | `dash`; `sysDot`; `lgDash`; `lgDashDot` (`Native-normalized`) |
-| Other custom dash | Exactly two positive finite unitless numbers (`dash gap`); export scales/quantizes against stroke width; longer arrays reduce to the first pair; `Native-normalized` |
+| `4,4`; `6,3`; `2,2`; `8,4`; `8,4,2,4` (comma or space separators) | `dash`; `dash`; `sysDot`; `lgDash`; `lgDashDot` (`Native-normalized`) |
+| Canonical custom dash | Exactly two positive finite unitless ordinary decimals (`dash gap`); export scales/quantizes against stroke width; `Native-normalized` |
+| Compatible custom dash | Three or more positive finite unitless values are accepted but reduce to the first pair with a Checker recommendation; compatible numeric spellings also warn |
 | `stroke-linecap` | `butt`, `round`, `square`; `Native-stable` |
 | `stroke-linejoin` | `miter`, `round`, `bevel`; `Native-stable` |
+| `vector-effect` | Exactly `none` or `non-scaling-stroke`; export resolves the choice into native line width (`Native-normalized`) |
+| `stroke-dashoffset` | No general line mapping; allowed only as a direct finite unitless ordinary-decimal attribute on a §6.10 thick-circle shorthand (`px` suffix is compatible input and warns) |
 | Gradient stroke | §6.3; re-import may flatten to first stop |
 | `marker-start` / `marker-end` | §1.1 native line end; type `Native-normalized`, size `Approximate` (`sm/med/lg`) |
+
+The dash grammar is closed: exact lowercase `none`, or at least two finite
+unitless numbers separated by whitespace or one comma. Generated SVG uses
+ordinary decimal spellings. A leading plus sign, exponent, trailing decimal
+point, surrounding whitespace, or longer custom list is compatible input and
+produces a non-blocking normalization recommendation. Unknown units, one-value
+arrays, empty or repeated comma fields, non-finite values, and negative or zero
+entries are errors. The only zero exception is a gap declared directly on the
+§6.10 thick-circle element.
+
+Generated cap, join, and `vector-effect` values use the exact lowercase tokens
+in the table. Surrounding whitespace is compatible input and produces a
+recommendation; every other token is an error.
 
 Match marker fill to the parent stroke. Use markers for connectors and §6.10
 calculated geometry for a manual diagonal arrowhead. When exact grid spacing
@@ -957,9 +1000,11 @@ compound ring.
 
 - One circle per segment; `fill="none"`; the circle may use one `rotate` for its
   start angle, and ancestor transforms must be translate-only.
-- Exactly two non-preset finite unitless values (`dash gap`); finite unitless `stroke-dashoffset`.
+- Exactly two non-preset finite unitless ordinary-decimal values (`dash gap`);
+  `stroke-dashoffset` is a direct finite unitless ordinary-decimal attribute.
 - `0 < stroke-width < 2r`, `stroke-width/r >= 0.15`,
-  `0 < dash < 2πr`, `gap >= 0`, and `dash + gap >= 2πr`.
+  `0 < dash < 2πr`, `gap >= 0`, and `dash + gap >= 2πr - 1` SVG unit. The
+  one-unit tolerance exists only for integer-rounded circumference values.
 - Native construction uses only the first dash and re-imports as a freeform.
   Its native start is 90° counterclockwise from the SVG preview; use explicit
   arcs whenever start angle, cap, or radial precision matters.
@@ -1003,7 +1048,7 @@ browser-filter permissions.
 | Halftone | Sparse calculated circles | `Native-stable`; bake dense screens / use suitable §7 preset |
 | Isometric facets | Shared-vertex top/front/side polygons, one light direction | 2D only; `Native-normalized` |
 | Paper cut | Ordered organic paths + consistent §6.4 shadow per layer | Filter each layer, not group; `Approximate` |
-| Gradient ribbon | Thick cubic path + §6.3 gradient stroke | `Native-normalized`; no mesh gradient; re-import may flatten color |
+| Gradient ribbon | Non-degenerate cubic path + §6.3 gradient stroke; closed gradient-filled shape for horizontal/vertical ribbons | `Native-normalized`; no mesh gradient; re-import may flatten color |
 | Line-plus-area data | Low-alpha closed area first, crisp line above | Keep area subordinate; `Native-normalized` |
 
 **Minimal construction anchors**:
@@ -1121,22 +1166,27 @@ itself is never used as a repeatable tile.
 it errors when the pattern uses `patternTransform` or names a preset outside
 this enum.
 
-### Native PPTX Table / Chart Markers (Opt-in)
+### PowerPoint-Native Chart / Table Replacement Markers (Opt-in)
 
 Native PowerPoint tables and Excel-backed charts activate at export time only. The default chart/table route remains hand-authored SVG geometry so the deck stays pixel-stable across PowerPoint / Keynote / LibreOffice / WPS.
 
 **Authoring — markers are standard on supported data charts and text-grid tables**: Executor writes the marker at draw time on every data chart whose type falls in the supported set and on every pure text-grid data table ([executor-base.md §3.2](executor-base.md)), so any deck can later form native objects without regeneration. Canonical rectangular merged text cells may use the narrow `row_span` / `col_span` contract below; graphical cells stay unmarked on the SVG fallback route. The marker group supplies both: visible SVG fallback children for browser/live-preview rendering, and JSON metadata for `svg_to_pptx` native export.
 
-**Hard rule — activation is the opt-in, dormant unless exported with `--native-objects`**: A marker only declares that a group is eligible for native export. Normal `svg_to_pptx.py` runs keep the fallback SVG children. Pass `--native-objects` only when editability in PowerPoint matters more than cross-renderer layout fidelity: it emits the PowerPoint object and skips the fallback children to avoid duplicates. Native styling preserves the core palette, text, axis, grid, and background colors where possible, but it is still a PowerPoint chart/table object rather than a pixel-identical SVG drawing.
+**Hard rule — activation is the opt-in, dormant unless exported with `--native-charts-and-tables`**: A marker only declares that a group is eligible for PowerPoint-native Chart/Table replacement. Normal `svg_to_pptx.py` runs keep the fallback SVG children and convert them into independently editable DrawingML shapes. Pass `--native-charts-and-tables` only when the data source and chart/table-specific object model matter more than cross-renderer layout fidelity: it emits the PowerPoint Chart/Table object and skips the fallback children to avoid duplicates. Native styling preserves the core palette, text, axis, grid, and background colors where possible, but it is still a PowerPoint Chart/Table object rather than a pixel-identical SVG drawing.
 
-The native route is deliberately editable-first and may be lossy: marker-local labels, callouts, KPIs, guide lines, custom split/bin semantics, or styling that is absent from the payload may disappear or normalize. Export warns about this route-level risk and any narrower issue it can detect. Loss of visual parity is not grounds to remove an active marker that the emitter can otherwise convert; use the default SVG-fallback export when exact authored artwork matters more than editability.
+The native route is deliberately data-object-first and may be lossy: marker-local labels, callouts, KPIs, guide lines, custom split/bin semantics, or styling that is absent from the payload may disappear or normalize. Export warns about this route-level risk and any narrower issue it can detect. Loss of visual parity is not grounds to remove an active marker that the emitter can otherwise convert; use the default SVG-fallback export when exact authored artwork matters more than a native data source and object-specific controls.
 
-| Marker | Native output | Required metadata |
+| Replacement marker | Native output | Required metadata |
 |---|---|---|
-| `<g data-pptx-native="table">` | `<p:graphicFrame>` with `<a:tbl>` | bounds + `columns` or `rows` |
-| `<g data-pptx-native="chart">` | `<p:graphicFrame>` with `c:chart` / `cx:chart` + chart part + embedded workbook | bounds + `type`, plus chart data |
+| `<g data-pptx-replace-with="table">` | `<p:graphicFrame>` with `<a:tbl>` | bounds + `columns` or `rows` |
+| `<g data-pptx-replace-with="chart">` | `<p:graphicFrame>` with `c:chart` / `cx:chart` + chart part + embedded workbook | bounds + `type`, plus chart data |
 
-**Metadata placement**: Put JSON in a child `<metadata data-pptx-native="...">`. Attribute JSON (`data-pptx-json="..."`) is supported but harder to XML-escape correctly.
+**Metadata placement**: Put JSON in one child
+`<metadata type="application/json">`. The parent group's
+`data-pptx-replace-with` value selects the table or chart schema, so the
+metadata child does not repeat an object-kind attribute. Attribute JSON
+(`data-pptx-json="..."`) remains read-compatible but is harder to XML-escape
+correctly and is not canonical authoring.
 
 **Bounds**: Provide `x`, `y`, `width`, and `height` in metadata, or as
 `data-pptx-x` / `data-pptx-y` / `data-pptx-width` / `data-pptx-height` on the
@@ -1149,7 +1199,7 @@ inside PowerPoint's 32-bit DrawingML coordinate range; `width` and `height`
 must resolve to at least one EMU. Native table frames must additionally resolve
 to at least one EMU per resolved row and column.
 
-**Validation**: `svg_quality_checker.py` validates native marker kind, JSON
+**Validation**: `svg_quality_checker.py` validates replacement marker kind, JSON
 metadata, bounds/fallback availability, table rows/columns, supported chart
 type, chart data shape, and any imported fallback baseline before export.
 
@@ -1158,8 +1208,8 @@ by `pptx_to_svg.py` carry `data-pptx-fallback-sha256`, a canonical hash of the
 marker fallback plus reachable document-level SVG fragment definitions. Editing
 geometry/text/paint, switching a local `url(#...)` or `href="#..."` target,
 changing a reachable definition, or changing the marker transform makes the
-native metadata stale. The mandatory quality checker warns and the default route
-keeps the edited SVG; `--native-objects` hard-fails before replacement so it
+replacement metadata stale. The mandatory quality checker warns and the default route
+keeps the edited SVG; `--native-charts-and-tables` hard-fails before replacement so it
 cannot discard that edit. Metadata/title/description nodes, `data-pptx-*`
 runtime attributes, marker-local stable ID renames, and marker-local
 `display:none` subtrees are excluded. `visibility:hidden` content,
@@ -1170,23 +1220,42 @@ Hashless legacy markers remain native-compatible and warn in the checker/native
 route that stale detection is unavailable. A stale hash is an integrity mismatch,
 not a visual-parity gate on an unchanged active marker.
 
-**Hard rule — imported visual/route status**: A PPTX chart with a complete baked preview
-may carry `data-pptx-visual-status="source-preview"`. Supported parsed classic
-families without a preview use a deterministic readable fallback marked
-`data-pptx-visual-status="normalized"`; it is explicitly not source-exact.
-When no current renderer exists, the importer emits its typed reconstruction aid with both
-`data-pptx-visual-status="placeholder"` and
-`data-pptx-route-status="reconstruction-only"`. The valid pair is diagnostic:
-quality checking and export warn, default export keeps the placeholder, and
-`--native-objects` may reconstruct an editable chart when the same group has a
-valid active `data-pptx-native="chart"` payload. The allowed values and pair
-remain closed; unknown, whitespace-padded, or contradictory values fail.
-`data-pptx-native` and `data-pptx-native-status` are mutually exclusive on the
-same visible group.
+**Hard rule — imported fallback kind**: A PPTX chart with a complete baked
+preview may carry `data-pptx-fallback-kind="source-preview"`. Supported parsed
+classic families without a preview use a deterministic readable fallback
+marked `data-pptx-fallback-kind="normalized"`; it is explicitly not
+source-exact. When no current renderer exists, the importer emits its typed
+reconstruction aid with `data-pptx-fallback-kind="placeholder"`. That value
+alone records the diagnostic reconstruction-only fallback: quality checking
+and export warn, default export keeps the placeholder, and
+`--native-charts-and-tables` may reconstruct a PowerPoint-native chart when the same
+group has a valid active `data-pptx-replace-with="chart"` payload. The allowed
+values remain closed; unknown, whitespace-padded, or contradictory values fail.
+`data-pptx-replacement-status` records the closed reason code when imported
+content has a complete visual fallback but cannot make an active replacement
+claim. It and `data-pptx-replace-with` are mutually exclusive on the same
+visible group.
+
+**Imported replacement provenance**: A table/chart group created by
+`pptx_to_svg.py` under this contract—whether it has an active replacement claim
+or a fallback-only status—carries `data-pptx-import-source="pptx"`. This records
+provenance for the imported-style normalization path; it does not identify the
+replacement kind, and generated authoring omits it.
+
+**Legacy read compatibility**: The converter and checker continue to read
+`data-pptx-native`, `data-pptx-native-status`, `data-pptx-native-source`, and
+`data-pptx-visual-status`. The legacy pair
+`data-pptx-visual-status="placeholder"` plus
+`data-pptx-route-status="reconstruction-only"` maps to canonical
+`data-pptx-fallback-kind="placeholder"`; canonical authoring has no route-status
+attribute. `--native-objects` remains a compatibility alias for
+`--native-charts-and-tables`. New generated SVG and documented commands MUST
+use the canonical spellings. If a legacy and canonical attribute are both
+present, they must resolve to the same value; a conflict fails validation.
 
 ```xml
-<g id="p03-revenue-chart" data-pptx-native="chart">
-  <metadata data-pptx-native="chart">
+<g id="p03-revenue-chart" data-pptx-replace-with="chart">
+  <metadata type="application/json">
     {
       "x": 120, "y": 150, "width": 520, "height": 320,
       "type": "column",
@@ -1243,7 +1312,7 @@ has no explicit table font, use the deck body family and locked body size from
 
 **Hard rule — table metadata is the native source of truth**: Every row,
 summary line, value, and cell-level style that must survive
-`--native-objects` must be present in `columns` / `rows`. SVG fallback text is
+`--native-charts-and-tables` must be present in `columns` / `rows`. SVG fallback text is
 discarded during native export. `svg_quality_checker.py` warns when visible
 fallback `<text>` inside a native table marker does not appear in metadata.
 For numeric or currency columns, use cell objects with `align: "r"`; SVG
@@ -1347,8 +1416,8 @@ becomes the second rich-text line of that classic chart title. `title`,
 `subtitle`, and axis-title values may be strings or objects with `text`,
 `font_size`, `font_family`, and `color` when the fallback uses local role
 typography. `svg_quality_checker.py` rejects `title`, `subtitle`, or axis-title
-metadata whose text is not visible inside the native marker's fallback. Direct
-`--native-objects` export keeps the chart native but omits that inconsistent
+metadata whose text is not visible inside the replacement marker's fallback. Direct
+`--native-charts-and-tables` export keeps the chart native but omits that inconsistent
 chrome with a warning. chartEx keeps PowerPoint's empty `<cx:title>` and emits
 the title / subtitle as companion editable text boxes until chartEx rich titles
 are validated. Axis
@@ -1412,7 +1481,7 @@ order. Use either `series` with four entries, or top-level `open`, `high`,
 stock charts with shared numeric date caches, `hiLowLines`, and `upDownBars`.
 Safe stock series style may pass the structural gate, but stock series,
 `hiLowLines`, and up-down bar local styling can still normalize under the
-editable-first contract. HLC, volume, noncanonical structure, and style XML
+data-object-first contract. HLC, volume, noncanonical structure, and style XML
 outside the safe parsing boundary stay fallback-only.
 
 **PPTX chart-import boundary**: The importer recognizes conservative classic
@@ -1466,7 +1535,7 @@ cylinder, pyramid variants, and `surface`) are unsupported.
 Native legends are opt-in through `show_legend: true`; `legend_position`
 defaults to `bottom` and accepts `top`, `left`, or `right`.
 
-**Forbidden — native marker transforms**: Do not rotate, skew, or matrix-transform native table/chart marker groups. Translate / scale is accepted; complex transforms fail export because PowerPoint native table/chart frames do not preserve arbitrary SVG transforms.
+**Forbidden — replacement marker transforms**: Do not rotate, skew, or matrix-transform table/chart replacement groups. Translate / scale is accepted; complex transforms fail export because PowerPoint-native table/chart frames do not preserve arbitrary SVG transforms.
 
 ### PPTX Structure Routing
 
@@ -1558,7 +1627,7 @@ and visible-stroke rects also remain ordinary objects.
 | `title`, `subtitle`, `body` | one `<text data-pptx-placeholder-carrier="true">` | `title`, `subTitle`, `body` |
 | `date`, `footer`, `slide-number` | one `<text data-pptx-placeholder-carrier="true">` | `dt`, `ftr`, `sldNum` |
 | `picture` | one `<image>` or supported imported crop `<svg>`, marked as carrier | `pic` |
-| `chart`, `table` | one matching `data-pptx-native` marker group, marked as carrier | `chart`, `tbl` |
+| `chart`, `table` | one matching `data-pptx-replace-with` marker group, marked as carrier | `chart`, `tbl` |
 | `object` | one text, image, or basic SVG shape marked as carrier; alternatively the slot group declares `binding="proxy"` | `obj` |
 | `media` | one `<image>` or supported imported crop `<svg>`, marked as carrier | `media` |
 
@@ -1612,7 +1681,7 @@ generated OOXML must be identical within the affected master/layout group.
 Static structure may carry shapes, text, or images; non-image/external relationships are rejected. Every static object is atomic; a `<g data-pptx-layer="master|layout">` is forbidden. A full-canvas first rect may be marked as a Master or Layout background.
 
 **Native object slot carriers**: `chart` / `table` slots require
-`--native-objects`; fallback groups contain several shapes and cannot map to one
+`--native-charts-and-tables`; fallback groups contain several shapes and cannot map to one
 PowerPoint placeholder. `object` is the generic PowerPoint content slot and
 uses either one carrier object or the explicit composite proxy downgrade. `media` currently binds
 an authored image/crop to a native `media` placeholder; it does not synthesize

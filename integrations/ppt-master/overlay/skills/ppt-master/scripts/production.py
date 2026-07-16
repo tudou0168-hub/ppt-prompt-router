@@ -1,43 +1,44 @@
 #!/usr/bin/env python3
-"""Stateful, opt-in per-page production control for PPT Master projects."""
+"""Deterministic workflow gates for PPT Director managed projects."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import shutil
-import subprocess
-import sys
 import tempfile
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0"
-STATE_REL = Path("analysis/production_state.json")
-CURRENT_REL = Path(".page_work/current.svg")
-REVIEW_STATUSES = {"ok", "fixed", "needs_human", "render_failed", "prereq_failed"}
-GLOBAL_HASH_FILES = {
-    "director_contract_hash": Path("analysis/director_contract.json"),
-    "director_profile_hash": Path("analysis/director_profile.md"),
-    "director_plan_hash": Path("analysis/director_plan.json"),
-    "design_spec_hash": Path("design_spec.md"),
-    "spec_lock_hash": Path("spec_lock.md"),
+STATE_FILE = Path("analysis/production_state.json")
+CURRENT_FILE = Path(".page_work/current.svg")
+STAGES = {
+    "director_pending", "design_pending", "sample_production", "sample_confirmation",
+    "production", "midpoint_required", "deck_review_required", "export_ready",
+    "exported", "repair_required",
+}
+TOP_LEVEL_FIELDS = {
+    "stage", "active_page", "global_hashes", "samples", "pages",
+    "midpoint_review", "deck_review", "export",
 }
 
 
 class ProductionError(RuntimeError):
-    """Raised when a production invariant would be violated."""
+    def __init__(self, message: str, *, next_actions: list[str] | None = None):
+        super().__init__(message)
+        self.code = "WORKFLOW_BLOCKED"
+        self.next_actions = next_actions or []
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _sha256(path: Path) -> str:
+def _sha256(path: Path) -> str | None:
+    if not path.is_file():
+        return None
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -45,48 +46,78 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+def _canonical_hash(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def _load_json(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(payload, stream, ensure_ascii=False, indent=2)
+            json.dump(value, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
-        os.replace(tmp_name, path)
+        os.replace(temporary, path)
     finally:
-        if os.path.exists(tmp_name):
-            os.unlink(tmp_name)
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
-def _project(path: str | Path) -> Path:
-    project = Path(path).expanduser().resolve()
-    if not project.is_dir():
-        raise ProductionError(f"project not found: {project}")
+def _project(value: str | Path) -> Path:
+    project = Path(value).expanduser().resolve()
+    if not (project / "analysis" / "director_contract.json").is_file():
+        raise ProductionError(f"not a managed PPT Director project: {project}")
     return project
 
 
 def _state_path(project: Path) -> Path:
-    return project / STATE_REL
+    return project / STATE_FILE
 
 
 def _load(project: Path) -> dict[str, Any]:
     path = _state_path(project)
     if not path.is_file():
-        raise ProductionError(f"controlled production is not initialized: {path}")
+        raise ProductionError("production_state.json is missing", next_actions=["start"])
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ProductionError(f"invalid production state: {exc}") from exc
-    if state.get("schema_version") != SCHEMA_VERSION:
-        raise ProductionError(
-            f"unsupported production state schema: {state.get('schema_version')!r}"
-        )
+    if set(state) != TOP_LEVEL_FIELDS:
+        raise ProductionError("production state has unsupported top-level fields")
+    if state.get("stage") not in STAGES:
+        raise ProductionError(f"unsupported production stage: {state.get('stage')}")
     return state
 
 
 def _save(project: Path, state: dict[str, Any]) -> None:
-    state["updated_at"] = _now()
+    if set(state) != TOP_LEVEL_FIELDS or state["stage"] not in STAGES:
+        raise ProductionError("refusing to write invalid production state")
     _atomic_json(_state_path(project), state)
+
+
+def _plan(project: Path) -> dict[str, Any]:
+    from director_plan import load_plan
+    return load_plan(project)
+
+
+def _pages(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    return list(plan["pages"])
+
+
+def _sample_ids(plan: dict[str, Any]) -> list[str]:
+    return [item["page_id"] for item in plan["sample_pages"]]
 
 
 def _page(state: dict[str, Any], page_id: str) -> dict[str, Any]:
@@ -96,862 +127,718 @@ def _page(state: dict[str, Any], page_id: str) -> dict[str, Any]:
         raise ProductionError(f"unknown page: {page_id}") from exc
 
 
-def _work_path(project: Path, record: dict[str, Any]) -> Path:
-    rel = record.get("work_file") or str(Path(".page_work/repairs") / record["output_file"])
-    return project / rel
+def _page_record() -> dict[str, Any]:
+    return {
+        "state": "pending", "svg_hash": None, "png_hash": None,
+        "machine_check_hash": None, "review_report_hash": None,
+        "reviewed_png_hash": None, "review_passed": False,
+        "blocking_issues": [], "notes_hash": None,
+        "input_hash": None,
+    }
 
 
-def _director_plan(project: Path) -> dict[str, Any] | None:
-    path = project / "analysis" / "director_plan.json"
-    if not path.is_file():
+def _global_files(project: Path) -> dict[str, Path]:
+    return {
+        "director_contract_hash": project / "analysis" / "director_contract.json",
+        "director_profile_hash": project / "analysis" / "director_profile.md",
+        "director_plan_hash": project / "analysis" / "director_plan.json",
+        "design_spec_hash": project / "design_spec.md",
+        "spec_lock_hash": project / "spec_lock.md",
+        "capability_snapshot_hash": project / ".director" / "capability_snapshot.json",
+        "generation_mode_hash": project / ".director" / "generation_mode.json",
+        "master_handoff_hash": project / ".director" / "master_handoff.md",
+        "selected_sample_hash": project / ".director" / "selected_sample.json",
+    }
+
+
+def _current_source_hashes(project: Path) -> list[dict[str, str | None]]:
+    contract = _load_json(project / "analysis" / "director_contract.json") or {}
+    rows = []
+    for row in contract.get("source_files") or []:
+        if not isinstance(row, dict) or not row.get("path"):
+            continue
+        path = Path(str(row["path"])).expanduser()
+        try:
+            logical_path = path.resolve().relative_to(project.resolve()).as_posix()
+        except ValueError:
+            logical_path = path.name
+        rows.append({"logical_path": logical_path, "sha256": _sha256(path)})
+    return sorted(rows, key=lambda item: (item["logical_path"], item["sha256"] or ""))
+
+
+def _current_template_hash(project: Path) -> str | None:
+    contract = _load_json(project / "analysis" / "director_contract.json") or {}
+    raw = (contract.get("template") or {}).get("path")
+    return _sha256(Path(str(raw)).expanduser()) if raw else None
+
+
+def _mode_semantic_hash(project: Path) -> str | None:
+    mode = _load_json(project / ".director" / "generation_mode.json")
+    if not mode:
         return None
-    try:
-        plan = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ProductionError(f"invalid director plan: {exc}") from exc
-    return plan
+    inputs = mode.get("semantic_inputs")
+    if not isinstance(inputs, dict):
+        return mode.get("mode_semantic_hash") or _sha256(project / ".director" / "generation_mode.json")
+    current = dict(inputs)
+    current["source_hashes"] = _current_source_hashes(project)
+    current["template_hash"] = _current_template_hash(project)
+    return _canonical_hash(current)
 
 
-def _plan_pages(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    return list(plan.get("pages") or plan.get("slides") or [])
+def _global_hash(project: Path, key: str, path: Path) -> str | None:
+    if key == "capability_snapshot_hash":
+        snapshot = _load_json(path) or {}
+        return snapshot.get("capability_semantic_hash") or _sha256(path)
+    if key == "generation_mode_hash":
+        return _mode_semantic_hash(project)
+    return _sha256(path)
 
 
-def _plan_samples(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    return list(plan.get("sample_pages") or plan.get("samples") or [])
+def _current_globals(project: Path) -> dict[str, str | None]:
+    return {key: _global_hash(project, key, path) for key, path in _global_files(project).items()}
 
 
-def _requires_native_review(project: Path) -> bool:
-    plan = _director_plan(project)
-    return bool(plan and isinstance(plan.get("pages"), list))
+def _clear_reviews(state: dict[str, Any]) -> None:
+    state["midpoint_review"] = {"status": "pending", "reviewed_pages": []}
+    state["deck_review"] = {"status": "pending", "reviewed_pages": [], "blocking_issues": []}
+    state["export"] = {"path": None, "pptx_hash": None, "input_hashes": {}}
 
 
-def _review_path(project: Path, page_id: str) -> Path:
-    return project / ".review" / f"{page_id}.json"
-
-
-def _reset_visual_record(record: dict[str, Any], reason: str) -> None:
-    record["visual_check"] = {"status": "pending", "reason": reason}
+def _invalidate_page(record: dict[str, Any], *, state: str = "repair_required", svg: bool = False, notes: bool = False) -> None:
+    record["state"] = state
+    if svg:
+        record["svg_hash"] = None
+        record["png_hash"] = None
+        record["machine_check_hash"] = None
+    if notes:
+        record["notes_hash"] = None
     record["review_report_hash"] = None
     record["reviewed_png_hash"] = None
     record["review_passed"] = False
     record["blocking_issues"] = []
 
 
-def _current_global_hashes(project: Path) -> dict[str, str | None]:
-    return {
-        key: _sha256(project / rel) if (project / rel).is_file() else None
-        for key, rel in GLOBAL_HASH_FILES.items()
-    }
+def _notes_path(project: Path, page_id: str) -> Path:
+    for suffix in (".md", ".txt"):
+        candidate = project / "notes" / f"{page_id}{suffix}"
+        if candidate.is_file():
+            return candidate
+    total = project / "notes" / "total.md"
+    return total if total.is_file() else project / "notes" / f"{page_id}.md"
 
 
-def _lock_or_check_global_hashes(project: Path, state: dict[str, Any]) -> None:
-    recorded = state.setdefault("global_hashes", {})
-    current = _current_global_hashes(project)
-    changed: list[str] = []
-    for key, value in current.items():
-        if recorded.get(key) is None and value is not None:
-            recorded[key] = value
-        elif recorded.get(key) is not None and recorded.get(key) != value:
-            changed.append(key)
-    if changed:
-        raise ProductionError(f"locked project inputs changed: {', '.join(changed)}")
+def _output_path(project: Path, page_id: str) -> Path:
+    return project / "svg_output" / f"{page_id}.svg"
 
 
-def _director_requirements(project: Path, page_id: str) -> dict[str, Any]:
-    plan = _director_plan(project)
-    if not plan:
-        return {}
-    page = next((item for item in _plan_pages(plan) if item.get("page_id") == page_id), None)
-    if not page:
-        return {}
-    if "pages" in plan:
-        fields = (
-            "headline",
-            "page_goal",
-            "page_role",
-            "key_message",
-            "relationship_type",
-            "visual_anchor",
-            "evidence_refs",
-            "rhythm_role",
-        )
-        return {key: page.get(key) for key in fields}
-    return {
-        "headline": page.get("page_name"),
-        "page_goal": page.get("page_goal"),
-        "page_role": page.get("page_type"),
-        "key_message": page.get("key_message"),
-        "visual_anchor": page.get("visual_structure"),
-    }
+def _review_path(project: Path, page_id: str) -> Path:
+    return project / ".review" / f"{page_id}.json"
 
 
-def _invalidate_record(
-    project: Path,
-    state: dict[str, Any],
-    page_id: str,
-    *,
-    source: Path | None,
-    reason: str,
-) -> None:
-    record = _page(state, page_id)
-    repair_path = project / ".page_work" / "repairs" / record["output_file"]
-    repair_path.parent.mkdir(parents=True, exist_ok=True)
-    if source and source.is_file():
-        os.replace(source, repair_path)
-    preview = project / record.get("png_file", f".preview/{page_id}.png")
-    preview.unlink(missing_ok=True)
-    record.update(
-        {
-            "status": "repair_required",
-            "work_file": str(repair_path.relative_to(project)),
-            "svg_hash": None,
-            "png_hash": None,
-            "machine_check": {"status": "pending", "reason": reason},
-        }
-    )
-    _reset_visual_record(record, reason)
-    state["last_invalidation"] = {"page": page_id, "reason": reason, "at": _now()}
-    _reset_dependent_gates(state, page_id)
+def _preview_path(project: Path, page_id: str) -> Path:
+    return project / ".preview" / f"{page_id}.png"
 
 
-def _passed_pages(state: dict[str, Any]) -> list[str]:
-    return [page_id for page_id in state["page_order"] if _page(state, page_id).get("status") == "passed"]
-
-
-def _midpoint_threshold(state: dict[str, Any]) -> int:
-    return max(1, (len(state["page_order"]) + 1) // 2)
-
-
-def _reset_dependent_gates(state: dict[str, Any], page_id: str) -> None:
-    samples = state.get("samples") or {}
-    if samples.get("required") and page_id in samples.get("pages", []):
-        samples["status"] = "revision_required"
-        samples.pop("approved_at", None)
-    midpoint = state.get("midpoint_review") or {}
-    if midpoint.get("required") and len(_passed_pages(state)) < _midpoint_threshold(state):
-        midpoint["status"] = "pending"
-        midpoint.pop("approved_at", None)
-    deck = state.get("deck_review") or {}
-    if deck.get("required"):
-        deck["status"] = "pending"
-        deck.pop("approved_at", None)
-
-
-def reconcile(project: Path, state: dict[str, Any]) -> bool:
-    """Reconcile recorded hashes with files; return whether state changed."""
-    changed = False
-    active_page = state.get("active_page")
-    current = project / CURRENT_REL
-
-    for page_id in state["page_order"]:
-        record = _page(state, page_id)
-        if record.get("status") == "passed":
-            output = project / "svg_output" / record["output_file"]
-            preview = project / record.get("png_file", f".preview/{page_id}.png")
-            reason = None
-            if not output.is_file() or _sha256(output) != record.get("svg_hash"):
-                reason = "passed SVG is missing or changed"
-            elif not preview.is_file() or _sha256(preview) != record.get("png_hash"):
-                reason = "reviewed PNG is missing or changed"
-            elif _requires_native_review(project):
-                report = _review_path(project, page_id)
-                if not report.is_file() or _sha256(report) != record.get("review_report_hash"):
-                    reason = "visual review report is missing or changed"
-                elif record.get("reviewed_png_hash") != record.get("png_hash"):
-                    reason = "reviewed PNG hash no longer matches the passed page"
-            if reason:
-                _invalidate_record(
-                    project,
-                    state,
-                    page_id,
-                    source=output if output.is_file() else None,
-                    reason=reason,
-                )
-                changed = True
-
-    if active_page:
-        record = _page(state, active_page)
-        checked_hash = record.get("svg_hash")
-        if checked_hash and (not current.is_file() or _sha256(current) != checked_hash):
-            record.update(
-                {
-                    "status": "active",
-                    "svg_hash": None,
-                    "png_hash": None,
-                    "machine_check": {
-                        "status": "pending",
-                        "reason": "current SVG changed after check",
-                    },
-                }
-            )
-            _reset_visual_record(record, "current SVG changed after check")
-            changed = True
-    return changed
-
-
-def init_production(project_path: str | Path, pages: list[str], *, stage: str = "production") -> dict[str, Any]:
+def initialize_project(project_path: str | Path) -> dict[str, Any]:
     project = _project(project_path)
-    if not pages or any(not page.strip() for page in pages):
-        raise ProductionError("at least one non-empty page id is required")
-    page_order = list(dict.fromkeys(page.strip() for page in pages))
-    if len(page_order) != len(pages):
-        raise ProductionError("page ids must be unique")
-    state_path = _state_path(project)
-    if state_path.exists():
-        raise ProductionError(f"production state already exists: {state_path}")
-
-    (project / "analysis").mkdir(exist_ok=True)
-    (project / ".page_work" / "repairs").mkdir(parents=True, exist_ok=True)
-    (project / ".preview").mkdir(exist_ok=True)
-    (project / "svg_output").mkdir(exist_ok=True)
-    state: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "stage": stage,
-        "created_at": _now(),
-        "updated_at": _now(),
-        "page_order": page_order,
-        "active_page": None,
-        "global_hashes": _current_global_hashes(project),
-        "pages": {
-            page_id: {
-                "status": "pending",
-                "output_file": f"{page_id}.svg",
-                "png_file": f".preview/{page_id}.png",
-                "svg_hash": None,
-                "png_hash": None,
-                "machine_check": {"status": "pending"},
-                "visual_check": {"status": "pending"},
-                "review_report_hash": None,
-                "reviewed_png_hash": None,
-                "review_passed": False,
-                "blocking_issues": [],
-            }
-            for page_id in page_order
-        },
-        "samples": {"required": False, "status": "not_required", "pages": []},
-        "midpoint_review": {"required": False, "status": "not_required"},
-        "deck_review": {"required": False, "status": "not_required"},
+    if _state_path(project).exists():
+        raise ProductionError("production state already exists")
+    state = {
+        "stage": "director_pending", "active_page": None, "global_hashes": _current_globals(project),
+        "samples": {"page_ids": [], "status": "pending", "approved_hashes": {}},
+        "pages": {}, "midpoint_review": {"status": "pending", "reviewed_pages": []},
+        "deck_review": {"status": "pending", "reviewed_pages": [], "blocking_issues": []},
+        "export": {"path": None, "pptx_hash": None, "input_hashes": {}},
     }
     _save(project, state)
     return state
 
 
-def _assert_begin_allowed(state: dict[str, Any], page_id: str) -> None:
-    active = state.get("active_page")
-    if active:
-        raise ProductionError(f"page {active} is active; pass it before beginning another page")
-    repairs = [
-        pid for pid in state["page_order"] if _page(state, pid).get("status") == "repair_required"
-    ]
-    if repairs and page_id not in repairs:
-        raise ProductionError(f"repair required before continuing: {', '.join(repairs)}")
-
-    samples = state.get("samples") or {}
-    if samples.get("required") and samples.get("status") != "approved":
-        if page_id not in samples.get("pages", []):
-            raise ProductionError("sample approval is required before non-sample pages")
-        for earlier in samples.get("pages", [])[: samples.get("pages", []).index(page_id)]:
-            if _page(state, earlier).get("status") != "passed":
-                raise ProductionError(f"sample order requires {earlier} to pass first")
-
-    record = _page(state, page_id)
-    if record.get("status") not in {"pending", "repair_required"}:
-        raise ProductionError(f"page {page_id} cannot begin from status {record.get('status')}")
-
-    if not samples.get("required"):
-        for earlier in state["page_order"][: state["page_order"].index(page_id)]:
-            if _page(state, earlier).get("status") != "passed":
-                raise ProductionError(f"page order requires {earlier} to pass first")
-    elif samples.get("status") == "approved":
-        next_page = next(
-            (
-                pid for pid in state["page_order"]
-                if _page(state, pid).get("status") in {"pending", "repair_required"}
-            ),
-            None,
-        )
-        if next_page is not None and page_id != next_page:
-            raise ProductionError(f"director plan order requires {next_page} next")
-
-    midpoint = state.get("midpoint_review") or {}
-    if (
-        midpoint.get("required")
-        and midpoint.get("status") != "approved"
-        and len(_passed_pages(state)) >= _midpoint_threshold(state)
-    ):
-        raise ProductionError("midpoint review is required before continuing")
+def _generation_mode(project: Path) -> dict[str, Any]:
+    path = project / ".director" / "generation_mode.json"
+    if not path.is_file():
+        return {"mode": "standard", "sample_strategy": "single"}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def begin_page(project_path: str | Path, page_id: str) -> dict[str, Any]:
+def _sample_state(project: Path, page_ids: list[str]) -> dict[str, Any]:
+    mode = _generation_mode(project)
+    if mode.get("sample_strategy") != "three_groups":
+        return {"page_ids": page_ids, "status": "pending", "approved_hashes": {}}
+    return {
+        "page_ids": page_ids, "status": "pending", "approved_hashes": {},
+        "strategy": "three_groups", "round": 1, "active_direction": None,
+        "directions": {
+            direction: {"pages": {page_id: _page_record() for page_id in page_ids}}
+            for direction in ("A", "B", "C")
+        },
+    }
+
+
+def attach_director_plan(project_path: str | Path) -> dict[str, Any]:
     project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
+    state, plan = _load(project), _plan(project)
+    if state["stage"] != "director_pending" or state["pages"]:
+        raise ProductionError("director plan can only be attached once in director_pending")
+    state["pages"] = {page["page_id"]: _page_record() for page in _pages(plan)}
+    state["samples"] = _sample_state(project, _sample_ids(plan))
+    state["global_hashes"] = _current_globals(project)
+    state["stage"] = "design_pending"
+    _save(project, state)
+    return state
+
+
+def _required_typography(profile_id: str) -> tuple[int, int, int]:
+    return (20, 16, 12) if profile_id in {"government_strategy", "decision_meeting"} else (18, 16, 12)
+
+
+def lock_spec(project_path: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state)
+    if state["stage"] not in {"design_pending", "repair_required"}:
+        raise ProductionError("spec can only be locked in design_pending or repair_required", next_actions=["status"])
+    design, lock = project / "design_spec.md", project / "spec_lock.md"
+    if not design.is_file() or not lock.is_file() or not design.read_text(encoding="utf-8").strip() or not lock.read_text(encoding="utf-8").strip():
+        raise ProductionError("design_spec.md and spec_lock.md must be complete before samples")
+    contract = json.loads((project / "analysis" / "director_contract.json").read_text(encoding="utf-8"))
+    minimums = _required_typography(str(contract["profile"]["id"]))
+    marker = f"minimum_font_sizes: body={minimums[0]}px supporting={minimums[1]}px footnote={minimums[2]}px"
+    if marker not in lock.read_text(encoding="utf-8"):
+        raise ProductionError(f"spec_lock.md must freeze: {marker}")
+    state["global_hashes"] = _current_globals(project)
+    state["stage"] = "sample_production"
+    _save(project, state)
+    return {"stage": state["stage"], "sample_pages": state["samples"]["page_ids"], "next_allowed_actions": ["page-begin <sample_page_id>"]}
+
+
+def _sample_snapshot(project: Path, page_id: str) -> dict[str, str | None]:
+    return {"svg_hash": _sha256(_output_path(project, page_id)), "png_hash": _sha256(_preview_path(project, page_id)), "review_hash": _sha256(_review_path(project, page_id))}
+
+
+def _sample_root(project: Path, state: dict[str, Any], direction: str) -> Path:
+    return project / ".director" / "samples" / f"round-{int(state['samples'].get('round', 1)):03d}" / direction
+
+
+def _sample_paths(project: Path, state: dict[str, Any], direction: str, page_id: str) -> tuple[Path, Path, Path]:
+    root = _sample_root(project, state, direction)
+    return root / "svg" / f"{page_id}.svg", root / "preview" / f"{page_id}.png", root / "review" / f"{page_id}.json"
+
+
+def _sample_record(state: dict[str, Any], direction: str, page_id: str) -> dict[str, Any]:
+    try:
+        return state["samples"]["directions"][direction]["pages"][page_id]
+    except KeyError as exc:
+        raise ProductionError(f"unknown sample direction/page: {direction}/{page_id}") from exc
+
+
+def _active_record(state: dict[str, Any], page_id: str) -> dict[str, Any]:
+    direction = state["samples"].get("active_direction")
+    return _sample_record(state, direction, page_id) if direction else _page(state, page_id)
+
+
+def _active_paths(project: Path, state: dict[str, Any], page_id: str) -> tuple[Path, Path, Path]:
+    direction = state["samples"].get("active_direction")
+    if direction:
+        return _sample_paths(project, state, direction, page_id)
+    return _output_path(project, page_id), _preview_path(project, page_id), _review_path(project, page_id)
+
+
+def reconcile(project_path: str | Path, state: dict[str, Any] | None = None) -> list[str]:
+    project = _project(project_path)
+    state = state or _load(project)
+    was_exported = state["stage"] == "exported"
+    changes: list[str] = []
+    current_globals = _current_globals(project)
+    recorded = state["global_hashes"]
+    changed_globals = [key for key, value in current_globals.items() if recorded.get(key) not in {None, value}]
+    if changed_globals:
+        for record in state["pages"].values():
+            _invalidate_page(record, state="repair_required", svg=True, notes=True)
+        previous_samples = state.get("samples") or {}
+        state["samples"] = _sample_state(project, _sample_ids(_plan(project)) if current_globals["director_plan_hash"] else [])
+        if state["samples"].get("strategy") == "three_groups":
+            state["samples"]["round"] = int(previous_samples.get("round", 0)) + 1
+        _clear_reviews(state)
+        state["stage"] = (
+            "design_pending"
+            if set(changed_globals).issubset({"design_spec_hash", "spec_lock_hash"}) and not was_exported
+            else "repair_required"
+        )
+        changes.extend(changed_globals)
+        state["global_hashes"] = current_globals
+
+    active = state.get("active_page")
+    for page_id, record in state["pages"].items():
+        svg_path = project / CURRENT_FILE if active == page_id else _output_path(project, page_id)
+        current_svg = _sha256(svg_path)
+        current_notes = _sha256(_notes_path(project, page_id))
+        if record.get("svg_hash") and record["svg_hash"] != current_svg:
+            _invalidate_page(record, state="active" if active == page_id else "repair_required", svg=True)
+            changes.append(f"svg:{page_id}")
+        if record.get("notes_hash") != current_notes and (record.get("notes_hash") is not None or current_notes is not None) and record.get("state") == "passed":
+            _invalidate_page(record, notes=True)
+            changes.append(f"notes:{page_id}")
+        review = _review_path(project, page_id)
+        preview = _preview_path(project, page_id)
+        if record.get("review_report_hash") and record["review_report_hash"] != _sha256(review):
+            _invalidate_page(record)
+            changes.append(f"review:{page_id}")
+        if record.get("png_hash") and record["png_hash"] != _sha256(preview):
+            _invalidate_page(record)
+            record["png_hash"] = None
+            changes.append(f"png:{page_id}")
+
+    approved = state["samples"].get("approved_hashes") or {}
+    if approved and any(approved.get(page_id) != _sample_snapshot(project, page_id) for page_id in state["samples"]["page_ids"]):
+        state["samples"]["approved_hashes"] = {}
+        state["samples"]["status"] = "pending"
+        state["stage"] = "sample_production"
+        changes.append("sample_approval")
+    if state["stage"] == "production" and state["midpoint_review"]["status"] == "passed":
+        ordered = [page["page_id"] for page in _pages(_plan(project))]
+        if ordered and _all_passed(state, ordered):
+            state["stage"] = "deck_review_required"
+            changes.append("deck_review_required")
+    if changes:
+        _clear_reviews(state)
+        if was_exported:
+            state["stage"] = "repair_required"
         _save(project, state)
-    _lock_or_check_global_hashes(project, state)
-    _assert_begin_allowed(state, page_id)
-    record = _page(state, page_id)
-    current = project / CURRENT_REL
-    current.parent.mkdir(parents=True, exist_ok=True)
-    current.unlink(missing_ok=True)
-    work_path = _work_path(project, record)
-    if record.get("status") == "repair_required" and work_path.is_file():
-        os.replace(work_path, current)
-    record.update(
-        {
-            "status": "active",
-            "work_file": str(CURRENT_REL),
-            "svg_hash": None,
-            "png_hash": None,
-            "machine_check": {"status": "pending"},
+    return changes
+
+
+def _next_actions(state: dict[str, Any]) -> list[str]:
+    stage = state["stage"]
+    return {
+        "director_pending": ["plan"], "design_pending": ["lock-spec"],
+        "sample_production": ["page-begin"], "sample_confirmation": ["sample-confirm A|B|C"],
+        "production": ["page-begin"], "midpoint_required": ["review midpoint"],
+        "deck_review_required": ["review deck"], "export_ready": ["export"],
+        "exported": ["status"], "repair_required": ["page-begin <repair_page>", "status"],
+    }[stage]
+
+
+def status(project_path: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    changes = reconcile(project, state)
+    state = _load(project)
+    return {"stage": state["stage"], "active_page": state["active_page"], "changes": changes, "samples": state["samples"], "pages": state["pages"], "next_allowed_actions": _next_actions(state)}
+
+
+def _director_page(project: Path, page_id: str) -> dict[str, Any]:
+    page = next((item for item in _pages(_plan(project)) if item["page_id"] == page_id), None)
+    if page is None:
+        raise ProductionError(f"page is not in director plan: {page_id}")
+    return page
+
+
+def begin_page(project_path: str | Path, page_id: str, router_root: str | Path, runtime_root: str | Path, *, direction: str | None = None) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    if state["active_page"]:
+        raise ProductionError(f"active page must finish first: {state['active_page']}")
+    allowed = state["stage"] in {"sample_production", "production", "repair_required"}
+    if not allowed:
+        raise ProductionError(f"page production is blocked in {state['stage']}", next_actions=_next_actions(state))
+    if state["stage"] == "sample_production" and page_id not in state["samples"]["page_ids"]:
+        raise ProductionError("only selected samples may be produced before confirmation")
+    grouped = state["stage"] == "sample_production" and state["samples"].get("strategy") == "three_groups"
+    if grouped and direction not in {"A", "B", "C"}:
+        raise ProductionError("template/premium samples require --direction A, B, or C")
+    if not grouped and direction:
+        raise ProductionError("--direction is only valid for template/premium sample groups")
+    state["samples"]["active_direction"] = direction if grouped else None
+    record = _sample_record(state, direction, page_id) if grouped else _page(state, page_id)
+    if grouped:
+        page_payload = _director_page(project, page_id)
+        input_payload = {
+            "schema_version": "1.0",
+            "page": page_payload,
+            "mode_semantic_hash": _mode_semantic_hash(project),
+            "template_hash": _current_template_hash(project),
         }
-    )
-    _reset_visual_record(record, "page begun")
+        record["input_hash"] = _canonical_hash(input_payload)
+    if state["stage"] == "repair_required" and record["state"] != "repair_required":
+        raise ProductionError(f"page {page_id} is not marked for repair")
+    if state["stage"] == "production":
+        pending = [page["page_id"] for page in _pages(_plan(project)) if _page(state, page["page_id"])["state"] != "passed"]
+        if pending and page_id != pending[0]:
+            raise ProductionError(f"next planned page is {pending[0]}")
+    current = project / CURRENT_FILE
+    current.parent.mkdir(parents=True, exist_ok=True)
+    source = _sample_paths(project, state, direction, page_id)[0] if grouped else _output_path(project, page_id)
+    if record["state"] == "repair_required" and source.is_file():
+        shutil.copy2(source, current)
+    else:
+        current.unlink(missing_ok=True)
+    _invalidate_page(record, state="active", svg=True)
     state["active_page"] = page_id
     _save(project, state)
-    result = dict(record)
-    result["director_requirements"] = _director_requirements(project, page_id)
-    return result
+    runtime = Path(runtime_root).resolve(); router = Path(router_root).resolve()
+    return {"stage": state["stage"], "page_id": page_id, "direction": direction, "work_file": str(current), "director_requirements": _director_page(project, page_id), "required_context": [str(path) for path in (
+        router / "SKILL.md", runtime / "MASTER.md", project / "analysis" / "director_profile.md",
+        project / "analysis" / "director_plan.json", project / "design_spec.md", project / "spec_lock.md",
+        runtime / "references" / "ppt-director-runtime.md",
+        runtime / "references" / "executor-base.md", runtime / "references" / "shared-standards.md",
+    )], "next_allowed_actions": ["write .page_work/current.svg", "page-check"]}
 
 
-def _run_quality_check(current: Path) -> subprocess.CompletedProcess[str]:
-    checker = Path(__file__).resolve().parent / "svg_quality_checker.py"
-    return subprocess.run(
-        [sys.executable, str(checker), str(current)],
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-
-def _render_svg(current: Path, output: Path) -> None:
-    """Delegate controlled rendering to PPT Master's native visual-review renderer."""
-    try:
-        from visual_review import render_svg_file
-    except ImportError as exc:
-        raise ProductionError("PPT Master visual_review.py is not importable") from exc
-    try:
-        result = render_svg_file(current, output)
-    except Exception as exc:
-        raise ProductionError(f"native visual-review render failed: {exc}") from exc
-    if not result.get("ok") or result.get("all_background"):
-        raise ProductionError("native visual-review render produced an invalid preview")
-
-
-def _next_render_iteration(project: Path, page_id: str) -> int:
-    preview_dir = project / ".preview"
-    iterations: list[int] = []
-    for path in preview_dir.glob(f"{page_id}.iter*.png"):
+def _iteration(project: Path, page_id: str) -> int:
+    values = []
+    for path in (project / ".preview").glob(f"{page_id}.iter*.png"):
         suffix = path.stem.rsplit("iter", 1)[-1]
-        if suffix.isdigit():
-            iterations.append(int(suffix))
-    return max(iterations, default=0) + 1
+        if suffix.isdigit(): values.append(int(suffix))
+    return max(values, default=0) + 1
 
 
-def check_render(project_path: str | Path) -> dict[str, Any]:
-    project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    page_id = state.get("active_page")
+def check_page(project_path: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    page_id = state["active_page"]
     if not page_id:
-        raise ProductionError("no active page; run begin first")
-    current = project / CURRENT_REL
+        raise ProductionError("no active page", next_actions=["page-begin"])
+    current = project / CURRENT_FILE
     if not current.is_file():
-        raise ProductionError(f"current SVG is missing: {current}")
-
-    result = _run_quality_check(current)
-    record = _page(state, page_id)
-    record["machine_check"] = {
-        "status": "passed" if result.returncode == 0 else "failed",
-        "at": _now(),
-        "exit_code": result.returncode,
-        "stdout": result.stdout[-12000:],
-        "stderr": result.stderr[-12000:],
-    }
-    if result.returncode != 0:
-        record["status"] = "active"
-        record["svg_hash"] = None
-        record["png_hash"] = None
+        raise ProductionError(".page_work/current.svg is missing")
+    from svg_quality_checker import SVGQualityChecker
+    result = SVGQualityChecker().check_file(str(current))
+    if not result.get("passed"):
+        _active_record(state, page_id)["blocking_issues"] = list(result.get("errors") or [])
         _save(project, state)
-        raise ProductionError(f"machine check failed for {page_id}")
-
-    iteration = _next_render_iteration(project, page_id)
-    output = project / ".preview" / f"{page_id}.iter{iteration}.png"
-    _render_svg(current, output)
-    record.update(
-        {
-            "status": "checked",
-            "svg_hash": _sha256(current),
-            "png_hash": _sha256(output),
-            "png_file": str(output.relative_to(project)),
-            "render_iteration": iteration,
-        }
-    )
-    _reset_visual_record(record, "awaiting visual review")
+        raise ProductionError("SVG machine check failed", next_actions=["fix current.svg", "page-check"])
+    from visual_review import render_svg_file
+    iteration = _iteration(project, page_id)
+    rendered = project / ".preview" / f"{page_id}.iter{iteration}.png"
+    render = render_svg_file(current, rendered)
+    if not render.get("ok") or render.get("all_background"):
+        raise ProductionError("visual review renderer produced an invalid preview")
+    _, canonical, _ = _active_paths(project, state, page_id)
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(rendered, canonical)
+    record = _active_record(state, page_id)
+    record.update({"state": "checked", "svg_hash": _sha256(current), "png_hash": _sha256(canonical), "machine_check_hash": hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest(), "review_report_hash": None, "reviewed_png_hash": None, "review_passed": False, "blocking_issues": []})
     _save(project, state)
-    return record
+    return {"page_id": page_id, "machine_check": result, "png": str(canonical), "png_hash": record["png_hash"], "next_allowed_actions": ["open PNG", "page-review"]}
 
 
-def _validate_visual_report(
-    project: Path,
-    state: dict[str, Any],
-    page_id: str,
-    current: Path,
-    preview: Path,
-) -> tuple[Path, dict[str, Any]]:
-    report_path = _review_path(project, page_id)
-    if not report_path.is_file():
-        raise ProductionError(f"native visual review report is missing: {report_path}")
-    try:
-        report = json.loads(report_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ProductionError(f"invalid native visual review report: {exc}") from exc
-
-    if report.get("page_id") != page_id or report.get("mode") != "controlled":
-        raise ProductionError("visual review report does not identify the active controlled page")
-    status = report.get("status")
-    if status not in REVIEW_STATUSES:
-        raise ProductionError(f"unsupported visual review status: {status!r}")
-    if status not in {"ok", "fixed"}:
-        raise ProductionError(f"visual review is not passed: {status}")
-    blocking = report.get("blocking_issues")
-    if not isinstance(blocking, list) or blocking:
-        raise ProductionError("visual review has blocking issues")
-    iterations = report.get("iterations")
-    if not isinstance(iterations, list) or not iterations:
-        raise ProductionError("visual review report must contain iterations")
-    for index, item in enumerate(iterations, start=1):
-        if not isinstance(item, dict) or item.get("iteration") != index:
-            raise ProductionError("visual review iterations must be ordered from 1")
-        if not item.get("svg_hash") or not item.get("png_hash"):
-            raise ProductionError("each visual review iteration must bind SVG and PNG hashes")
-        if not isinstance(item.get("findings"), list):
-            raise ProductionError("each visual review iteration must contain findings")
-
-    current_svg_hash = _sha256(current)
-    current_png_hash = _sha256(preview)
-    if report.get("final_svg_hash") != current_svg_hash:
-        raise ProductionError("visual review report SVG hash is stale")
-    if report.get("final_png_hash") != current_png_hash:
-        raise ProductionError("visual review report PNG hash is stale")
-    if iterations[-1].get("svg_hash") != current_svg_hash or iterations[-1].get("png_hash") != current_png_hash:
-        raise ProductionError("final visual review iteration does not match current files")
-
-    samples = (state.get("samples") or {}).get("pages", [])
-    if page_id in samples:
-        if len(iterations) < 2 or status != "fixed":
-            raise ProductionError("sample pages require two visual-review iterations and final status fixed")
-        if not iterations[0].get("findings"):
-            raise ProductionError("sample iteration 1 must record at least one real finding")
-        if iterations[0].get("svg_hash") == iterations[-1].get("svg_hash"):
-            raise ProductionError("sample SVG must change after the first visual review")
-        if iterations[0].get("png_hash") == iterations[-1].get("png_hash"):
-            raise ProductionError("sample PNG must change after the first visual review")
-    return report_path, report
+def review_context(project_path: str | Path, runtime_root: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    page_id = state["active_page"]
+    if not page_id or _active_record(state, page_id)["state"] != "checked":
+        raise ProductionError("active page must be checked and rendered before review")
+    _, preview, review = _active_paths(project, state, page_id)
+    return {"page_id": page_id, "direction": state["samples"].get("active_direction"), "png": str(preview), "required_context": [str(Path(runtime_root) / "references" / "visual-review.md"), str(Path(runtime_root) / "workflows" / "visual-review.md")], "required_output": str(review), "next_allowed_actions": ["open PNG", "page-review --apply <report.json>"]}
 
 
-def pass_page(
-    project_path: str | Path,
-    *,
-    visual_check: str | None = None,
-    notes: str | None = None,
-) -> dict[str, Any]:
-    project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    page_id = state.get("active_page")
+def install_page_review(project_path: str | Path, candidate: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    page_id = state["active_page"]
     if not page_id:
         raise ProductionError("no active page")
-    record = _page(state, page_id)
-    current = project / CURRENT_REL
-    preview = project / record["png_file"]
-    if record.get("status") != "checked":
-        raise ProductionError("current page must pass check-render first")
-    if record.get("machine_check", {}).get("status") != "passed":
-        raise ProductionError("machine check is not passed")
-    if not current.is_file() or _sha256(current) != record.get("svg_hash"):
-        raise ProductionError("current SVG changed after check-render")
-    if not preview.is_file() or _sha256(preview) != record.get("png_hash"):
-        raise ProductionError("rendered PNG is missing or changed")
+    record, source = _active_record(state, page_id), Path(candidate).expanduser().resolve()
+    if record["state"] != "checked" or not source.is_file():
+        raise ProductionError("review requires the latest checked PNG and a report candidate")
+    report = json.loads(source.read_text(encoding="utf-8"))
+    passed = report.get("passed") is True or report.get("status") in {"ok", "fixed"}
+    blocking = report.get("blocking_issues") or report.get("critical_issues") or []
+    if report.get("page_id") not in {None, page_id} or not isinstance(blocking, list):
+        raise ProductionError("invalid visual review report")
+    current = project / CURRENT_FILE
+    _, preview, destination = _active_paths(project, state, page_id)
+    if report.get("final_svg_hash") not in {None, _sha256(current)} or report.get("final_png_hash") not in {None, _sha256(preview)}:
+        raise ProductionError("visual review report is stale")
+    installed = {
+        "page_id": page_id, "mode": "controlled", "status": "ok" if passed and not blocking else "needs_human",
+        "final_svg_hash": _sha256(current), "final_png_hash": _sha256(preview),
+        "blocking_issues": blocking, "summary": str(report.get("summary") or ""),
+    }
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_json(destination, installed)
+    record.update({"state": "reviewed" if installed["status"] == "ok" else "checked", "review_report_hash": _sha256(destination), "reviewed_png_hash": installed["final_png_hash"], "review_passed": installed["status"] == "ok", "blocking_issues": blocking})
+    _save(project, state)
+    if not record["review_passed"]:
+        raise ProductionError("visual review has blocking issues", next_actions=["fix current.svg", "page-check"])
+    return {"page_id": page_id, "review": str(destination), "status": "passed", "next_allowed_actions": ["page-pass"]}
 
-    report_path: Path | None = None
-    if _requires_native_review(project):
-        report_path, report = _validate_visual_report(project, state, page_id, current, preview)
-    elif visual_check != "passed":
-        raise ProductionError("legacy pass-page requires --visual-check passed")
 
-    destination = project / "svg_output" / record["output_file"]
-    destination.parent.mkdir(exist_ok=True)
-    os.replace(current, destination)
-    canonical_preview = project / ".preview" / f"{page_id}.png"
-    shutil.copyfile(preview, canonical_preview)
-    record.update(
-        {
-            "status": "passed",
-            "work_file": None,
-            "svg_hash": _sha256(destination),
-            "png_file": str(canonical_preview.relative_to(project)),
-            "png_hash": _sha256(canonical_preview),
-            "visual_check": {"status": "passed", "at": _now()},
-            "review_report_hash": _sha256(report_path) if report_path else None,
-            "reviewed_png_hash": _sha256(canonical_preview),
-            "review_passed": True,
-            "blocking_issues": [],
-            "passed_at": _now(),
-        }
-    )
+def _all_passed(state: dict[str, Any], ids: list[str]) -> bool:
+    return all(_page(state, page_id)["state"] == "passed" for page_id in ids)
+
+
+def _validate_grouped_samples(project: Path, state: dict[str, Any]) -> dict[str, str]:
+    fingerprints: dict[str, str] = {}
+    for direction in ("A", "B", "C"):
+        rows = []
+        for sample_id in state["samples"]["page_ids"]:
+            record = _sample_record(state, direction, sample_id)
+            svg, png, review = _sample_paths(project, state, direction, sample_id)
+            hashes = {"svg_hash": _sha256(svg), "png_hash": _sha256(png), "review_hash": _sha256(review)}
+            if record["state"] != "passed" or not record["review_passed"] or record["blocking_issues"]:
+                raise ProductionError(f"sample direction is incomplete: {direction}/{sample_id}")
+            if None in hashes.values() or hashes != {
+                "svg_hash": record["svg_hash"],
+                "png_hash": record["png_hash"],
+                "review_hash": record["review_report_hash"],
+            }:
+                raise ProductionError(f"sample direction hashes are stale: {direction}/{sample_id}")
+            rows.append(f"{sample_id}:{hashes['svg_hash']}:{hashes['png_hash']}")
+        fingerprints[direction] = hashlib.sha256("\n".join(rows).encode()).hexdigest()
+    if len(set(fingerprints.values())) != 3:
+        raise ProductionError("A/B/C sample directions contain duplicate artifacts")
+    for sample_id in state["samples"]["page_ids"]:
+        input_hashes = {_sample_record(state, direction, sample_id).get("input_hash") for direction in ("A", "B", "C")}
+        if None in input_hashes or len(input_hashes) != 1:
+            raise ProductionError(f"A/B/C sample content inputs differ: {sample_id}")
+    return fingerprints
+
+
+def _midpoint(plan: dict[str, Any]) -> int:
+    return max(1, (len(_pages(plan)) + 1) // 2)
+
+
+def pass_page(project_path: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    page_id = state["active_page"]
+    if not page_id:
+        raise ProductionError("no active page")
+    record, current = _active_record(state, page_id), project / CURRENT_FILE
+    output, preview, report = _active_paths(project, state, page_id)
+    if record["state"] != "reviewed" or not record["review_passed"] or record["blocking_issues"]:
+        raise ProductionError("current page has not passed visual review")
+    if record["svg_hash"] != _sha256(current) or record["png_hash"] != _sha256(preview) or record["review_report_hash"] != _sha256(report) or record["reviewed_png_hash"] != record["png_hash"]:
+        raise ProductionError("current SVG, PNG, or review changed after checking")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(current, output)
+    record.update({"state": "passed", "svg_hash": _sha256(output), "notes_hash": _sha256(_notes_path(project, page_id))})
     state["active_page"] = None
+    direction = state["samples"].get("active_direction")
+    state["samples"]["active_direction"] = None
+    plan = _plan(project)
+    if state["stage"] == "sample_production":
+        if state["samples"].get("strategy") == "three_groups":
+            complete = all(
+                _sample_record(state, sample_direction, sample_id)["state"] == "passed"
+                for sample_direction in ("A", "B", "C") for sample_id in state["samples"]["page_ids"]
+            )
+        else:
+            complete = _all_passed(state, state["samples"]["page_ids"])
+        if complete:
+            if state["samples"].get("strategy") == "three_groups":
+                _validate_grouped_samples(project, state)
+            state["stage"] = "sample_confirmation"
+            state["samples"]["status"] = "awaiting_user"
+    elif state["stage"] in {"production", "repair_required"}:
+        ordered = [page["page_id"] for page in _pages(plan)]
+        passed_count = sum(_page(state, pid)["state"] == "passed" for pid in ordered)
+        if state["midpoint_review"]["status"] != "passed" and passed_count >= _midpoint(plan):
+            state["stage"] = "midpoint_required"
+        elif _all_passed(state, ordered):
+            state["stage"] = "deck_review_required"
+        else:
+            state["stage"] = "production"
     _save(project, state)
-    return record
+    return {"page_id": page_id, "direction": direction, "state": "passed", "stage": state["stage"], "next_allowed_actions": _next_actions(state)}
 
 
-def configure_director_plan(
-    project_path: str | Path,
-    plan: dict[str, Any],
-    *,
-    reset: bool = False,
-) -> dict[str, Any]:
-    project = _project(project_path)
-    page_order = [page["page_id"] for page in _plan_pages(plan)]
-    state_path = _state_path(project)
-    if state_path.is_file():
-        state = _load(project)
-        if any(record.get("status") != "pending" for record in state.get("pages", {}).values()) and not reset:
-            raise ProductionError("cannot attach a director plan after page production has started")
-        if state.get("page_order") != page_order:
-            if not reset and state.get("page_order"):
-                raise ProductionError("director plan page order does not match initialized production state")
-            state = init_state_payload(page_order, stage="sample_production")
-    else:
-        state = init_state_payload(page_order, stage="sample_production")
-    samples = [sample["page_id"] for sample in _plan_samples(plan)]
-    state["stage"] = "sample_production"
-    state["samples"] = {"required": True, "status": "pending", "pages": samples}
-    state["midpoint_review"] = {
-        "required": True,
-        "status": "pending",
-        "threshold": _midpoint_threshold(state),
-    }
-    state["deck_review"] = {"required": True, "status": "pending"}
-    state["global_hashes"] = _current_global_hashes(project)
-    _save(project, state)
-    return state
-
-
-def init_state_payload(page_order: list[str], *, stage: str) -> dict[str, Any]:
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "stage": stage,
-        "created_at": _now(),
-        "updated_at": _now(),
-        "page_order": page_order,
-        "active_page": None,
-        "global_hashes": {},
-        "pages": {
-            page_id: {
-                "status": "pending",
-                "output_file": f"{page_id}.svg",
-                "png_file": f".preview/{page_id}.png",
-                "svg_hash": None,
-                "png_hash": None,
-                "machine_check": {"status": "pending"},
-                "visual_check": {"status": "pending"},
-                "review_report_hash": None,
-                "reviewed_png_hash": None,
-                "review_passed": False,
-                "blocking_issues": [],
-            }
-            for page_id in page_order
-        },
-        "samples": {"required": False, "status": "not_required", "pages": []},
-        "midpoint_review": {"required": False, "status": "not_required"},
-        "deck_review": {"required": False, "status": "not_required"},
-    }
-
-
-def sample_decision(
-    project_path: str | Path,
-    decision: str,
-    *,
-    pages: list[str] | None = None,
-    notes: str | None = None,
-) -> dict[str, Any]:
-    project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    samples = state.get("samples") or {}
-    if not samples.get("required"):
-        raise ProductionError("this project has no sample gate")
+def sample_confirm(project_path: str | Path, decision: str, *, page_id: str | None = None, replacements: list[str] | None = None) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    if state["stage"] != "sample_confirmation":
+        raise ProductionError("sample confirmation is only allowed after all three samples pass")
     decision = decision.upper()
+    if state["samples"].get("strategy") == "three_groups":
+        if decision not in {"A", "B", "C"}:
+            raise ProductionError("direction must be A, B, or C")
+        if page_id or replacements:
+            raise ProductionError("template/premium sample selection does not accept --page-id or --pages")
+        fingerprints = _validate_grouped_samples(project, state)
+        selected_files: list[str] = []
+        selected_pngs: list[str] = []
+        selected_hashes: dict[str, Any] = {}
+        for sample_id in state["samples"]["page_ids"]:
+            source_svg, source_png, source_review = _sample_paths(project, state, decision, sample_id)
+            target_svg, target_png, target_review = _output_path(project, sample_id), _preview_path(project, sample_id), _review_path(project, sample_id)
+            for source, target in ((source_svg, target_svg), (source_png, target_png), (source_review, target_review)):
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+            record = _page(state, sample_id)
+            sample_record = _sample_record(state, decision, sample_id)
+            record.update(json.loads(json.dumps(sample_record)))
+            record.update({"state": "passed", "svg_hash": _sha256(target_svg), "png_hash": _sha256(target_png), "review_report_hash": _sha256(target_review), "reviewed_png_hash": _sha256(target_png), "notes_hash": _sha256(_notes_path(project, sample_id))})
+            selected_files.append(str(target_svg))
+            selected_pngs.append(str(target_png))
+            selected_hashes[sample_id] = _sample_snapshot(project, sample_id)
+        selected = {
+            "selected_direction": decision, "selected_files": selected_files,
+            "selected_pngs": selected_pngs, "selected_hashes": selected_hashes,
+            "selection_time": datetime.now(timezone.utc).isoformat(),
+            "selected_by": "user_confirmation", "template_profile_hash": state["global_hashes"].get("design_spec_hash"),
+            "master_handoff_hash": state["global_hashes"].get("master_handoff_hash"),
+        }
+        _atomic_json(project / ".director" / "selected_sample.json", selected)
+        state["samples"].update({"status": "approved", "selected_direction": decision, "approved_hashes": selected_hashes})
+        state["global_hashes"] = _current_globals(project)
+        state["stage"] = "production"
+        _save(project, state)
+        return {"decision": decision, "stage": state["stage"], "selected_sample": str(project / ".director" / "selected_sample.json"), "samples": state["samples"], "next_allowed_actions": _next_actions(state)}
     if decision == "A":
-        incomplete = [pid for pid in samples["pages"] if _page(state, pid).get("status") != "passed"]
-        if incomplete:
-            raise ProductionError(f"all sample pages must pass before approval: {', '.join(incomplete)}")
-        samples.update({"status": "approved", "approved_at": _now(), "notes": notes or ""})
+        snapshots = {pid: _sample_snapshot(project, pid) for pid in state["samples"]["page_ids"]}
+        if any(None in snapshot.values() for snapshot in snapshots.values()):
+            raise ProductionError("sample files are incomplete")
+        for sample_id, snapshot in snapshots.items():
+            record = _page(state, sample_id)
+            if record["state"] != "passed" or snapshot != {
+                "svg_hash": record["svg_hash"], "png_hash": record["png_hash"],
+                "review_hash": record["review_report_hash"],
+            }:
+                raise ProductionError(f"sample state or hash is stale: {sample_id}")
+        state["samples"].update({"status": "approved", "approved_hashes": snapshots})
         state["stage"] = "production"
     elif decision == "B":
-        targets = pages or []
-        if not targets or any(pid not in samples["pages"] for pid in targets):
-            raise ProductionError("decision B requires one or more current sample page ids")
-        if state.get("active_page"):
-            raise ProductionError("finish the active page before requesting sample revision")
-        for page_id in targets:
-            record = _page(state, page_id)
-            if record.get("status") == "passed":
-                output = project / "svg_output" / record["output_file"]
-                _invalidate_record(project, state, page_id, source=output, reason="sample revision requested")
-        samples.update({"status": "revision_required", "notes": notes or ""})
+        if not page_id or page_id not in state["samples"]["page_ids"]:
+            raise ProductionError("decision B requires exactly one current sample page_id")
+        _invalidate_page(_page(state, page_id), svg=False)
+        state["samples"].update({"status": "pending", "approved_hashes": {}})
         state["stage"] = "sample_production"
     elif decision == "C":
-        replacements = pages or []
-        if len(replacements) != 3 or len(set(replacements)) != 3:
-            raise ProductionError("decision C requires exactly three unique replacement pages")
-        if any(pid not in state["pages"] for pid in replacements):
-            raise ProductionError("replacement sample page is not in director plan")
-        plan_path = project / "analysis" / "director_plan.json"
-        if plan_path.is_file():
-            plan = json.loads(plan_path.read_text(encoding="utf-8"))
-            excluded = {"cover", "toc", "agenda", "closing", "ending", "plain_text", "text"}
-            types = {
-                page["page_id"]: str(page.get("page_role") or page.get("page_type") or "").strip().lower()
-                for page in _plan_pages(plan)
-            }
-            invalid = [pid for pid in replacements if types.get(pid) in excluded]
-            if invalid:
-                raise ProductionError(f"replacement samples use excluded page types: {', '.join(invalid)}")
-            sample_key = "sample_pages" if "sample_pages" in plan else "samples"
-            plan_samples = plan.get(sample_key) or []
-            if len(plan_samples) != 3:
-                raise ProductionError("director plan does not contain three replaceable samples")
-            for sample, replacement in zip(plan_samples, replacements):
-                sample["page_id"] = replacement
-                label = sample.get("risk_type") or sample.get("validation_dimension") or "sample risk"
-                sample["reason"] = f"User-reselected page for {label}"
-            _atomic_json(plan_path, plan)
-            state.setdefault("global_hashes", {})["director_plan_hash"] = _sha256(plan_path)
-        samples.update({"status": "pending", "pages": replacements, "notes": notes or ""})
-        state["stage"] = "sample_production"
+        from director_plan import replace_sample_pages
+        updated = replace_sample_pages(project, replacements or [])
+        for record in state["pages"].values():
+            _invalidate_page(record, state="pending", svg=True, notes=True)
+        state["samples"] = {"page_ids": _sample_ids(updated), "status": "pending", "approved_hashes": {}}
+        state["global_hashes"] = _current_globals(project)
+        state["global_hashes"]["spec_lock_hash"] = None
+        _clear_reviews(state)
+        state["stage"] = "design_pending"
     else:
-        raise ProductionError("sample decision must be A, B, or C")
+        raise ProductionError("decision must be A, B, or C")
     _save(project, state)
-    return samples
+    return {"decision": decision, "stage": state["stage"], "samples": state["samples"], "next_allowed_actions": _next_actions(state)}
 
 
-def _review_pages(state: dict[str, Any], kind: str) -> list[str]:
+def sample_reject(project_path: str | Path, reason: str) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    if state["stage"] != "sample_confirmation":
+        raise ProductionError("samples can only be rejected in sample_confirmation")
+    if not reason.strip():
+        raise ProductionError("sample rejection requires user feedback")
+    feedback = project / ".director" / "sample_feedback.md"
+    feedback.parent.mkdir(parents=True, exist_ok=True)
+    round_number = int(state["samples"].get("round", 1))
+    with feedback.open("a", encoding="utf-8", newline="\n") as stream:
+        stream.write(f"\n## Rejected round {round_number}\n\n- reason: {reason.strip()}\n")
+        for direction in ("A", "B", "C") if state["samples"].get("strategy") == "three_groups" else ("single",):
+            stream.write(f"- direction: {direction}\n")
+    if state["samples"].get("strategy") == "three_groups":
+        page_ids = list(state["samples"]["page_ids"])
+        state["samples"] = _sample_state(project, page_ids)
+        state["samples"]["round"] = round_number + 1
+    else:
+        for sample_id in state["samples"]["page_ids"]:
+            _invalidate_page(_page(state, sample_id), state="pending", svg=False)
+        state["samples"].update({"status": "pending", "approved_hashes": {}})
+    (project / ".director" / "selected_sample.json").unlink(missing_ok=True)
+    _clear_reviews(state)
+    state["global_hashes"] = _current_globals(project)
+    state["stage"] = "sample_production"
+    _save(project, state)
+    return {"stage": state["stage"], "round": state["samples"].get("round", 1), "feedback": str(feedback), "next_allowed_actions": ["page-begin"]}
+
+
+def _review_expected(project: Path, state: dict[str, Any], kind: str) -> list[str]:
+    ordered = [page["page_id"] for page in _pages(_plan(project))]
     if kind == "deck":
-        return list(state["page_order"])
-    passed = sorted(
-        _passed_pages(state),
-        key=lambda pid: _page(state, pid).get("passed_at") or "",
-    )
-    return list(dict.fromkeys([*(state.get("samples") or {}).get("pages", []), *passed[-2:]]))
+        return ordered
+    passed = [page_id for page_id in ordered if _page(state, page_id)["state"] == "passed"]
+    return list(dict.fromkeys([*state["samples"]["page_ids"], *passed[-2:]]))
 
 
-def record_review(
-    project_path: str | Path,
-    kind: str,
-    status: str,
-    *,
-    reviewed_pages: list[str],
-    notes: str,
-) -> dict[str, Any]:
-    project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    key = "midpoint_review" if kind == "midpoint" else "deck_review"
-    gate = state.get(key) or {}
-    if not gate.get("required"):
-        raise ProductionError(f"{kind} review is not required")
-    if kind == "midpoint" and len(_passed_pages(state)) < _midpoint_threshold(state):
-        raise ProductionError("midpoint threshold has not been reached")
-    if kind == "deck" and len(_passed_pages(state)) != len(state["page_order"]):
-        raise ProductionError("all pages must pass before deck review")
-    expected = set(_review_pages(state, kind))
-    if not expected.issubset(set(reviewed_pages)):
-        raise ProductionError(f"review must include: {', '.join(sorted(expected))}")
-    normalized = "approved" if status == "passed" else "failed"
-    gate.update(
-        {
-            "status": normalized,
-            "reviewed_pages": reviewed_pages,
-            "notes": notes,
-            "reviewed_at": _now(),
-        }
-    )
-    if normalized == "approved":
-        gate["approved_at"] = _now()
-        state["stage"] = "production_after_midpoint" if kind == "midpoint" else "export_ready"
+def record_review(project_path: str | Path, kind: str, review_status: str, *, reviewed_pages: list[str]) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    reconcile(project, state); state = _load(project)
+    required_stage = "midpoint_required" if kind == "midpoint" else "deck_review_required"
+    if state["stage"] != required_stage:
+        raise ProductionError(f"{kind} review is blocked in {state['stage']}")
+    expected = _review_expected(project, state, kind)
+    if not set(expected).issubset(set(reviewed_pages)):
+        raise ProductionError(f"review must include: {', '.join(expected)}")
+    gate = state["midpoint_review"] if kind == "midpoint" else state["deck_review"]
+    gate.update({"status": review_status, "reviewed_pages": reviewed_pages})
+    if review_status == "failed":
+        state["stage"] = "repair_required"
+    elif kind == "midpoint":
+        state["stage"] = "production"
+    else:
+        from fact_guard import scan_deck_facts
+        issues = scan_deck_facts(project)
+        gate["blocking_issues"] = issues
+        state["stage"] = "repair_required" if issues else "export_ready"
     _save(project, state)
-    return gate
+    if state["stage"] == "repair_required":
+        raise ProductionError(f"{kind} review failed", next_actions=["status", "page-begin <repair_page>"])
+    return {"kind": kind, "status": "passed", "stage": state["stage"], "next_allowed_actions": _next_actions(state)}
 
 
-def reopen_page(project_path: str | Path, page_id: str) -> dict[str, Any]:
-    project = _project(project_path)
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    if state.get("active_page"):
-        raise ProductionError(f"page {state['active_page']} is already active")
-    record = _page(state, page_id)
-    if record.get("status") == "passed":
-        output = project / "svg_output" / record["output_file"]
-        _invalidate_record(project, state, page_id, source=output, reason="page reopened")
-        _save(project, state)
-    if _page(state, page_id).get("status") != "repair_required":
-        raise ProductionError(f"page {page_id} is not available for repair")
-    return begin_page(project, page_id)
-
-
-def invalidate_output_file(project_path: str | Path, filename: str, *, reason: str) -> bool:
-    """Invalidate one browser-edited output file in a controlled project."""
-    project = _project(project_path)
-    if not _state_path(project).is_file():
-        return False
-    state = _load(project)
-    page_id = next(
-        (pid for pid, rec in state["pages"].items() if rec.get("output_file") == filename),
-        None,
-    )
-    if page_id is None:
-        raise ProductionError(f"edited SVG is not registered in production state: {filename}")
-    output = project / "svg_output" / filename
-    _invalidate_record(project, state, page_id, source=output, reason=reason)
-    _save(project, state)
-    return True
-
-
-def export_preflight(project_path: str | Path) -> list[str]:
-    """Return blocking export errors. Legacy projects return an empty list."""
-    project = _project(project_path)
-    if not _state_path(project).is_file():
-        return []
-    state = _load(project)
-    if reconcile(project, state):
-        _save(project, state)
-    errors: list[str] = []
-    try:
-        _lock_or_check_global_hashes(project, state)
-    except ProductionError as exc:
-        errors.append(str(exc))
-    if state.get("active_page"):
-        errors.append(f"active page is not passed: {state['active_page']}")
-    for page_id in state["page_order"]:
+def can_export(project_path: str | Path) -> dict[str, Any]:
+    project, state = _project(project_path), _load(_project(project_path))
+    changes = reconcile(project, state); state = _load(project)
+    if changes or state["stage"] != "export_ready":
+        raise ProductionError("export is not ready", next_actions=_next_actions(state))
+    ordered = [page["page_id"] for page in _pages(_plan(project))]
+    if not _all_passed(state, ordered) or state["deck_review"]["status"] != "passed":
+        raise ProductionError("all pages and deck review must pass before export")
+    for page_id in ordered:
         record = _page(state, page_id)
-        if record.get("status") != "passed":
-            errors.append(f"page {page_id} status is {record.get('status')}, expected passed")
-            continue
-        if record.get("machine_check", {}).get("status") != "passed":
-            errors.append(f"page {page_id} machine check is not passed")
-        if record.get("visual_check", {}).get("status") != "passed":
-            errors.append(f"page {page_id} visual check is not passed")
-        if _requires_native_review(project):
-            report = _review_path(project, page_id)
-            if not report.is_file() or _sha256(report) != record.get("review_report_hash"):
-                errors.append(f"page {page_id} visual review report is missing or changed")
-            if record.get("reviewed_png_hash") != record.get("png_hash"):
-                errors.append(f"page {page_id} reviewed PNG hash is stale")
-
-    for key, label in (
-        ("samples", "sample approval"),
-        ("midpoint_review", "midpoint review"),
-        ("deck_review", "deck review"),
-    ):
-        gate = state.get(key) or {}
-        if gate.get("required") and gate.get("status") != "approved":
-            errors.append(f"{label} is required and not approved")
-    return errors
+        expected = _sample_snapshot(project, page_id)
+        if (
+            expected["svg_hash"] is None or expected["png_hash"] is None or expected["review_hash"] is None
+            or record["svg_hash"] != expected["svg_hash"]
+            or record["png_hash"] != expected["png_hash"]
+            or record["review_report_hash"] != expected["review_hash"]
+            or record["reviewed_png_hash"] != expected["png_hash"]
+            or not record["review_passed"] or record["blocking_issues"]
+            or record["notes_hash"] != _sha256(_notes_path(project, page_id))
+        ):
+            raise ProductionError(f"page integrity check failed: {page_id}", next_actions=["status"])
+    from fact_guard import scan_deck_facts
+    issues = scan_deck_facts(project)
+    if issues:
+        state["deck_review"]["blocking_issues"] = issues
+        state["stage"] = "repair_required"
+        _save(project, state)
+        raise ProductionError("fact gate failed before export", next_actions=["status"])
+    return {"allowed": True, "input_hashes": {pid: _sample_snapshot(project, pid) for pid in ordered}}
 
 
-def can_export(project_path: str | Path) -> bool:
-    return not export_preflight(project_path)
-
-
-def _pages_from_args(args: argparse.Namespace) -> list[str]:
-    if args.pages:
-        return args.pages
-    if args.page_count:
-        return [f"P{index:02d}" for index in range(1, args.page_count + 1)]
-    raise ProductionError("init requires --pages or --page-count")
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="PPT Master controlled page production")
-    sub = parser.add_subparsers(dest="command", required=True)
-    init = sub.add_parser("init")
-    init.add_argument("project")
-    init.add_argument("--pages", nargs="+")
-    init.add_argument("--page-count", type=int)
-    init.add_argument("--stage", default="production")
-    begin = sub.add_parser("begin")
-    begin.add_argument("project")
-    begin.add_argument("page")
-    check = sub.add_parser("check-render")
-    check.add_argument("project")
-    passed = sub.add_parser("pass-page")
-    passed.add_argument("project")
-    passed.add_argument("--visual-check", choices=["passed", "failed"])
-    passed.add_argument("--notes")
-    reopen = sub.add_parser("reopen-page")
-    reopen.add_argument("project")
-    reopen.add_argument("page")
-    export = sub.add_parser("can-export")
-    export.add_argument("project")
-    sample = sub.add_parser("sample-decision")
-    sample.add_argument("project")
-    sample.add_argument("decision", choices=["A", "B", "C", "a", "b", "c"])
-    sample.add_argument("--pages", nargs="*")
-    sample.add_argument("--notes")
-    review = sub.add_parser("review")
-    review.add_argument("project")
-    review.add_argument("kind", choices=["midpoint", "deck"])
-    review.add_argument("--status", required=True, choices=["passed", "failed"])
-    review.add_argument("--reviewed-pages", nargs="+", required=True)
-    review.add_argument("--notes", required=True)
-    return parser
+def export_deck(project_path: str | Path, output: str | None = None) -> dict[str, Any]:
+    project = _project(project_path)
+    preflight = can_export(project)
+    from svg_to_pptx.pptx_package.cli import main as export_main
+    target = Path(output).expanduser().resolve() if output else project / "exports" / f"{project.name}.pptx"
+    with redirect_stdout(io.StringIO()):
+        code = export_main([str(project), "--output", str(target)])
+    if code:
+        raise ProductionError(f"PPT Master export failed with exit code {code}")
+    state = _load(project)
+    state["export"] = {"path": str(target), "pptx_hash": _sha256(target), "input_hashes": preflight["input_hashes"]}
+    state["stage"] = "exported"
+    _save(project, state)
+    return {"stage": "exported", "pptx": str(target), "pptx_hash": state["export"]["pptx_hash"], "next_allowed_actions": ["status"]}
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("project")
+    args = parser.parse_args(argv)
     try:
-        if args.command == "init":
-            result = init_production(args.project, _pages_from_args(args), stage=args.stage)
-        elif args.command == "begin":
-            result = begin_page(args.project, args.page)
-        elif args.command == "check-render":
-            result = check_render(args.project)
-        elif args.command == "pass-page":
-            result = pass_page(args.project, visual_check=args.visual_check, notes=args.notes)
-        elif args.command == "reopen-page":
-            result = reopen_page(args.project, args.page)
-        elif args.command == "sample-decision":
-            result = sample_decision(
-                args.project,
-                args.decision,
-                pages=args.pages,
-                notes=args.notes,
-            )
-        elif args.command == "review":
-            result = record_review(
-                args.project,
-                args.kind,
-                args.status,
-                reviewed_pages=args.reviewed_pages,
-                notes=args.notes,
-            )
-        else:
-            errors = export_preflight(args.project)
-            result = {"allowed": not errors, "errors": errors}
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-            return 0 if not errors else 1
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(status(args.project), ensure_ascii=False, indent=2))
         return 0
     except ProductionError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {exc}")
         return 1
 
 

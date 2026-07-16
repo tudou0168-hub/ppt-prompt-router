@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/hugohe3/ppt-master.git",
-  "commit": "e4ee215c0e87cfc3fcf6713b3c61f330af8e8e8f",
+  "commit": "f63de240cf25bd0fbbe384e5f344efa9a177726e",
   "version": "未声明",
   "required_capabilities": [
-    "router-accept",
-    "director-plan",
-    "production-control",
-    "visual-review"
+    "project-management",
+    "svg-quality-check",
+    "visual-review",
+    "svg-to-pptx"
   ]
 }

@@ -355,7 +355,16 @@ def extract_reference_elements(
     )
     _write_json(analysis_dir / "reference_elements.json", analysis)
     design_spec.write_text(_design_spec(analysis), encoding="utf-8")
-    spec_lock.write_text(_spec_lock(analysis), encoding="utf-8")
+    lock_text = _spec_lock(analysis)
+    contract_path = project / "analysis" / "director_contract.json"
+    if contract_path.is_file():
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        profile_id = str((contract.get("profile") or {}).get("id") or "")
+        body = 20 if profile_id in {"government_strategy", "decision_meeting"} else 18
+        marker = f"minimum_font_sizes: body={body}px supporting=16px footnote=12px"
+        if marker not in lock_text:
+            lock_text = marker + "\n\n" + lock_text
+    spec_lock.write_text(lock_text, encoding="utf-8")
     return {
         "mode": "reference_elements",
         "project": str(project),

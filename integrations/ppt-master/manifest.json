@@ -1,95 +1,77 @@
 {
   "schema_version": "1.0",
-  "overlay_version": "2.2.0",
+  "overlay_version": "3.1.0",
   "files": [
     {
-      "path": "skills/ppt-master/SKILL.md",
-      "action": "modify",
-      "purpose": "激活 Router 受控项目的导演规划、逐页生产和导出门禁说明。",
-      "upstream_hash": "35da6ac44b48088be140a931477322ae06843213cdb4eb6268d5277a14032986",
-      "overlay_hash": "25b414d32c1029fa4416300da1430f0ef38ef6cd38bb8b296c825184c4b671e4",
-      "required_by": "Router 2.1 受控生产链路",
-      "tested": true
-    },
-    {
-      "path": "skills/ppt-master/references/prompt-router-integration.md",
+      "path": "skills/ppt-master/references/ppt-director-runtime.md",
       "action": "add",
-      "purpose": "定义 Router 与 PPT Master 的唯一合同、规划和生产状态边界。",
+      "purpose": "Define the managed single-Skill runtime boundary.",
       "upstream_hash": null,
-      "overlay_hash": "9d9505b2176460f5144d5525dc996d24b9181d7b3e8e71d4c430eec4bc5bc6ef",
-      "required_by": "Router 2.1 受控生产链路",
+      "overlay_hash": "c41b367500768a89b860ab3da0183910c7739711407b991e61f57a002450bf53",
+      "required_by": "PPT Director 3.1 runtime",
       "tested": true
     },
     {
-      "path": "skills/ppt-master/references/strategist.md",
-      "action": "modify",
-      "purpose": "要求 Strategist 读取导演 Profile 并生成唯一 Director Plan。",
-      "upstream_hash": "7861e3f1853de8b56ccf03ea98149047e1a89da47bbb26b1e722dcd93c2214e5",
-      "overlay_hash": "b9982e6cc924384f021013ddc461ae7817110dcfa0fff71ce1cf71284578fe18",
-      "required_by": "Router 2.1 受控生产链路",
-      "tested": true
-    },
-    {
-      "path": "skills/ppt-master/references/visual-review.md",
-      "action": "modify",
-      "purpose": "复用原生视觉复核规则，并定义受控页面的报告要求。",
-      "upstream_hash": "0157204db1b1c21c52428d46f8bc3689e62df3c9151fbfe04fcf1be371740742",
-      "overlay_hash": "80328ee5564f1762a0a3c2f56807d946cda5c9d9c1159f82a6e3974b6d8185b5",
-      "required_by": "Router 2.1 受控生产链路",
-      "tested": true
-    },
-    {
-      "path": "skills/ppt-master/workflows/visual-review.md",
-      "action": "modify",
-      "purpose": "将既有视觉复核接入 Router 受控项目的逐页流程。",
-      "upstream_hash": "3986f0a0c69f15706e1ca343177b74f411b8fd5d61e0173686cb97d6ca1a888e",
-      "overlay_hash": "17a634c50f4268ee415325c98a57763a9e706ce2df43b43a7f020c2c83f93a0e",
-      "required_by": "Router 2.1 受控生产链路",
-      "tested": true
-    },
-    {
-      "path": "skills/ppt-master/scripts/project_manager.py",
-      "action": "modify",
-      "purpose": "校验 Router 合同并初始化受控生产。",
-      "upstream_hash": "1e97897e3e31fd8f2e388c72357b4d9e467fe17e0cd70a348a885d0620ccd57f",
-      "overlay_hash": "b96bf239e8c9991ec705d3b4ab5a36d10e110191b4b2832f686019fd3edc6cb9",
-      "required_by": "Router 2.1 受控生产链路",
+      "path": "skills/ppt-master/references/ppt-director-strategist.md",
+      "action": "add",
+      "purpose": "Define the unique Director Plan and risk-sample contract.",
+      "upstream_hash": null,
+      "overlay_hash": "4bce53ad3df8cb59389c2c15b20bc86fd75d548392ec53dff0a52ded232d17fb",
+      "required_by": "PPT Director 3.1 planning",
       "tested": true
     },
     {
       "path": "skills/ppt-master/scripts/director_plan.py",
       "action": "add",
-      "purpose": "校验唯一 Director Plan、风险样张和页面节奏。",
+      "purpose": "Validate the single plan, evidence references, and risk samples.",
       "upstream_hash": null,
-      "overlay_hash": "37f24db58dbcd3a303277dfbd7156938283dff35791c4aaeeaf059059e1ff083",
-      "required_by": "Router 2.1 受控生产链路",
+      "overlay_hash": "2d5bc67b6b0fc8072dada57e29d90f12aa743086c3796ad403e02195de63f160",
+      "required_by": "PPT Director 3.1 planning",
       "tested": true
     },
     {
       "path": "skills/ppt-master/scripts/production.py",
       "action": "add",
-      "purpose": "执行逐页 Hash、样张、中途检查、全稿检查和导出放行。",
+      "purpose": "Enforce the minimal workflow state, hashes, reviews, and export gate.",
       "upstream_hash": null,
-      "overlay_hash": "c712c6b78fa2d1e7e47e58939cfac5a116c8331c04a653f8a32bcffc10376d46",
-      "required_by": "Router 2.1 受控生产链路",
+      "overlay_hash": "dcb547b5dc2d7eb3635bbaa3348dd700453f172fc368aa78d18ecb599859c747",
+      "required_by": "PPT Director 3.1 production",
       "tested": true
     },
     {
       "path": "skills/ppt-master/scripts/reference_elements.py",
       "action": "add",
-      "purpose": "从参考 PPTX 提炼项目级设计语言，并生成 design_spec 与 spec_lock。",
+      "purpose": "Extract reference-template visual language through the existing Master intake.",
       "upstream_hash": null,
-      "overlay_hash": "72ad930a580e72880421e03065174c4ca6fb0062d970390b67e8cca64eb9d78f",
-      "required_by": "Router 2.1 受控生产链路",
+      "overlay_hash": "5f43cbd514d6b21c8355da0e513349be85ec2567dd1b6f54758cc93be802d30b",
+      "required_by": "reference_elements projects",
       "tested": true
     },
     {
-      "path": "skills/ppt-master/scripts/visual_review.py",
-      "action": "modify",
-      "purpose": "渲染当前受控页面，供既有视觉复核流程使用。",
-      "upstream_hash": "33d75145108d4076ec4cd6313e54dfa046244b12de86e515db3b9230ac0afd58",
-      "overlay_hash": "972269f54f2c39b18eb739c85977e5bfdd375c3c04a911b242a12fff270df065",
-      "required_by": "Router 2.1 受控生产链路",
+      "path": "skills/ppt-master/scripts/runtime_guard.py",
+      "action": "add",
+      "purpose": "Reject direct internal CLI use for managed projects.",
+      "upstream_hash": null,
+      "overlay_hash": "26740b6954e6f399ce71c3f04e6c21f1ea8c918a823389e4b68e53a4fb7de55d",
+      "required_by": "PPT Director 3.0 runtime",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/fact_guard.py",
+      "action": "add",
+      "purpose": "Check source-bound hard facts in SVG text and speaker notes.",
+      "upstream_hash": null,
+      "overlay_hash": "7d60bf65ee2e5a69bbdaf6e775e11ab2e331e17eff863288198c6898e64291d1",
+      "required_by": "deck review and export",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/scripts/profile_typography.py",
+      "action": "add",
+      "purpose": "Compute inherited and transformed effective font sizes.",
+      "upstream_hash": null,
+      "overlay_hash": "cfc17c3f596409ece30f10b15666d9f44199a1ab1573d1bbab08801a8e76c4b8",
+      "required_by": "SVG quality checker",
       "tested": true
     }
   ]

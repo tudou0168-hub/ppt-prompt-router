@@ -1,71 +1,97 @@
 ---
 name: ppt-prompt-router
-description: PPT 统一入口。确定性选择导演 Profile、识别模板意图、创建导演合同，并真实交接给 ppt-master。
-version: 2.2.1
+description: PPT Director 单 Skill 入口。完成场景路由、内容导演、风险样张、逐页复核和受控导出。
+version: 3.1.0
 ---
 
-# ppt-prompt-router 2.2.1
+# PPT Director 3.1
 
-本技能只负责路由与导演交接。它将通用导演协议与场景 Profile 编译为唯一的 `director_profile.md`；页面规划、设计、检查、修复和导出全部由 `ppt-master` 负责。
+本 Skill 是唯一公开入口。内部 `runtime/ppt-master/` 保留 PPT Master 的
+Strategist、设计资源、SVG、检查、复核和导出能力，但不注册为第二个 Skill。
 
-客户材料和项目产物只保留在本地项目中：不得把客户名称、客户文案、导出 PPTX、渲染 PNG、会话记录或个人绝对路径写入 Router 源码、测试和文档。
+客户材料、日志、SVG、PNG、Review 和 PPTX 只能写入 Skill 目录外的项目。
 
-## 唯一入口
+## 唯一命令入口
 
 ```bash
-python3 <skill>/scripts/route.py \
-  --request "<用户原始要求>" \
-  --source <project_path>/source.docx \
-  --template <template_path>/reference.pptx \
-  --page-count <页数> \
-  --audience "<受众>"
+python3 <skill>/scripts/route.py <command> ...
 ```
 
-离线套件仅允许从解压根目录执行 `python install.py <install|upgrade|rollback|validate>`；安装后的 skill 内不提供第二个安装入口。
-
-## 固定动作
+公开命令仅有：
 
 ```text
-接收任务
-→ 确定性选择一个 Profile
-→ 编译通用导演协议与场景 Profile
-→ 识别模板意图
-→ 创建 ppt-master 项目并导入材料
-→ 写入 analysis/director_contract.json
-→ 写入 analysis/director_profile.md
-→ 调用 project_manager.py router-accept
-→ 收到 accepted=true 后结束 Router
+start
+mode-propose
+mode-select
+plan
+lock-spec
+page-begin
+page-check
+page-review
+page-pass
+sample-confirm
+sample-reject
+review
+status
+export
 ```
 
-不得把 Profile 写入 `sources/`，不得生成 Storyline、页面规划或生产状态的副本。
+不得直接执行内部 Master CLI、直接写 `svg_output/`、跳过 Visual Review，
+或直接调用导出脚本。受控步骤失败时不得切换 legacy 流程。
 
-## 路由规则
+## 阶段读取
 
-- 用户指定 `prompt_id`：直接选择。
-- `required_signals`：每项 `+6`。
-- `strong_signals`：每项 `+3`。
-- `supporting_signals`：每项 `+1`。
-- `negative_signals`：每项 `-5`。
-- `avoid_when`：每项 `-8`。
-- 匹配用户请求、受众、目的、文件名，以及必要的材料标题和开头。
-- 最高分低于 `3`，或前两名分差小于 `2`：只询问一次场景。
+- `start`：只创建项目、分离导入内容材料与参考PPT、记录Hash、编译唯一
+  `director_profile.md`并执行首次能力预检；不得规划内容、分析模板或生成设计规范。
+- `mode-propose`：读取能力快照；快照缺失或runtime、依赖变化时先自动重做预检，
+  再推荐 `standard`、`template` 或 `premium`。`degraded`不得自动推荐，
+  `unavailable`不得选择。
+- `mode-select`：由用户明确选择模式，写入唯一模式记录和Master handoff，再调用
+  PPT Master现有工具或工作流处理模板。premium默认使用fidelity；mirror仅在用户
+  明确要求且完整工作流可用时开放。
+- `plan`：完整读取命令返回的 `MASTER.md`、Strategist说明、Profile和源材料，
+  只生成 `analysis/director_plan.json`。模式未选择前不得规划。
+- `lock-spec`：Director Plan存在后，完成并冻结 `design_spec.md`与`spec_lock.md`。
+- `page-begin`：逐项读取命令返回的当前页Director字段、设计系统和Executor说明，
+  再判断内容关系、资源或自定义SVG。
+- `page-check`：调用Master现有机器检查和渲染。
+- `page-review`：必须真实打开最新PNG，按Master现有Visual Review规则独立复核。
+- `page-pass`：仅放行与当前SVG、PNG、Review Hash一致的页面。
+- `sample-confirm`：standard沿用三张风险样张A/B/C；template/premium在三组同页
+  样张完成后，由用户在后续独立调用中选择A、B或C方向，不得由模型自行批准。
+- `sample-reject`：用户拒绝template/premium三组方向后返回样张生产，下一轮必须
+  读取用户反馈；不创建新状态或平行计划。
+- `review`：仅允许 `midpoint` 或 `deck`。
+- `export`：仅在现有 `can-export` 与全部门禁通过后调用Master导出。
 
-`government_strategy` 是已验证 Profile；其他 Profile 默认实验性。
+## 导演边界
 
-## 模板意图
+Router决定受众、目的、语体、叙事节点、事实边界和关键退化风险；不替
+PPT Master选择具体布局、资源或构图。Director Plan是唯一内容规划源，
+每页只表达一个核心观点，并保留页面意图、必需信息、来源和事实约束。
 
-- `reference_elements`：只提炼设计语言，重新设计页面。
-- `native_fill`：保留原模板版式并填充内容。
-- `reusable_template`：提炼为可复用模板工作区。
-- `none`：进入 PPT Master 默认设计流程。
+standard的三张样张必须分别验证：
 
-用户提供 PPTX 但意图不明确时，只询问模板用途。
+1. 信息密度与卡片堆砌风险。
+2. 复杂流程、机制或关系风险。
+3. 图片、图表、架构或项目独特视觉能力。
 
-## 验收
+封面、目录、结语和普通文字页不得作为样张。样张通过即停止在
+`sample_confirmation`，等待用户后续A/B/C。
 
-- `director_contract.json` 只保存版本、Profile、受众、目的、页数、模板路径和模板意图。
-- `director_profile.md` 的 SHA256 必须与合同一致。
-- 六个重点 Profile 必须具备完整场景字段；其余 Profile 使用公共默认值并保持实验性。
-- `router-accept` 必须真实返回 `accepted=true`。
-- Router 不得以“正在调用”代替机器交接。
-- 后续唯一导演规划是 `analysis/director_plan.json`，唯一生产状态是 `analysis/production_state.json`。
+template与premium在Plan完成后固定同一对测试页：一个封面或总览页、一个
+关系复杂正文页。A/B/C三组的page_id、page_intent、required_messages、
+source_refs、factual_constraints、参考模板和内容范围必须完全相同；只有
+PPT Master的设计方向、视觉表达、构图和信息组织可以不同。Director不得规定
+三组版式差异，也不得用简单标题页、纯文字页或单一卡片页充当复杂页。
+
+## 最低交付边界
+
+- 每页SVG通过Master现有Quality Checker。
+- 每页渲染后真实查看PNG并绑定Review。
+- 当前页通过后才能进入下一页。
+- SVG、Notes、Plan或设计锁变化时旧检查自动失效。
+- 中途复核通过后回到`production`，全稿复核通过后进入`export_ready`。
+- 无来源的数字、年份、日期、金额、比例、机构、责任部门和案例成效阻断导出。
+- `government_strategy`与`decision_meeting`正文最低20px，其他Profile最低18px；
+  辅助正文16px，脚注与来源12px。
