@@ -53,10 +53,11 @@ class RouterV2Test(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="router31-start-") as temp:
             root = Path(temp)
             source = root / "材料.md"; source.write_text("# 材料\n事实", encoding="utf-8")
+            reference = root / "参考说明.txt"; reference.write_text("仅供语气参考", encoding="utf-8")
             template = root / "参考.pptx"; template.write_bytes(b"pptx")
             args = router.build_parser().parse_args([
                 "start", "--request", "政务专项规划，4页，给政府领导汇报，参考模板元素",
-                "--source", str(source), "--template", str(template), "--page-count", "4",
+                "--source", str(source), "--reference", str(reference), "--template", str(template), "--page-count", "4",
                 "--prompt-id", "government_strategy", "--project-base", str(root / "projects"),
                 "--project-name", "start-boundary",
             ])
@@ -66,11 +67,37 @@ class RouterV2Test(unittest.TestCase):
                     {"project_manager": types.SimpleNamespace(ProjectManager=FakeManager), "production": FakeProduction},
                 )
             preflight.assert_called_once()
-            self.assertEqual(result["next_allowed_actions"], ["mode-propose"])
+            self.assertEqual(result["status"], "READY_FOR_MODE_SELECTION")
+            self.assertIn("mode-select ", result["next_command"])
+            self.assertNotIn("material_confirmation", result)
             self.assertTrue((project / "sources" / "材料.md").is_file())
+            self.assertTrue((project / "references" / "materials" / "参考说明.txt").is_file())
             self.assertTrue((project / "references" / "参考.pptx").is_file())
+            contract = json.loads((project / "analysis" / "director_contract.json").read_text(encoding="utf-8"))
+            self.assertTrue(all("参考.pptx" not in row["path"] for row in contract["source_files"]))
+            self.assertEqual(len(contract["reference_files"]), 1)
             for forbidden in ("analysis/director_plan.json", "design_spec.md", "spec_lock.md", "analysis/template_intake"):
                 self.assertFalse((project / forbidden).exists(), forbidden)
+
+    def test_source_and_reference_repeat_but_template_is_limited_to_one(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="router31-input-cardinality-") as temp:
+            root = Path(temp)
+            source1 = root / "一.md"; source1.write_text("一", encoding="utf-8")
+            source2 = root / "二.txt"; source2.write_text("二", encoding="utf-8")
+            reference1 = root / "参考一.md"; reference1.write_text("参考", encoding="utf-8")
+            template1 = root / "模板一.pptx"; template1.write_bytes(b"one")
+            template2 = root / "模板二.pptx"; template2.write_bytes(b"two")
+            args = router.build_parser().parse_args([
+                "start", "--request", "政务专项规划，4页，给政府领导汇报",
+                "--source", str(source1), "--source", str(source2),
+                "--reference", str(reference1),
+                "--template", str(template1), "--template", str(template2),
+                "--page-count", "4", "--prompt-id", "government_strategy",
+            ])
+            self.assertEqual(len(args.source), 2)
+            self.assertEqual(len(args.reference), 1)
+            with self.assertRaisesRegex(router.WorkflowError, "only one primary template"):
+                router.command_start(args, {})
 
     def test_router_runtime_is_internal_and_receipt_independent(self) -> None:
         route_source = (ROOT / "scripts" / "route.py").read_text(encoding="utf-8")
@@ -82,8 +109,24 @@ class RouterV2Test(unittest.TestCase):
         self.assertIn('RUNTIME = ROOT / "runtime" / "ppt-master"', route_source)
         self.assertEqual(
             router.PUBLIC_COMMANDS,
-            ("start", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin", "page-check", "page-review", "page-pass", "sample-confirm", "sample-reject", "review", "status", "export"),
+            ("start", "approve", "context", "submit", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin", "page-check", "page-review", "page-pass", "sample-confirm", "sample-reject", "review", "status", "export"),
         )
+
+    def test_word_xml_residue_blocks_converted_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="router31-word-xml-") as temp:
+            root = Path(temp)
+            project = root / "project"
+            (project / "sources").mkdir(parents=True)
+            source = root / "材料.docx"
+            source.write_bytes(b"docx")
+            converted = project / "sources" / "材料.md"
+            converted.write_text("word/document.xml <w:document><w:p>乱码</w:p></w:document>", encoding="utf-8")
+            with self.assertRaisesRegex(router.WorkflowError, "Word XML"):
+                router._validate_converted_sources(
+                    project,
+                    [str(source)],
+                    {"markdown": [str(converted)], "skipped": []},
+                )
 
     def test_runtime_profile_compiler_has_no_installer_dependency(self) -> None:
         profile_source = (ROOT / "scripts" / "router_profile.py").read_text(encoding="utf-8")
@@ -222,7 +265,7 @@ class RouterV2Test(unittest.TestCase):
                 errors="replace",
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            self.assertIn('"status": "director_pending"', result.stdout)
+            self.assertIn('"status": "AWAITING_USER_CONFIRMATION"', result.stdout)
             self.assertIn('"next_allowed_actions": [', result.stdout)
             matches = re.findall(r'"project": "([^"]+)"', result.stdout)
             self.assertTrue(matches, msg=result.stdout)

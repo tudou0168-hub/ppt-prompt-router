@@ -1,4 +1,4 @@
-# PPT Director 3.1
+# PPT Director 4.0 Phase 1
 
 PPT Director 以一个公开 `ppt-prompt-router` Skill 强集成固定版本的 PPT
 Master runtime。Router负责场景、受众和导演约束；Master负责Strategist、
@@ -33,17 +33,23 @@ python install.py uninstall --host claude-code --yes
 存在任何宿主可发现的外部`ppt-master`或重复Router时返回`CONFLICT`；非受管
 冲突只报告路径，不自动删除。安装完成后宿主只能发现一个相关Skill。
 
-## 工作流
+## Phase 1 工作流
 
 ```text
-start -> capability preflight -> mode-propose -> mode-select
--> Master模式化模板处理 -> plan -> lock-spec -> 样张 -> sample_confirmation
--> 用户A/B/C -> 逐页生产 -> midpoint review -> 全稿review -> export
+start -> mode-propose -> mode-select -> Content Strategist
+-> Director Plan brief approval -> Template Analyst（需要模板时）
+-> Visual Director Design Genome -> lock-spec机械编译
+-> 三页正式设计探针 -> Design Approval -> 正式逐页生产
+-> midpoint review -> 全稿review -> export
 ```
 
-`start`不做Plan、模板分析或设计规范。`template`和`premium`使用同一个总览页与
-同一个复杂正文页生成A/B/C三组方向；三组内容输入相同，只允许Master改变设计。
-`standard`继续使用原有三张风险样张流程。
+`start`不做Plan、模板分析或设计规范。三张不同复杂度设计探针直接走既有
+`page-begin → page-check → render → review → page-pass`；三张均通过后只等待一次
+Design Approval。`design_genome.json` 是唯一模型生成的设计事实源；`lock-spec`以
+确定性模板编译 `design_spec.md` 和 `spec_lock.md`。Router 不生成逐页构图或视觉规范。
+
+角色上下文按需写入 `.director/context/current/<role>.json` 并覆盖旧文件；事件日志只
+记录其 Hash 和输入 Hash。验证快照写在项目外，不累计在正式项目中。
 
 项目产物始终位于Skill目录之外，日志只写入：
 

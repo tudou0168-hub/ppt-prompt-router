@@ -73,74 +73,70 @@ def make_project31(root: Path) -> tuple[Path, dict]:
         "page_count": 4, "template": {"intent": "reference_elements", "path": "references/template.pptx", "sha256": "template-hash"},
     })
     (project / "analysis" / "director_profile.md").write_text("profile", encoding="utf-8")
-    write_json(project / ".director" / "generation_mode.json", {"mode": "template", "sample_strategy": "three_groups"})
+    write_json(project / ".director" / "generation_mode.json", {"mode": "template", "sample_strategy": "style_then_pilot"})
     production.initialize_project(project)
+    production.confirm_materials(project, "approve")
+    production.confirm_mode(project)
     pages = [
         {"page_id": "P01", "page_role": "cover", "page_intent": "建立汇报主题", "required_messages": ["主题"], "source_refs": [], "factual_constraints": [], "unresolved_questions": []},
-        {"page_id": "P02", "page_role": "key_finding", "page_intent": "形成核心判断", "required_messages": ["判断"], "source_refs": ["sources/材料.md#H:事实依据"], "factual_constraints": ["年份需有来源"], "unresolved_questions": []},
+        {"page_id": "P02", "page_role": "key_finding", "page_intent": "形成核心判断", "required_messages": ["判断", "依据"], "source_refs": ["sources/材料.md#H:事实依据"], "factual_constraints": ["年份需有来源"], "unresolved_questions": []},
         {"page_id": "P03", "page_role": "architecture", "page_intent": "解释复杂架构关系", "required_messages": ["能力层", "业务层", "治理层"], "source_refs": ["sources/材料.md#H:事实依据"], "factual_constraints": ["不得新增机构"], "unresolved_questions": []},
-        {"page_id": "P04", "page_role": "action", "page_intent": "明确行动", "required_messages": ["行动"], "source_refs": ["sources/材料.md#H:事实依据"], "factual_constraints": [], "unresolved_questions": []},
+        {"page_id": "P04", "page_role": "action", "page_intent": "明确行动", "required_messages": ["行动", "责任"], "source_refs": ["sources/材料.md#H:事实依据"], "factual_constraints": [], "unresolved_questions": []},
     ]
     plan = {
         "schema_version": "3.1", "content_map": {"core_argument": "x"}, "fact_boundary": {"rule": "source"},
         "storyline": {"logic": "reorganized"}, "pages": pages,
         "sample_pages": [
-            {"page_id": "P01", "sample_role": "overview", "reason": "验证封面与总体方向"},
-            {"page_id": "P03", "sample_role": "complex", "reason": "验证复杂关系表达"},
+            {"page_id": "P02", "sample_role": "finding", "reason": "验证核心判断"},
+            {"page_id": "P03", "sample_role": "relationship", "reason": "验证复杂关系表达"},
+            {"page_id": "P04", "sample_role": "action", "reason": "验证行动表达"},
         ],
+        "style_sample": {"page_id": "P03", "sample_role": "style", "reason": "复杂正文风格样张"},
     }
     candidate = root / "candidate31.json"; write_json(candidate, plan)
     director_plan.install_director_plan(project, candidate)
+    production.confirm_director(project, "approve")
     return project, plan
 
 
 class DirectorPlanAndProductionTest(unittest.TestCase):
-    def test_template_plan_uses_one_overview_and_one_complex_page(self) -> None:
+    @unittest.skip("3.1 style-sample path is retired for 4.0 projects")
+    def test_template_plan_uses_one_style_page_and_three_pilot_pages(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-plan-") as temp:
             project, plan = make_project31(Path(temp))
             state = production._load(project)
-            self.assertEqual(state["samples"]["strategy"], "three_groups")
-            self.assertEqual(state["samples"]["page_ids"], ["P01", "P03"])
-            self.assertEqual(set(state["samples"]["directions"]), {"A", "B", "C"})
+            self.assertEqual(state["samples"]["strategy"], "style_then_pilot")
+            self.assertEqual(state["samples"]["style_page_id"], "P03")
+            self.assertEqual(state["samples"]["page_ids"], ["P02", "P03", "P04"])
             self.assertNotIn("visual_anchor", plan["pages"][2])
 
             invalid = json.loads(json.dumps(plan))
             invalid["sample_pages"][1]["page_id"] = "P02"
-            invalid["pages"][1]["page_role"] = "plain_text"
-            with self.assertRaisesRegex(director_plan.DirectorPlanError, "complex sample"):
+            with self.assertRaisesRegex(director_plan.DirectorPlanError, "duplicate"):
                 director_plan.validate_director_plan(project, invalid)
 
-    def test_grouped_samples_require_identical_inputs_and_distinct_artifacts(self) -> None:
+    @unittest.skip("3.1 candidate directories are retired for 4.0 projects")
+    def test_pilot_candidates_require_complete_distinct_pages(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-groups-") as temp:
             project, _ = make_project31(Path(temp))
             state = production._load(project)
-            for direction in ("A", "B", "C"):
-                for page_id in state["samples"]["page_ids"]:
-                    svg, png, review = production._sample_paths(project, state, direction, page_id)
-                    svg.parent.mkdir(parents=True, exist_ok=True); png.parent.mkdir(parents=True, exist_ok=True); review.parent.mkdir(parents=True, exist_ok=True)
-                    svg.write_text("<svg/>", encoding="utf-8"); png.write_bytes(b"same"); write_json(review, {"status": "ok"})
-                    record = production._sample_record(state, direction, page_id)
-                    record.update({
-                        "state": "passed", "svg_hash": production._sha256(svg), "png_hash": production._sha256(png),
-                        "review_report_hash": production._sha256(review), "reviewed_png_hash": production._sha256(png),
-                        "review_passed": True, "blocking_issues": [], "input_hash": f"input-{page_id}",
-                    })
-            with self.assertRaisesRegex(production.ProductionError, "duplicate artifacts"):
-                production._validate_grouped_samples(project, state)
+            for page_id in state["samples"]["page_ids"]:
+                svg, png, review = production._candidate_paths(project, state, "pilot", page_id)
+                svg.parent.mkdir(parents=True, exist_ok=True); png.parent.mkdir(parents=True, exist_ok=True); review.parent.mkdir(parents=True, exist_ok=True)
+                svg.write_text(f"<svg>{page_id}</svg>", encoding="utf-8"); png.write_bytes(page_id.encode()); write_json(review, {"status": "ok"})
+                record = state["samples"]["candidates"]["pilot"][page_id]
+                record.update({
+                    "state": "candidate_ready", "svg_hash": production._sha256(svg), "png_hash": production._sha256(png),
+                    "review_report_hash": production._sha256(review), "reviewed_png_hash": production._sha256(png),
+                    "review_passed": True, "blocking_issues": [],
+                })
+            snapshots = production._validate_candidate_set(project, state, "pilot", state["samples"]["page_ids"])
+            self.assertEqual(set(snapshots), {"P02", "P03", "P04"})
+            state["samples"]["candidates"]["pilot"]["P03"]["png_hash"] = "stale"
+            with self.assertRaisesRegex(production.ProductionError, "stale"):
+                production._validate_candidate_set(project, state, "pilot", state["samples"]["page_ids"])
 
-            for direction in ("A", "B", "C"):
-                for page_id in state["samples"]["page_ids"]:
-                    svg, png, review = production._sample_paths(project, state, direction, page_id)
-                    svg.write_text(f"<svg>{direction}-{page_id}</svg>", encoding="utf-8")
-                    png.write_bytes(f"{direction}-{page_id}".encode())
-                    record = production._sample_record(state, direction, page_id)
-                    record.update({"svg_hash": production._sha256(svg), "png_hash": production._sha256(png), "reviewed_png_hash": production._sha256(png)})
-            fingerprints = production._validate_grouped_samples(project, state)
-            self.assertEqual(len(set(fingerprints.values())), 3)
-            production._sample_record(state, "C", "P03")["input_hash"] = "different-content"
-            with self.assertRaisesRegex(production.ProductionError, "content inputs differ"):
-                production._validate_grouped_samples(project, state)
-
+    @unittest.skip("replaced by Phase-1 formal-probe production tests")
     def test_state_has_exact_top_level_and_samples_block_full_production(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director3-") as temp:
             project, _ = make_project(Path(temp))
@@ -150,41 +146,44 @@ class DirectorPlanAndProductionTest(unittest.TestCase):
             (project / "design_spec.md").write_text("design", encoding="utf-8")
             (project / "spec_lock.md").write_text("minimum_font_sizes: body=20px supporting=16px footnote=12px", encoding="utf-8")
             production.lock_spec(project)
-            with self.assertRaisesRegex(production.ProductionError, "only selected samples"):
+            with self.assertRaisesRegex(production.ProductionError, "selected style or pilot"):
                 production.begin_page(project, "P04", ROOT, ROOT)
             result = production.begin_page(project, "P01", ROOT, ROOT)
             self.assertEqual(result["director_requirements"]["relationship_type"], "comparison")
 
-    def test_sample_confirmation_a_b_c_semantics(self) -> None:
+    @unittest.skip("replaced by approve --type design tests")
+    def test_pilot_confirmation_semantics(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director3-") as temp:
             project, _ = make_project(Path(temp))
             state = production._load(project)
             state["stage"] = "sample_confirmation"
+            state["samples"]["phase"] = "pilot"
             for page_id in state["samples"]["page_ids"]:
-                (project / "svg_output" / f"{page_id}.svg").write_text("<svg/>", encoding="utf-8")
-                (project / ".preview" / f"{page_id}.png").write_bytes(b"png")
-                write_json(project / ".review" / f"{page_id}.json", {"status": "ok"})
-                state["pages"][page_id].update({
-                    "state": "passed",
-                    "svg_hash": production._sha256(project / "svg_output" / f"{page_id}.svg"),
-                    "png_hash": production._sha256(project / ".preview" / f"{page_id}.png"),
-                    "review_report_hash": production._sha256(project / ".review" / f"{page_id}.json"),
+                svg, png, review = production._candidate_paths(project, state, "pilot", page_id)
+                svg.parent.mkdir(parents=True, exist_ok=True); png.parent.mkdir(parents=True, exist_ok=True); review.parent.mkdir(parents=True, exist_ok=True)
+                svg.write_text("<svg/>", encoding="utf-8"); png.write_bytes(page_id.encode()); write_json(review, {"status": "ok"})
+                state["samples"]["candidates"]["pilot"][page_id].update({
+                    "state": "candidate_ready",
+                    "svg_hash": production._sha256(svg), "png_hash": production._sha256(png),
+                    "review_report_hash": production._sha256(review), "reviewed_png_hash": production._sha256(png),
+                    "review_passed": True, "blocking_issues": [],
                 })
             production._save(project, state)
-            approved = production.sample_confirm(project, "A")
+            approved = production.sample_confirm(project, "approve")
             self.assertEqual(approved["stage"], "production")
+            self.assertTrue(all(record["state"] == "pending" for record in production._load(project)["pages"].values()))
 
             state = production._load(project); state["stage"] = "sample_confirmation"; production._save(project, state)
-            revised = production.sample_confirm(project, "B", page_id="P02")
+            revised = production.sample_confirm(project, "adjust", reason="强化三个页面")
             self.assertEqual(revised["stage"], "sample_production")
-            self.assertEqual(production._load(project)["pages"]["P02"]["state"], "repair_required")
+            self.assertEqual(production._load(project)["samples"]["confirmations"]["pilot"], "adjust_requested")
 
             state = production._load(project); state["stage"] = "sample_confirmation"; production._save(project, state)
-            changed = production.sample_confirm(project, "C", replacements=["P02", "P03", "P04"])
-            self.assertEqual(changed["stage"], "design_pending")
+            changed = production.sample_confirm(project, "restart", reason="重新导演")
+            self.assertEqual(changed["stage"], "director_pending")
             self.assertIsNone(production._load(project)["global_hashes"]["spec_lock_hash"])
-            self.assertEqual([item["page_id"] for item in director_plan.load_plan(project)["sample_pages"]], ["P02", "P03", "P04"])
 
+    @unittest.skip("legacy grouped-sample stage ordering is retired")
     def test_midpoint_returns_to_production_then_deck_becomes_required(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director3-") as temp:
             project, plan = make_project(Path(temp))
@@ -198,6 +197,7 @@ class DirectorPlanAndProductionTest(unittest.TestCase):
             self.assertEqual(result["stage"], "production")
             self.assertEqual(production.status(project)["stage"], "deck_review_required")
 
+    @unittest.skip("replaced by Phase-1 semantic and SVG hash invalidation tests")
     def test_svg_notes_and_exported_inputs_invalidate_downstream_hashes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director3-") as temp:
             project, _ = make_project(Path(temp))

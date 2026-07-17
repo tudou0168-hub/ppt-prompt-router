@@ -26,10 +26,12 @@ project-relative Markdown line range (`sources/file.md#L10-L20`) or a unique
 heading anchor (`sources/file.md#H:Heading`). Facts, goals, estimates, proposals,
 and inferences must remain distinguishable.
 
-Read `.director/generation_mode.json` before selecting samples.
+Read `.director/generation_mode.json` before selecting candidates. Director selects
+candidate page ids only; PPT Master chooses every visual relationship, composition,
+resource, template element, image treatment, color, and typography decision.
 
-For `standard`, preserve the existing three-risk contract and select exactly
-three non-cover, non-TOC, non-ending, non-plain-text samples:
+For every mode, select exactly three non-cover, non-TOC, non-ending,
+non-plain-text design probes:
 
 1. `information_density`: the page most likely to collapse into card stacking.
 2. `complex_relationship`: the densest process, mechanism, or relationship page.
@@ -39,15 +41,10 @@ three non-cover, non-TOC, non-ending, non-plain-text samples:
 The three pages must be different. Their structures must test different design
 risks rather than merely provide attractive examples.
 
-For `template` and `premium`, select exactly two test pages after the full Plan
-is complete and order them as:
+The three probe records must use distinct `page_id` values and the canonical
+`expression_task` values `information_density`, `complex_relationship` and
+`visual_signature`. Each record uses `sample_role` and `reason`; it does not
+prescribe a layout.
 
-1. `sample_role: overview`: one cover, overview, executive-summary, or summary page.
-2. `sample_role: complex`: one relationship-dense content page with at least two
-   required messages. It cannot be a simple title, plain-text, ending, or one-card page.
-
-Director selects only the page pair. A/B/C later reuse the exact same `page_id`,
-`page_intent`, `required_messages`, `source_refs`, `factual_constraints`, template
-input, and content scope. Do not prescribe three different layouts. PPT Master
-may vary only design direction, visual expression, composition, information
-organization, and its own resource/template choices.
+Do not create style samples, A/B/C directions, layout decisions, or fixed page
+components. The three probes are formal pages and are sealed before Design Approval.

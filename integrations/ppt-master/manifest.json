@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
-  "overlay_version": "3.1.0",
+  "overlay_version": "4.0.0-phase1",
   "files": [
     {
       "path": "skills/ppt-master/references/ppt-director-runtime.md",
       "action": "add",
       "purpose": "Define the managed single-Skill runtime boundary.",
       "upstream_hash": null,
-      "overlay_hash": "c41b367500768a89b860ab3da0183910c7739711407b991e61f57a002450bf53",
-      "required_by": "PPT Director 3.1 runtime",
+      "overlay_hash": "74fcee64c1a9aba595bb7b94738a11b099512623b372faf06c8c6cc1bd8fecd2",
+      "required_by": "PPT Director 4.0 Phase 1 runtime",
       "tested": true
     },
     {
@@ -16,8 +16,8 @@
       "action": "add",
       "purpose": "Define the unique Director Plan and risk-sample contract.",
       "upstream_hash": null,
-      "overlay_hash": "4bce53ad3df8cb59389c2c15b20bc86fd75d548392ec53dff0a52ded232d17fb",
-      "required_by": "PPT Director 3.1 planning",
+      "overlay_hash": "62b5d4a706c80d39a2945ac0b80b86a52f1013766c5bac6f3963fd26e0e13380",
+      "required_by": "PPT Director 4.0 Phase 1 planning",
       "tested": true
     },
     {
@@ -25,8 +25,8 @@
       "action": "add",
       "purpose": "Validate the single plan, evidence references, and risk samples.",
       "upstream_hash": null,
-      "overlay_hash": "2d5bc67b6b0fc8072dada57e29d90f12aa743086c3796ad403e02195de63f160",
-      "required_by": "PPT Director 3.1 planning",
+      "overlay_hash": "d20015c696cfcdd10b84be6c731ceba297afbd5a8ca3a68d7cef2ffa7cd93430",
+      "required_by": "PPT Director 4.0 Phase 1 planning",
       "tested": true
     },
     {
@@ -34,8 +34,53 @@
       "action": "add",
       "purpose": "Enforce the minimal workflow state, hashes, reviews, and export gate.",
       "upstream_hash": null,
-      "overlay_hash": "dcb547b5dc2d7eb3635bbaa3348dd700453f172fc368aa78d18ecb599859c747",
-      "required_by": "PPT Director 3.1 production",
+      "overlay_hash": "b4afa5055412228a5cd478d03bbe672d4e276d97d5316a4a76171583567c6ac8",
+      "required_by": "PPT Director 4.0 Phase 1 production",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/ppt-director-roles/content_strategist.md",
+      "action": "add",
+      "purpose": "Define the non-visual content-strategist context and output boundary.",
+      "upstream_hash": null,
+      "overlay_hash": "44096f7dbd17146fc8dfb63a30c53018b4208d90b5326e59f6cfd7f5b2b62179",
+      "required_by": "PPT Director 4.0 Phase 1 role context",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/ppt-director-roles/director.md",
+      "action": "add",
+      "purpose": "Define router director scheduling and artifact restrictions.",
+      "upstream_hash": null,
+      "overlay_hash": "1d1969bf9ed6e93d4000784da3b96e80f0ebd95b8a9235296527d610ad4863ea",
+      "required_by": "PPT Director 4.0 Phase 1 role context",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/ppt-director-roles/template_analyst.md",
+      "action": "add",
+      "purpose": "Define native template-analysis context and Template Profile ownership.",
+      "upstream_hash": null,
+      "overlay_hash": "5402a7cc53485247c6f30cf5902eb811a4783328272d45e7abd336497eaeac3a",
+      "required_by": "PPT Director 4.0 Phase 1 role context",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/ppt-director-roles/visual_director.md",
+      "action": "add",
+      "purpose": "Define Design Genome ownership and visual-fact boundary.",
+      "upstream_hash": null,
+      "overlay_hash": "bae99ecf65dc278e9822df82f7bb87da2f80b7706120b63d96fedfa65f16055a",
+      "required_by": "PPT Director 4.0 Phase 1 role context",
+      "tested": true
+    },
+    {
+      "path": "skills/ppt-master/references/ppt-director-roles/visual_reviewer.md",
+      "action": "add",
+      "purpose": "Define independent minimal review context and output boundary.",
+      "upstream_hash": null,
+      "overlay_hash": "c7be0279b92848a178d7e0a5bbbbcbe564fa21ab3d97a2f04ebbd727bfe51a81",
+      "required_by": "PPT Director 4.0 Phase 1 role context",
       "tested": true
     },
     {

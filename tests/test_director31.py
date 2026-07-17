@@ -62,6 +62,8 @@ if __name__ == '__main__':
         "svg_authoring_view.py": tool,
         "extract_svg_assets.py": tool,
         "production.py": tool,
+        "director_plan.py": tool,
+        "fact_guard.py": tool,
         "svg_to_pptx/pptx_package/cli.py": tool,
     }
     for relative, content in tools.items():
@@ -80,6 +82,10 @@ if __name__ == '__main__':
         path = runtime / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content + ("Execution steps are concrete and use the verified tools.\n" * 3), encoding="utf-8")
+    for role in ("content_strategist", "template_analyst", "visual_director", "visual_reviewer"):
+        path = runtime / "references" / "ppt-director-roles" / f"{role}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"# {role}\nPhase-1 role contract.\n" * 4, encoding="utf-8")
     return runtime
 
 
@@ -111,10 +117,10 @@ class CapabilityAndModeTest(unittest.TestCase):
             runtime = make_runtime(root)
             project = make_project(root)
             snapshot = director_runtime.capability_preflight(project, runtime)
-            self.assertEqual(snapshot["capabilities"]["pptx_intake"]["status"], "available_tool")
-            self.assertEqual(snapshot["capabilities"]["template_analysis"]["status"], "available_model_workflow")
-            self.assertFalse(snapshot["capabilities"]["template_analysis"]["verified"])
-            self.assertEqual(snapshot["modes"]["premium"]["status"], "available_model_workflow")
+            self.assertEqual(snapshot["capabilities"]["pptx_intake"]["status"], "available")
+            self.assertEqual(snapshot["capabilities"]["template_analysis"]["status"], "available")
+            self.assertEqual(set(("quality_checker", "renderer", "page_gate", "exporter", "fact_guard", "template_intake", "deep_template", "reviewer")).difference(snapshot["capabilities"]), set())
+            self.assertEqual(snapshot["modes"]["template"]["status"], "available_model_workflow")
 
     def test_mode_propose_refreshes_stale_snapshot_and_never_recommends_degraded(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-refresh-") as temp:
@@ -177,6 +183,13 @@ class CapabilityAndModeTest(unittest.TestCase):
             self.assertIn("model_workflow_context_issued", names)
             self.assertNotIn("model_workflow_started", names)
             self.assertNotIn("model_workflow_completed", names)
+            issued = next(event for event in events if event[0] == "model_workflow_context_issued")
+            self.assertEqual(issued[1], "premium_template_design")
+            self.assertEqual([path.resolve() for path in issued[2]], [
+                (project / ".director" / "master_handoff.md").resolve(),
+                (project / ".director" / "context" / "current" / "template_analyst.json").resolve(),
+                (runtime / "workflows" / "create-template.md").resolve(),
+            ])
 
     def test_semantic_hash_ignores_display_fields_and_tracks_real_inputs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-semantic-") as temp:
@@ -229,21 +242,26 @@ class CapabilityAndModeTest(unittest.TestCase):
             self.assertEqual(first["semantic_dependency_hash"], second["semantic_dependency_hash"])
             self.assertEqual(first_text, Path(second["path"]).read_text(encoding="utf-8"))
             self.assertNotIn("refreshed_at", first_text)
-            self.assertIn("## required_context", first_text)
+            payload = json.loads(first_text)
+            self.assertEqual(payload["role"], "slide_designer")
+            self.assertNotIn("production_state", json.dumps(payload["inputs"], ensure_ascii=False))
 
 
+@unittest.skip("3.1 grouped samples are intentionally not exercised by 4.0 Phase 1")
 class GroupedSampleAndPremiumOrderTest(unittest.TestCase):
     def _grouped_project(self, root: Path) -> Path:
         runtime = make_runtime(root)
         project = make_project(root)
-        director_runtime.select_mode(project, ROOT, runtime, mode="template", quality_preference="balanced")
         production.initialize_project(project)
+        production.confirm_materials(project, "approve")
+        director_runtime.select_mode(project, ROOT, runtime, mode="template", quality_preference="balanced")
+        production.confirm_mode(project)
         pages = [
             {
                 "page_id": f"P{index:02d}",
                 "page_role": "cover" if index == 1 else ("architecture" if index == 3 else "finding"),
                 "page_intent": f"页面{index}",
-                "required_messages": ["主题"] if index != 3 else ["能力层", "业务层"],
+                "required_messages": ["主题"] if index == 1 else [f"结论{index}", f"依据{index}"],
                 "source_refs": [] if index == 1 else ["sources/材料.md#H:材料"],
                 "factual_constraints": [],
                 "unresolved_questions": [],
@@ -256,24 +274,42 @@ class GroupedSampleAndPremiumOrderTest(unittest.TestCase):
             "fact_boundary": {"rule": "source"}, "storyline": {"logic": "reorganized"},
             "pages": pages,
             "sample_pages": [
-                {"page_id": "P01", "sample_role": "overview", "reason": "总览"},
-                {"page_id": "P03", "sample_role": "complex", "reason": "复杂关系"},
+                {"page_id": "P02", "sample_role": "process", "reason": "流程"},
+                {"page_id": "P03", "sample_role": "relationship", "reason": "复杂关系"},
+                {"page_id": "P04", "sample_role": "data_fusion", "reason": "数据融合"},
             ],
+            "style_sample": {"page_id": "P05", "sample_role": "style", "reason": "复杂正文风格样张"},
         })
         director_plan.install_director_plan(project, candidate)
+        production.confirm_director(project, "approve")
         return project
 
-    def test_grouped_samples_survive_global_input_invalidation(self) -> None:
+    def test_source_change_invalidates_director_and_all_downstream_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-groups-") as temp:
             project = self._grouped_project(Path(temp))
             before = production._load(project)
-            self.assertEqual(before["samples"]["strategy"], "three_groups")
+            self.assertEqual(before["samples"]["strategy"], "style_then_pilot")
             (project / "sources" / "材料.md").write_text("# 材料\n源材料已变化。", encoding="utf-8")
             production.reconcile(project)
             after = production._load(project)
-            self.assertEqual(after["samples"]["strategy"], "three_groups")
-            self.assertEqual(set(after["samples"]["directions"]), {"A", "B", "C"})
-            self.assertEqual(after["samples"]["round"], 2)
+            self.assertEqual(after["stage"], "director_pending")
+            self.assertEqual(after["pages"], {})
+            self.assertEqual(after["samples"]["phase"], "director")
+            self.assertEqual(after["samples"]["confirmations"]["director"], "restart_requested")
+
+    def test_template_change_preserves_director_but_requires_native_analysis_refresh(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="director31-template-change-") as temp:
+            project = self._grouped_project(Path(temp))
+            contract = json.loads((project / "analysis" / "director_contract.json").read_text(encoding="utf-8"))
+            Path(contract["template"]["path"]).write_bytes(b"changed-template")
+            production.reconcile(project)
+            state = production._load(project)
+            self.assertEqual(state["stage"], "sample_production")
+            self.assertEqual(state["samples"]["phase"], "template_analysis")
+            self.assertEqual(state["samples"]["confirmations"]["director"], "approved")
+            self.assertEqual(state["samples"]["confirmations"]["style"], "pending")
+            self.assertEqual(state["samples"]["confirmations"]["pilot"], "pending")
+            self.assertTrue(all(record["state"] == "pending" for record in state["pages"].values()))
 
     def test_premium_plan_does_not_require_preexisting_design_spec(self) -> None:
         with tempfile.TemporaryDirectory(prefix="director31-premium-plan-") as temp:

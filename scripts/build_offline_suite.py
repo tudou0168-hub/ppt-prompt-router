@@ -411,7 +411,7 @@ def build(output_dir: Path) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build the PPT Director 3.1 offline suite")
+    parser = argparse.ArgumentParser(description="Build the PPT Director 4.0 Phase 1 offline suite")
     sub = parser.add_subparsers(dest="command", required=True)
     sync = sub.add_parser("sync-vendor")
     sync.add_argument("--master-source", required=True)

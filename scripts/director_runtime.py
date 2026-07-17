@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,6 +21,23 @@ QUALITY_LEVELS = {"speed", "balanced", "quality"}
 MODES = {"standard", "template", "premium"}
 REFERENCE_RE = re.compile(r"(?:\[[^]]+\]\(([^)#]+)(?:#[^)]+)?\)|`([^`]+\.(?:md|py))`)")
 OperationReporter = Callable[[str, str, list[Path], list[Path], str | None], None]
+ROLE_NAMES = {"director", "content_strategist", "template_analyst", "visual_director", "slide_designer", "visual_reviewer"}
+ROLE_OUTPUTS = {
+    "content_strategist": "analysis/director_plan.json",
+    "template_analyst": "analysis/template_profile.json",
+    "visual_director": "design_genome.json",
+    "slide_designer": ".page_work/current.svg",
+    "visual_reviewer": ".review/<active_page>.json",
+}
+TEMPLATE_PROFILE_FIELDS = {
+    "visual_identity", "spatial_grammar", "page_archetypes", "relationship_patterns",
+    "image_treatment", "reusable_components", "reference_slides",
+}
+GENOME_FORBIDDEN_FIELDS = {
+    "layout", "grid", "column_count", "card_count", "coordinates", "coordinate",
+    "x", "y", "width", "height", "fixed_component", "component", "chart_type",
+    "image_position", "image_placement", "relationship_diagram_template",
+}
 
 
 class DirectorRuntimeError(RuntimeError):
@@ -197,7 +215,9 @@ def _dependency_fingerprint() -> str:
     return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()
 
 
-def _tool(runtime: Path, name: str, relative: str, *, module: str | None = None) -> dict[str, Any]:
+def _tool(runtime: Path, name: str, relative: str, *, module: str | None = None, entry_kind: str = "cli") -> dict[str, Any]:
+    if entry_kind not in {"cli", "library"}:
+        raise DirectorRuntimeError(f"unsupported tool entry kind: {entry_kind}")
     path = runtime / relative
     result: dict[str, Any] = {
         "name": name, "status": "unavailable", "execution_type": "tool",
@@ -238,7 +258,7 @@ def _tool(runtime: Path, name: str, relative: str, *, module: str | None = None)
         timeout=30,
     )
     result["checks"]["dry_run"] = help_result.returncode == 0
-    result["checks"]["output_recognized"] = "usage:" in (help_result.stdout + help_result.stderr).lower()
+    result["checks"]["output_recognized"] = entry_kind == "library" or "usage:" in (help_result.stdout + help_result.stderr).lower()
     if not all(result["checks"].values()):
         result["status"] = "degraded"
         result["error"] = "help/dry-run contract is incomplete"
@@ -280,6 +300,46 @@ def _workflow(runtime: Path, name: str, entries: list[str], tool_dependencies: l
     else:
         result["error"] = "workflow does not contain the required responsibility"
     return result
+
+
+def _phase1_role_capability(
+    runtime: Path,
+    name: str,
+    required_references: list[str],
+    tool_dependencies: list[str],
+    tools: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate a Phase-1 role by its actual contract and entrypoints.
+
+    Markdown links outside the declared references remain diagnostic evidence;
+    they never decide whether a 4.0 role can perform its defined task.
+    """
+    paths = [runtime / reference for reference in required_references]
+    missing = [_runtime_relative(runtime, path) for path in paths if not path.is_file() or path.stat().st_size == 0]
+    broken: list[str] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        for match in REFERENCE_RE.finditer(path.read_text(encoding="utf-8", errors="replace")):
+            candidate = _resolve_runtime_reference(runtime, path, match.group(1) or match.group(2))
+            if candidate and not candidate.exists():
+                broken.append(_runtime_relative(runtime, candidate))
+    missing_tools = [tool for tool in tool_dependencies if (tools.get(tool) or {}).get("status") != "available_tool"]
+    checks = {
+        "required_references": not missing,
+        "necessary_tools": not missing_tools,
+        "diagnostic_references": not broken,
+    }
+    status = "available_tool" if not missing and not missing_tools else "unavailable"
+    return {
+        "name": name, "status": status, "execution_type": "controlled_same_session",
+        "verified": status == "available_tool", "entry_logical_paths": required_references,
+        "closure": _reference_closure(runtime, paths), "tool_dependencies": sorted(tool_dependencies),
+        "required_references": required_references, "diagnostic_references": broken,
+        "checks": checks,
+        "warnings": [f"diagnostic references: {broken}" ] if broken else [],
+        "error": None if status == "available_tool" else f"missing required references={missing} tools={missing_tools}",
+    }
 
 
 def _capability_semantic_hash(
@@ -353,6 +413,34 @@ def capability_preflight(
             "fidelity_workflow": _workflow(runtime, "fidelity_workflow", ["workflows/create-template.md", "references/template-designer.md"], ["pptx_template_import", "authoring_view", "vector_extraction"], tools, ["fidelity", "template"]),
             "mirror_workflow": _workflow(runtime, "mirror_workflow", ["workflows/create-template.md", "references/template-designer.md"], ["pptx_template_import", "authoring_view", "vector_extraction"], tools, ["mirror", "restoration", "source"]),
         })
+        # Phase-1 exposes a deliberately small capability vocabulary to the
+        # router.  These aliases retain the stable Master entrypoints rather
+        # than adding another execution system.
+        capabilities.update({
+            "renderer": capabilities["visual_review"],
+            "fact_guard": _tool(runtime, "fact_guard", "scripts/fact_guard.py", entry_kind="library"),
+            "template_intake": capabilities["pptx_intake"],
+            "template_renderer": capabilities["visual_review"],
+            "deep_template": capabilities["fidelity_workflow"],
+            "reviewer": capabilities["visual_review"],
+        })
+        capabilities.update({
+            "content_strategist": _phase1_role_capability(runtime, "content_strategist", [
+                "references/ppt-director-roles/content_strategist.md", "scripts/director_plan.py",
+            ], [], tools),
+            "template_analyst": _phase1_role_capability(runtime, "template_analyst", [
+                "references/ppt-director-roles/template_analyst.md", "scripts/pptx_intake.py",
+            ], ["pptx_intake", "visual_review"], tools),
+            "visual_director": _phase1_role_capability(runtime, "visual_director", [
+                "references/ppt-director-roles/visual_director.md", "scripts/production.py",
+            ], [], tools),
+            "slide_designer": _phase1_role_capability(runtime, "slide_designer", [
+                "references/executor-base.md", "references/shared-standards.md", "scripts/production.py",
+            ], ["quality_checker", "visual_review", "page_gate"], tools),
+            "visual_reviewer": _phase1_role_capability(runtime, "visual_reviewer", [
+                "references/ppt-director-roles/visual_reviewer.md", "scripts/production.py",
+            ], ["visual_review"], tools),
+        })
         modes = load_modes(router_root)["modes"]
         mode_status: dict[str, Any] = {}
         for mode_id, config in modes.items():
@@ -369,10 +457,25 @@ def capability_preflight(
                 "required_capabilities": list(config["required_capabilities"]),
                 "missing_or_degraded": [name for name in config["required_capabilities"] if capabilities.get(name, {}).get("status") not in {"available_tool", "available_model_workflow"}],
             }
+        compact_capabilities = {
+            name: {
+                "capability_id": name,
+                "status": "available" if value.get("status") in {"available_tool", "available_model_workflow"} else value.get("status"),
+                "entry_hash": value.get("entry_sha256") or semantic_hash(value.get("entry_logical_paths") or value.get("entry_logical_path") or name),
+                "necessary_dependencies": list(value.get("tool_dependencies") or []),
+                "execution_mode": value.get("execution_type") or "tool",
+                "checks": value.get("checks") or {},
+                "error": value.get("error"),
+                "required_references": value.get("required_references") or value.get("entry_logical_paths") or [],
+                "diagnostic_references": value.get("diagnostic_references") or [],
+                "warnings": value.get("warnings") or [],
+            }
+            for name, value in capabilities.items()
+        }
         snapshot = {
             "schema_version": "1.0", "captured_at": datetime.now(timezone.utc).isoformat(),
             "runtime_root": str(runtime), "runtime_hash": runtime_hash, "dependency_hash": dependency_hash,
-            "generation_modes_hash": generation_modes_hash, "capabilities": capabilities, "modes": mode_status,
+            "generation_modes_hash": generation_modes_hash, "capabilities": compact_capabilities, "modes": mode_status,
             "capability_semantic_hash": _capability_semantic_hash(runtime_hash, dependency_hash, generation_modes_hash, capabilities, mode_status),
             "meaning": "Paths and execution contracts are available; task execution is not implied.",
         }
@@ -442,7 +545,7 @@ def propose_mode(
     else:
         recommended, reason = "template", "reference PPTX with balanced quality"
     available = [mode for mode in ("standard", "template", "premium") if snapshot["modes"][mode]["status"] == "available_model_workflow" and (mode == "standard" or template)]
-    mirror_available = snapshot["capabilities"]["mirror_workflow"]["status"] == "available_model_workflow"
+    mirror_available = snapshot["capabilities"]["mirror_workflow"]["status"] == "available"
     if fidelity_requirement == "mirror" and not mirror_available:
         recommended = None
         reason += "; mirror workflow is unavailable"
@@ -529,6 +632,8 @@ def _handoff(project: Path, contract: dict[str, Any], selection: dict[str, Any])
     template = contract.get("template") or {}
     sources = _source_rows(contract)
     source_text = "\n".join(f"- `{row['path']}` sha256=`{row.get('sha256')}`" for row in sources) or "- none"
+    references = [row for row in contract.get("reference_files") or [] if isinstance(row, dict) and row.get("path")]
+    reference_text = "\n".join(f"- `{row['path']}` sha256=`{row.get('sha256')}`" for row in references) or "- none"
     return f"""# PPT Master Task Handoff
 
 ## Original Task
@@ -549,6 +654,10 @@ def _handoff(project: Path, contract: dict[str, Any], selection: dict[str, Any])
 ### Source Documents
 
 {source_text}
+
+### Reference Materials (not factual sources)
+
+{reference_text}
 
 ## User Requirements And Fact Boundary
 
@@ -575,6 +684,7 @@ def _prepare_template(
     runtime: Path,
     mode: str,
     template: Path | None,
+    context_rehydrate: Path,
     *,
     operation_reporter: OperationReporter | None = None,
 ) -> dict[str, Any]:
@@ -596,7 +706,11 @@ def _prepare_template(
         output = project / "analysis" / "template_intake"
         invoke("pptx_intake", runtime / "scripts" / "pptx_intake.py", [str(template), "-o", str(output)], [output])
         outputs = sorted(str(path) for path in output.glob("*.json"))
-        return {"status": "complete", "outputs": outputs}
+        workflow = runtime / "references" / "strategist.md"
+        workflow_context = [project / ".director" / "master_handoff.md", context_rehydrate, workflow]
+        if operation_reporter:
+            operation_reporter("model_workflow_context_issued", "template_analysis", workflow_context, [output / "summary.md"], None)
+        return {"status": "native_analysis_ready", "outputs": outputs, "required_context": [str(path) for path in workflow_context]}
     output = project / "analysis" / "deep_template"
     invoke("pptx_template_import", runtime / "scripts" / "pptx_template_import.py", [str(template), "-o", str(output)], [output])
     for source_name, target_name, prefix in (("svg", "authoring-svg", "layered"), ("svg-flat", "authoring-svg-flat", "flat")):
@@ -606,8 +720,9 @@ def _prepare_template(
         target = output / target_name
         invoke(f"authoring_view:{source_name}", runtime / "scripts" / "svg_authoring_view.py", [str(source), "-o", str(target)], [target])
         invoke(f"vector_extraction:{source_name}", runtime / "scripts" / "extract_svg_assets.py", [str(target), "--icons-dir", str(output / "icons"), "--inplace", "--id-prefix", prefix, "--min-decoration-bytes", "3000", "--clean-stale"], [output / "icons"])
-    workflow_context = [runtime / "workflows" / "create-template.md", runtime / "references" / "template-designer.md"]
-    expected_outputs = [project / "design_spec.md", project / "spec_lock.md"]
+    workflow = runtime / "workflows" / "create-template.md"
+    workflow_context = [project / ".director" / "master_handoff.md", context_rehydrate, workflow]
+    expected_outputs = [output / "source_profile.json", output / "summary.md", output / "native_structure.json"]
     if operation_reporter:
         operation_reporter("model_workflow_context_issued", "premium_template_design", workflow_context, expected_outputs, None)
     return {
@@ -615,6 +730,29 @@ def _prepare_template(
         "required_context": [str(path) for path in workflow_context],
         "expected_outputs": [str(path) for path in expected_outputs],
     }
+
+
+def refresh_template_analysis(
+    project_path: str | Path,
+    runtime_root: str | Path,
+    *,
+    operation_reporter: OperationReporter | None = None,
+) -> dict[str, Any]:
+    project, runtime = Path(project_path).resolve(), Path(runtime_root).resolve()
+    selection = require_mode(project)
+    contract = _contract(project)
+    template_raw = (contract.get("template") or {}).get("path")
+    if selection["mode"] == "standard" or not template_raw:
+        raise DirectorRuntimeError("template analysis refresh requires template or premium mode")
+    context = refresh_context(project, command="template-analysis-redo", runtime_root=runtime)
+    return _prepare_template(
+        project,
+        runtime,
+        selection["mode"],
+        Path(str(template_raw)).expanduser(),
+        Path(context["path"]),
+        operation_reporter=operation_reporter,
+    )
 
 
 def select_mode(
@@ -669,10 +807,18 @@ def select_mode(
     mode_path, handoff_path = project / ".director" / "generation_mode.json", project / ".director" / "master_handoff.md"
     _atomic_json(mode_path, selection)
     _atomic_text(handoff_path, _handoff(project, contract, selection))
-    template_result = _prepare_template(project, runtime, selected, Path(template_raw) if template_raw else None, operation_reporter=operation_reporter)
+    context = refresh_context(project, command="template-analysis", router_root=router_root, runtime_root=runtime)
+    template_result = _prepare_template(
+        project,
+        runtime,
+        selected,
+        Path(template_raw) if template_raw else None,
+        Path(context["path"]),
+        operation_reporter=operation_reporter,
+    )
     return {
         "mode": selected, "generation_mode": str(mode_path), "master_handoff": str(handoff_path),
-        "template_processing": template_result, "stage": "director_pending", "next_allowed_actions": ["plan"],
+        "context_rehydrate": context, "template_processing": template_result, "stage": "director_pending", "next_allowed_actions": ["plan"],
     }
 
 
@@ -683,15 +829,290 @@ def require_mode(project_path: str | Path) -> dict[str, Any]:
     return _json(path)
 
 
+def _context_path(project: Path, role: str) -> Path:
+    return project / ".director" / "context" / "current" / f"{role}.json"
+
+
+def _context_entry(project: Path, path: Path, *, kind: str, excerpt: str | None = None) -> dict[str, Any]:
+    entry: dict[str, Any] = {"kind": kind, "path": _logical_project_path(project, path), "sha256": sha256(path)}
+    if excerpt is not None:
+        entry["excerpt"] = excerpt
+    return entry
+
+
+def _template_analysis_files(project: Path, mode: str) -> list[Path]:
+    root = project / "analysis" / ("deep_template" if mode == "premium" else "template_intake")
+    return sorted(path for path in root.rglob("*") if path.is_file()) if root.is_dir() else []
+
+
+def _load_plan_if_present(project: Path) -> dict[str, Any] | None:
+    path = project / "analysis" / "director_plan.json"
+    if not path.is_file():
+        return None
+    from director_plan import load_plan
+    return load_plan(project)
+
+
+def _page_expression_task(plan: dict[str, Any] | None, page_id: str) -> str:
+    if not plan:
+        return "non_probe"
+    mapping = ("information_density", "complex_relationship", "visual_signature")
+    for index, sample in enumerate(plan.get("sample_pages") or []):
+        if sample.get("page_id") == page_id:
+            raw = str(sample.get("expression_task") or sample.get("risk_type") or sample.get("sample_role") or "").strip()
+            return raw if raw in mapping else mapping[index] if index < len(mapping) else "non_probe"
+    return "non_probe"
+
+
+def semantic_plan_hashes(project_path: str | Path) -> dict[str, Any]:
+    """Return the phase-1 deck and page semantic hashes; never use plan bytes as authority."""
+    project = Path(project_path).resolve()
+    plan = _load_plan_if_present(project)
+    if not plan:
+        return {"deck_plan_hash": None, "page_semantic_hashes": {}}
+    contract = _contract(project)
+    pages = list(plan.get("pages") or [])
+    deck = {
+        "audience": contract.get("audience"), "purpose": contract.get("purpose"),
+        "core_viewpoint": (plan.get("content_map") or {}).get("core_argument"),
+        "storyline": plan.get("storyline"),
+        "page_count": len(pages), "page_order": [page.get("page_id") for page in pages],
+        "fact_boundary": plan.get("fact_boundary"),
+    }
+    hashes = {}
+    for page in pages:
+        page_id = str(page.get("page_id"))
+        payload = {key: page.get(key) for key in (
+            "page_id", "page_role", "page_intent", "required_messages", "source_refs", "factual_constraints",
+        )}
+        payload["expression_task"] = _page_expression_task(plan, page_id)
+        hashes[page_id] = semantic_hash(payload)
+    return {"deck_plan_hash": semantic_hash(deck), "page_semantic_hashes": hashes}
+
+
+def validate_template_profile(project_path: str | Path, candidate: str | Path) -> dict[str, Any]:
+    project, path = Path(project_path).resolve(), Path(candidate).resolve()
+    value = _json(path)
+    missing = sorted(TEMPLATE_PROFILE_FIELDS - set(value))
+    if missing:
+        raise DirectorRuntimeError(f"template_profile.json missing fields: {', '.join(missing)}")
+    slides = value.get("reference_slides")
+    if not isinstance(slides, list) or not slides:
+        raise DirectorRuntimeError("template_profile.reference_slides must be a non-empty list")
+    for index, slide in enumerate(slides):
+        if not isinstance(slide, dict):
+            raise DirectorRuntimeError(f"reference_slides[{index}] must be an object")
+        raw = slide.get("path") or slide.get("artifact_path")
+        if not isinstance(raw, str) or not raw.strip():
+            raise DirectorRuntimeError(f"reference_slides[{index}] must reference a real artifact path")
+        artifact = (project / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+        try:
+            artifact.relative_to(project)
+        except ValueError as exc:
+            raise DirectorRuntimeError("template reference slide must be inside the project") from exc
+        if not artifact.is_file() or not sha256(artifact):
+            raise DirectorRuntimeError(f"template reference slide is missing: {raw}")
+        declared = slide.get("sha256")
+        if declared and declared != sha256(artifact):
+            raise DirectorRuntimeError(f"template reference slide hash is stale: {raw}")
+    return value
+
+
+def _contains_forbidden_genome_field(value: Any) -> str | None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized = str(key).strip().lower()
+            if normalized in GENOME_FORBIDDEN_FIELDS or normalized.endswith("_coordinates"):
+                return str(key)
+            found = _contains_forbidden_genome_field(child)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _contains_forbidden_genome_field(child)
+            if found:
+                return found
+    return None
+
+
+def validate_design_genome(project_path: str | Path, candidate: str | Path) -> dict[str, Any]:
+    project, path = Path(project_path).resolve(), Path(candidate).resolve()
+    value = _json(path)
+    required = {"visual_direction", "template_inheritance", "color_system", "font_system", "canvas", "safe_margins", "information_hierarchy", "image_strategy", "relationship_principles", "page_rhythm", "design_probes", "page_visual_tasks"}
+    missing = sorted(required - set(value))
+    if missing:
+        raise DirectorRuntimeError(f"design_genome.json missing fields: {', '.join(missing)}")
+    forbidden = _contains_forbidden_genome_field(value)
+    if forbidden:
+        raise DirectorRuntimeError(f"design_genome.json contains forbidden fixed layout field: {forbidden}")
+    plan = _load_plan_if_present(project)
+    probes = value.get("design_probes")
+    if not isinstance(probes, list) or len(probes) != 3:
+        raise DirectorRuntimeError("design_genome.design_probes must contain exactly three probes")
+    ids = [str(item.get("page_id")) for item in probes if isinstance(item, dict)]
+    tasks = [str(item.get("expression_task")) for item in probes if isinstance(item, dict)]
+    allowed = {page["page_id"] for page in (plan or {}).get("pages", [])}
+    if len(ids) != 3 or len(set(ids)) != 3 or not set(ids).issubset(allowed):
+        raise DirectorRuntimeError("design_genome probes must use three unique Director Plan page ids")
+    if set(tasks) != {"information_density", "complex_relationship", "visual_signature"}:
+        raise DirectorRuntimeError("design_genome probes must cover the three required expression tasks")
+    return value
+
+
+def compile_design_spec(project_path: str | Path) -> dict[str, Any]:
+    project = Path(project_path).resolve()
+    genome_path = project / "design_genome.json"
+    genome = validate_design_genome(project, genome_path)
+    contract = _contract(project)
+    mode = require_mode(project).get("mode")
+    profile_path = project / "analysis" / "template_profile.json"
+    if mode in {"template", "premium"}:
+        validate_template_profile(project, profile_path)
+    genome_hash = sha256(genome_path)
+    body = ["# Design Spec", "", f"design_genome_sha256: {genome_hash}", "", "## Visual Direction", "", str(genome["visual_direction"]), "", "## Template Inheritance", "", str(genome["template_inheritance"]), "", "## Page Rhythm", "", json.dumps(genome["page_rhythm"], ensure_ascii=False, indent=2), "", "## Page Visual Tasks", "", json.dumps(genome["page_visual_tasks"], ensure_ascii=False, indent=2), ""]
+    lock = ["# Spec Lock", "", f"design_genome_sha256: {genome_hash}", f"canvas: {json.dumps(genome['canvas'], ensure_ascii=False)}", f"safe_margins: {json.dumps(genome['safe_margins'], ensure_ascii=False)}", f"color_system: {json.dumps(genome['color_system'], ensure_ascii=False)}", f"font_system: {json.dumps(genome['font_system'], ensure_ascii=False)}"]
+    minimum = (20, 16, 12) if str((contract.get("profile") or {}).get("id")) in {"government_strategy", "decision_meeting"} else (18, 16, 12)
+    lock.extend([f"minimum_font_sizes: body={minimum[0]}px supporting={minimum[1]}px footnote={minimum[2]}px", "", "## Image Strategy", "", str(genome["image_strategy"]), "", "## Relationship Principles", "", str(genome["relationship_principles"]), ""])
+    _atomic_text(project / "design_spec.md", "\n".join(body))
+    _atomic_text(project / "spec_lock.md", "\n".join(lock))
+    return {"design_genome": str(genome_path), "design_genome_hash": genome_hash, "design_spec": str(project / "design_spec.md"), "spec_lock": str(project / "spec_lock.md")}
+
+
+def _role_contract(runtime: Path, role: str) -> Path | None:
+    candidate = runtime / "references" / "ppt-director-roles" / f"{role}.md"
+    return candidate if candidate.is_file() else None
+
+
+def assemble_role_context(project_path: str | Path, *, role: str, page: dict[str, Any] | None = None, previous_page: str | None = None, router_root: str | Path | None = None, runtime_root: str | Path | None = None, feedback: str | None = None) -> dict[str, Any]:
+    if role not in ROLE_NAMES:
+        raise DirectorRuntimeError(f"unsupported role: {role}")
+    project = Path(project_path).resolve()
+    runtime = Path(runtime_root).resolve() if runtime_root else Path(__file__).resolve().parents[1] / "runtime" / "ppt-master"
+    contract, mode = _contract(project), require_mode(project)
+    plan = _load_plan_if_present(project)
+    inputs: list[dict[str, Any]] = []
+    role_contract = _role_contract(runtime, role)
+    if role_contract:
+        inputs.append(_context_entry(project, role_contract, kind="role_contract"))
+    if role == "content_strategist":
+        profile = project / "analysis" / "director_profile.md"
+        inputs.append(_context_entry(project, profile, kind="matched_profile"))
+        for row in _source_rows(contract):
+            inputs.append(_context_entry(project, Path(str(row["path"])), kind="source_material"))
+    elif role == "template_analyst":
+        raw = (contract.get("template") or {}).get("path")
+        if not raw:
+            raise DirectorRuntimeError("template analyst requires a template")
+        inputs.append(_context_entry(project, Path(str(raw)), kind="template"))
+        for artifact in _template_analysis_files(project, mode["mode"]):
+            inputs.append(_context_entry(project, artifact, kind="template_render" if artifact.suffix.lower() in {".png", ".svg"} else "template_analysis"))
+    elif role == "visual_director":
+        if not plan:
+            raise DirectorRuntimeError("visual director requires an approved Director Plan")
+        state_path = project / "analysis" / "production_state.json"
+        state = _json(state_path) if state_path.is_file() else {}
+        if ((state.get("samples") or {}).get("phase1") and
+                ((state.get("samples") or {}).get("confirmations") or {}).get("brief") != "approved"):
+            raise DirectorRuntimeError("visual director requires brief approval")
+        inputs.append(_context_entry(project, project / "analysis" / "director_plan.json", kind="director_plan"))
+        profile = project / "analysis" / "template_profile.json"
+        if profile.is_file():
+            inputs.append(_context_entry(project, profile, kind="template_profile"))
+        elif mode["mode"] in {"template", "premium"}:
+            raise DirectorRuntimeError("template mode requires a valid Template Profile")
+    elif role == "slide_designer":
+        if not page:
+            raise DirectorRuntimeError("slide designer requires a current page")
+        from director_plan import resolve_evidence_ref
+        excerpts = [resolve_evidence_ref(project, ref) for ref in page.get("source_refs") or []]
+        inputs.append({"kind": "current_page", "page": page, "source_excerpts": excerpts})
+        genome = project / "design_genome.json"
+        inputs.append(_context_entry(project, genome, kind="design_genome"))
+        previous = project / ".preview" / f"{previous_page}.png" if previous_page else None
+        if previous and previous.is_file():
+            inputs.append(_context_entry(project, previous, kind="previous_page_png"))
+        if feedback:
+            inputs.append({"kind": "revision_feedback", "text": feedback})
+        executor = runtime / "references" / "executor-base.md"
+        inputs.append(_context_entry(project, executor, kind="executor_standard"))
+    elif role == "visual_reviewer":
+        if not page:
+            raise DirectorRuntimeError("visual reviewer requires a current page")
+        png = project / ".preview" / f"{page['page_id']}.png"
+        inputs.append(_context_entry(project, png, kind="latest_png"))
+        inputs.append({"kind": "current_page_semantics", "page_id": page["page_id"], "page_intent": page.get("page_intent"), "required_messages": page.get("required_messages"), "factual_constraints": page.get("factual_constraints")})
+        inputs.append(_context_entry(project, project / "design_genome.json", kind="design_genome"))
+        if plan:
+            ordered = [item["page_id"] for item in plan.get("pages") or []]
+            index = ordered.index(page["page_id"]) if page["page_id"] in ordered else -1
+            for neighbor_id in ordered[max(0, index - 1): index + 2]:
+                neighbor = project / ".preview" / f"{neighbor_id}.png"
+                if neighbor.is_file() and neighbor != png:
+                    inputs.append(_context_entry(project, neighbor, kind="adjacent_page_png"))
+    else:
+        inputs.append({"kind": "task_summary", "request": contract.get("request"), "audience": contract.get("audience"), "purpose": contract.get("purpose")})
+    payload = {"schema_version": "4.0-phase1", "role": role, "execution_mode": "controlled_same_session", "mode": mode["mode"], "inputs": inputs, "allowed_output": ROLE_OUTPUTS.get(role), "forbidden": ["logs", "production_state", "capability_snapshot", "full_master", "unrelated_svg", "builder_reasoning"]}
+    payload["context_hash"] = semantic_hash(payload)
+    destination = _context_path(project, role)
+    _atomic_json(destination, payload)
+    snapshot_root = os.environ.get("PPT_DIRECTOR_CONTEXT_SNAPSHOT_DIR")
+    if snapshot_root:
+        target = Path(snapshot_root).expanduser().resolve() / project.name / role / f"{payload['context_hash']}.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(destination, target)
+    return {"path": str(destination), "sha256": sha256(destination), "role": role, "context_hash": payload["context_hash"], "semantic_dependency_hash": payload["context_hash"], "input_hashes": [item.get("sha256") for item in inputs if isinstance(item, dict) and item.get("sha256")]}
+
+
+def submit_role_artifact(project_path: str | Path, *, role: str, artifact: str | Path) -> dict[str, Any]:
+    project, source = Path(project_path).resolve(), Path(artifact).resolve()
+    if role not in ROLE_OUTPUTS:
+        raise DirectorRuntimeError(f"role {role} cannot submit artifacts")
+    if not source.is_file():
+        raise DirectorRuntimeError(f"artifact does not exist: {source}")
+    if role == "content_strategist":
+        from director_plan import validate_director_plan
+        value = _json(source); validate_director_plan(project, value); destination = project / "analysis" / "director_plan.json"
+    elif role == "template_analyst":
+        validate_template_profile(project, source); destination = project / "analysis" / "template_profile.json"
+    elif role == "visual_director":
+        validate_design_genome(project, source); destination = project / "design_genome.json"
+    elif role == "slide_designer":
+        destination = project / ".page_work" / "current.svg"
+    else:
+        destination = project / ".review" / f"{source.stem}.json"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source != destination:
+        shutil.copy2(source, destination)
+    return {"role": role, "artifact": str(destination), "sha256": sha256(destination)}
+
+
 def refresh_context(
     project_path: str | Path,
     *,
     command: str,
+    role: str | None = None,
     page: dict[str, Any] | None = None,
     previous_page: str | None = None,
     router_root: str | Path | None = None,
     runtime_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    role_for_command = {
+        "director-plan": "content_strategist",
+        "template-analysis": "template_analyst",
+        "template-analysis-redo": "template_analyst",
+        "design-spec": "visual_director",
+        "page-begin": "slide_designer",
+        "page-review": "visual_reviewer",
+    }.get(command)
+    if role or role_for_command:
+        return assemble_role_context(
+            project_path,
+            role=role or role_for_command or "director",
+            page=page,
+            previous_page=previous_page,
+            router_root=router_root,
+            runtime_root=runtime_root,
+        )
     project = Path(project_path).resolve()
     router = Path(router_root).resolve() if router_root else Path(__file__).resolve().parents[1]
     runtime = Path(runtime_root).resolve() if runtime_root else router / "runtime" / "ppt-master"
@@ -717,10 +1138,6 @@ def refresh_context(
             required.append({"role": role, "logical_path": logical_path(path), "sha256": sha256(path) or "missing"})
 
     for role, path in (
-        ("master", runtime / "MASTER.md"),
-        ("strategist", runtime / "references" / "strategist.md"),
-        ("executor", runtime / "references" / "executor-base.md"),
-        ("shared_standards", runtime / "references" / "shared-standards.md"),
         ("director_profile", project / "analysis" / "director_profile.md"),
         ("director_plan", project / "analysis" / "director_plan.json"),
         ("design_spec", project / "design_spec.md"),
@@ -734,30 +1151,40 @@ def refresh_context(
         add(role, path)
     for row in _source_rows(contract):
         add("source", Path(str(row["path"])).expanduser())
+    for row in contract.get("reference_files") or []:
+        if isinstance(row, dict) and row.get("path"):
+            add("reference_material", Path(str(row["path"])).expanduser())
     template = (contract.get("template") or {}).get("path")
     if template:
         add("reference_pptx", Path(str(template)).expanduser())
     analysis_dir = project / "analysis" / ("deep_template" if mode["mode"] == "premium" else "template_intake")
     if mode["mode"] != "standard":
-        for output in sorted(analysis_dir.rglob("*.json")):
+        for output in sorted(path for path in analysis_dir.rglob("*") if path.is_file()):
             add("template_analysis", output)
-    required.sort(key=lambda item: (item["role"], item["logical_path"]))
+    feedback = project / ".director" / "sample_feedback.md"
+    add("sample_feedback", feedback)
 
     previous_artifacts: list[dict[str, str | None]] = []
     if previous_page:
+        previous_png = project / ".preview" / f"{previous_page}.png"
+        add("previous_page_png", previous_png)
         previous_artifacts.append({
             "page_id": previous_page,
             "svg_hash": sha256(project / "svg_output" / f"{previous_page}.svg"),
             "png_hash": sha256(project / ".preview" / f"{previous_page}.png"),
             "review_hash": sha256(project / ".review" / f"{previous_page}.json"),
         })
-    feedback = project / ".director" / "sample_feedback.md"
+    required.sort(key=lambda item: (item["role"], item["logical_path"]))
+    production_state_path = project / "analysis" / "production_state.json"
+    production_state = _json(production_state_path) if production_state_path.is_file() else {}
+    confirmations = _canonical((production_state.get("samples") or {}).get("confirmations") or {})
     context_payload = {
         "schema_version": "1.0", "command": command, "mode": mode["mode"],
         "page_id": (page or {}).get("page_id"),
         "mode_semantic_hash": current_mode_semantic_hash(project),
         "required_context": required, "current_page": page or {},
         "previous_artifacts": previous_artifacts,
+        "confirmations": confirmations,
         "sample_feedback_hash": sha256(feedback) if feedback.is_file() else None,
     }
     context_payload["semantic_dependency_hash"] = semantic_hash(context_payload)
@@ -772,6 +1199,7 @@ def refresh_context(
         "| role | logical_path | sha256 |", "| --- | --- | --- |",
     ]
     lines.extend(f"| {row['role']} | `{row['logical_path']}` | `{row['sha256']}` |" for row in required)
+    lines.extend(["", "## confirmations", "", "```json", json.dumps(confirmations, ensure_ascii=False, indent=2), "```"])
     lines.extend(["", "## current_page", "", "```json", json.dumps(_canonical(page or {}), ensure_ascii=False, indent=2), "```"])
     lines.extend(["", "## previous_artifacts", "", "```json", json.dumps(previous_artifacts, ensure_ascii=False, indent=2), "```"])
     if context_payload["sample_feedback_hash"]:

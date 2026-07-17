@@ -13,8 +13,17 @@ options. Do not force a resource when it does not match the relationship.
 Production order is enforced by `production_state.json`. A page must pass the
 existing SVG quality checker, be rendered, have its latest PNG opened and
 visually reviewed, and pass the bound review before the next page begins.
-Standard mode's three risk samples stop at `sample_confirmation`. Template and
-premium modes render A/B/C directions for the same overview/complex page pair,
-then stop at the same gate. A later independent user decision is required before
-full production. `sample-reject` returns the grouped flow to sample production
-with the user's feedback; it does not create another plan or state file.
+Every Phase-1 mode uses three different formal design probes. Each probe follows the
+existing `page-begin`, SVG check, render, review, and `page-pass` flow. Once all three
+are sealed, stop for Design Approval. Do not create style samples, A/B/C directions,
+candidate directories, or two-by-three direction variants.
+
+Router role Context is written only to `.director/context/current/<role>.json` and
+overwritten on the next call. The Slide Designer remains the existing PPT Master
+Executor and reads only its current-page Context, the matched template evidence, the
+previous PNG when present, the Genome summary and Executor standards. Do not read full
+project state, logs, unrelated SVG, Builder reasoning, or capability snapshots.
+
+Deep-fusion production stops after every reviewed non-probe page; a hash-bound page
+approval is required before sealing it. Probe pages require the unified Design Approval,
+not three separate page approvals.

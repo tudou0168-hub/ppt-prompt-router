@@ -156,37 +156,39 @@ def validate_director_plan(project: str | Path, plan: dict[str, Any]) -> dict[st
     samples = plan.get("sample_pages")
     mode_path = root / ".director" / "generation_mode.json"
     mode = json.loads(mode_path.read_text(encoding="utf-8")).get("mode") if mode_path.is_file() else "standard"
-    expected_samples = 2 if schema_31 and mode in {"template", "premium"} else 3
+    expected_samples = 3
     if not isinstance(samples, list) or len(samples) != expected_samples:
         raise DirectorPlanError(f"sample_pages must contain exactly {expected_samples} pages")
-    if expected_samples == 2:
-        roles = [sample.get("sample_role") for sample in samples if isinstance(sample, dict)]
-        if roles != ["overview", "complex"]:
-            raise DirectorPlanError("template/premium sample_pages must be ordered as overview and complex")
     risks, sample_ids = set(), set()
     for index, sample in enumerate(samples):
         if not isinstance(sample, dict):
             raise DirectorPlanError(f"sample_pages[{index}] must be an object")
         page_id = _string(sample.get("page_id"), f"sample_pages[{index}].page_id")
-        risk = _string(sample.get("risk_type"), f"sample_pages[{index}].risk_type") if expected_samples == 3 else str(sample.get("sample_role"))
+        if schema_31:
+            risk = _string(sample.get("sample_role"), f"sample_pages[{index}].sample_role")
+        else:
+            risk = _string(sample.get("risk_type"), f"sample_pages[{index}].risk_type")
         _string(sample.get("reason"), f"sample_pages[{index}].reason")
         if page_id not in page_by_id or page_id in sample_ids:
             raise DirectorPlanError(f"invalid or duplicate sample page: {page_id}")
         role = str(page_by_id[page_id].get("page_role") or "").strip().lower()
-        if expected_samples == 3 and role in EXCLUDED_SAMPLE_ROLES:
+        if role in EXCLUDED_SAMPLE_ROLES:
             raise DirectorPlanError(f"sample page {page_id} uses excluded role {role}")
-        if expected_samples == 3 and risk not in RISK_TYPES:
+        if not schema_31 and risk not in RISK_TYPES:
             raise DirectorPlanError(f"unsupported sample risk: {risk}")
-        if expected_samples == 2 and risk == "overview" and role not in {"cover", "overview", "executive_summary", "summary"}:
-            raise DirectorPlanError(f"overview sample {page_id} must be a cover or overview page")
-        if expected_samples == 2 and risk == "complex":
-            if role in EXCLUDED_SAMPLE_ROLES:
-                raise DirectorPlanError(f"complex sample {page_id} uses excluded role {role}")
-            if len(page_by_id[page_id].get("required_messages") or []) < 2:
-                raise DirectorPlanError(f"complex sample {page_id} must contain multiple required messages")
+        if schema_31 and len(page_by_id[page_id].get("required_messages") or []) < 2:
+            raise DirectorPlanError(f"pilot sample {page_id} must be a complex page with multiple required messages")
         risks.add(risk); sample_ids.add(page_id)
-    if expected_samples == 3 and risks != RISK_TYPES:
+    if not schema_31 and risks != RISK_TYPES:
         raise DirectorPlanError("sample_pages must cover information_density, complex_relationship, and visual_signature")
+    if schema_31 and len(risks) != 3:
+        raise DirectorPlanError("pilot sample_pages must cover three different complex content types")
+    if schema_31:
+        canonical_tasks = ("information_density", "complex_relationship", "visual_signature")
+        for index, sample in enumerate(samples):
+            task = sample.get("expression_task")
+            if task is not None and task != canonical_tasks[index]:
+                raise DirectorPlanError("sample expression_task must follow the three required probe tasks")
     return plan
 
 
@@ -213,27 +215,39 @@ def page_by_id(plan: dict[str, Any], page_id: str) -> dict[str, Any]:
 
 
 def planning_context(project: str | Path, router_root: str | Path, runtime_root: str | Path) -> dict[str, Any]:
-    root, router, runtime = Path(project).resolve(), Path(router_root).resolve(), Path(runtime_root).resolve()
+    root, runtime = Path(project).resolve(), Path(runtime_root).resolve()
     return {"stage": "director_pending", "required_context": [str(path) for path in (
-        router / "SKILL.md", runtime / "MASTER.md", runtime / "references" / "strategist.md",
-        runtime / "references" / "ppt-director-strategist.md",
-        root / "analysis" / "director_profile.md", root / ".director" / "generation_mode.json",
-        root / ".director" / "master_handoff.md", *sorted((root / "sources").glob("*.md")),
+        root / ".director" / "master_handoff.md",
+        root / ".director" / "context_rehydrate.md",
+        runtime / "references" / "strategist.md",
     )], "required_output": str(root / "analysis" / "director_plan.json"), "next_allowed_actions": ["plan --apply <candidate.json>"]}
 
 
 def install_director_plan(project: str | Path, candidate: str | Path) -> dict[str, Any]:
     root, source = Path(project).expanduser().resolve(), Path(candidate).expanduser().resolve()
     destination = root / "analysis" / "director_plan.json"
-    if destination.exists():
-        raise DirectorPlanError("director_plan.json is immutable after installation; only sample-confirm C may update sample_pages")
     if not source.is_file():
         raise DirectorPlanError(f"candidate plan not found: {source}")
     plan = validate_director_plan(root, json.loads(source.read_text(encoding="utf-8")))
+    if destination.exists():
+        from production import _load
+        state = _load(root)
+        confirmation = (state.get("samples", {}).get("confirmations") or {}).get("director")
+        if state.get("stage") != "director_pending" or state.get("pages") or confirmation not in {"adjust_requested", "restart_requested"}:
+            raise DirectorPlanError("director_plan.json is immutable after confirmation")
     _atomic_json(destination, plan)
-    from production import attach_director_plan
-    state = attach_director_plan(root)
-    return {"director_plan": str(destination), "stage": state["stage"], "page_count": len(plan["pages"]), "sample_pages": plan["sample_pages"], "next_allowed_actions": ["lock-spec"]}
+    from production import attach_director_plan, register_director_plan
+    if str(plan.get("schema_version") or "3.0") == "3.1":
+        state = register_director_plan(root)
+        actions = ["approve <project> --type brief --decision A"]
+    else:
+        state = attach_director_plan(root)
+        actions = ["lock-spec"]
+    result = {"director_plan": str(destination), "stage": state["stage"], "page_count": len(plan["pages"]), "sample_pages": plan["sample_pages"], "next_allowed_actions": actions}
+    for key in ("status", "confirmation_kind", "next_action", "next_command"):
+        if key in state:
+            result[key] = state[key]
+    return result
 
 
 def replace_sample_pages(project: str | Path, replacements: list[str]) -> dict[str, Any]:
@@ -241,14 +255,15 @@ def replace_sample_pages(project: str | Path, replacements: list[str]) -> dict[s
     path = root / "analysis" / "director_plan.json"
     plan = load_plan(root)
     if len(replacements) != 3 or len(set(replacements)) != 3:
-        raise DirectorPlanError("sample-confirm C requires exactly three unique pages")
+        raise DirectorPlanError("pilot replacement requires exactly three unique pages")
     page_ids = {page["page_id"] for page in plan["pages"]}
     if any(page_id not in page_ids for page_id in replacements):
         raise DirectorPlanError("replacement sample page is not in director plan")
     updated = json.loads(json.dumps(plan, ensure_ascii=False))
     for sample, page_id in zip(updated["sample_pages"], replacements):
         sample["page_id"] = page_id
-        sample["reason"] = f"User reselected {page_id} for {sample['risk_type']} risk"
+        role = sample.get("sample_role") or sample.get("risk_type") or "pilot"
+        sample["reason"] = f"User reselected {page_id} for {role}"
     validate_director_plan(root, updated)
     _atomic_json(path, updated)
     return updated

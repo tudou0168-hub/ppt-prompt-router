@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib
 import io
 import json
@@ -26,11 +25,13 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "runtime" / "ppt-master"
 RUNTIME_SCRIPTS = RUNTIME / "scripts"
 PUBLIC_COMMANDS = (
-    "start", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin",
+    "start", "approve", "context", "submit", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin",
     "page-check", "page-review", "page-pass", "sample-confirm", "sample-reject",
     "review", "status", "export",
 )
 TEMPLATE_INTENTS = {"reference_elements", "native_fill", "reusable_template", "none"}
+SUPPORTED_INPUT_SUFFIXES = {".txt", ".md", ".markdown", ".doc", ".docx", ".ppt", ".pptx"}
+CONVERTED_SOURCE_SUFFIXES = {".doc", ".docx", ".ppt", ".pptx"}
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -44,11 +45,16 @@ from scripts.router_profile import (  # noqa: E402
 from scripts.run_log import append_event, sha256  # noqa: E402
 from scripts.director_runtime import (  # noqa: E402
     DirectorRuntimeError,
+    assemble_role_context,
     capability_preflight,
+    compile_design_spec,
     propose_mode,
     refresh_context,
+    refresh_template_analysis,
     require_mode,
     select_mode,
+    semantic_plan_hashes,
+    submit_role_artifact,
 )
 
 
@@ -74,10 +80,6 @@ def _stage(project: Path | None) -> str | None:
         return None
     path = project / "analysis" / "production_state.json"
     return str(_json(path).get("stage")) if path.is_file() else None
-
-
-def _required(*paths: Path) -> list[dict[str, str | None]]:
-    return [{"path": str(path.resolve()), "sha256": sha256(path)} for path in paths]
 
 
 def _runtime_check() -> None:
@@ -206,6 +208,39 @@ def material_context(paths: list[str]) -> str:
     return "\n".join(chunks)
 
 
+def _validate_input_files(paths: list[str], *, role: str) -> None:
+    for raw in paths:
+        path = Path(raw).expanduser()
+        if not path.is_file():
+            raise WorkflowError(f"{role} input not found: {path}")
+        if path.suffix.lower() not in SUPPORTED_INPUT_SUFFIXES:
+            raise WorkflowError(f"unsupported {role} input type: {path.suffix or path.name}")
+
+
+def _validate_converted_sources(project: Path, original_sources: list[str], imported: dict[str, Any]) -> None:
+    skipped = "\n".join(str(item) for item in imported.get("skipped") or [])
+    if "conversion failed" in skipped.lower() or "produced no usable" in skipped.lower():
+        raise WorkflowError(f"source conversion failed: {skipped}", code="SOURCE_CONVERSION_INVALID")
+    converted = [Path(path) for path in imported.get("markdown") or [] if Path(path).is_file()]
+    for raw in original_sources:
+        source = Path(raw)
+        if source.suffix.lower() in CONVERTED_SOURCE_SUFFIXES:
+            matches = [path for path in converted if path.stem.startswith(source.stem)]
+            if not matches:
+                matches = sorted((project / "sources").glob(f"{source.stem}*.md"))
+            if not matches:
+                raise WorkflowError(f"source conversion produced no Markdown: {source}", code="SOURCE_CONVERSION_INVALID")
+    for markdown in converted:
+        text = markdown.read_text(encoding="utf-8", errors="replace")
+        lowered = text.lower()
+        word_xml = any(marker in lowered for marker in (
+            "word/document.xml", "<w:document", "<w:body", "<w:p", "<w:r", "schemas.openxmlformats.org/wordprocessingml",
+        ))
+        garbled = "\x00" in text or text.count("\ufffd") > max(3, len(text) // 50)
+        if not text.strip() or word_xml or garbled:
+            raise WorkflowError(f"converted source contains Word XML or garbled text: {markdown}", code="SOURCE_CONVERSION_INVALID")
+
+
 def _page_count(raw: int | None, request: str) -> int:
     if raw:
         return raw
@@ -215,7 +250,15 @@ def _page_count(raw: int | None, request: str) -> int:
     return int(match.group(1))
 
 
-def _write_contract(project: Path, entry: dict[str, Any], profile_text: str, args: argparse.Namespace, intent: str, template_path: str | None) -> Path:
+def _write_contract(
+    project: Path,
+    entry: dict[str, Any],
+    profile_text: str,
+    args: argparse.Namespace,
+    intent: str,
+    template_path: str | None,
+    reference_paths: list[str],
+) -> Path:
     analysis = project / "analysis"
     profile = analysis / "director_profile.md"
     profile.write_text(profile_text, encoding="utf-8")
@@ -232,6 +275,7 @@ def _write_contract(project: Path, entry: dict[str, Any], profile_text: str, arg
         "audience": args.audience or "未指定受众", "purpose": args.purpose or args.request,
         "page_count": _page_count(args.page_count, args.request),
         "source_files": source_files,
+        "reference_files": [{"path": path, "sha256": sha256(Path(path))} for path in reference_paths],
         "template": {"intent": intent, "path": template_path, "sha256": template_hash},
     }
     path = analysis / "director_contract.json"
@@ -249,22 +293,43 @@ def command_start(
     operation_emitter: OperationEmitter | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     sources = [str(Path(path).expanduser().resolve()) for path in args.source]
+    references = [str(Path(path).expanduser().resolve()) for path in args.reference]
     templates = [str(Path(path).expanduser().resolve()) for path in args.template]
+    _validate_input_files(sources, role="content")
+    _validate_input_files(references, role="reference")
+    _validate_input_files(templates, role="template")
+    if any(Path(path).suffix.lower() not in {".ppt", ".pptx"} for path in templates):
+        raise WorkflowError("PPT template input must be .ppt or .pptx")
+    if len(templates) > 1:
+        raise WorkflowError("only one primary template is supported")
     index = load_index(ROOT)
     audience = args.audience or ("政府领导" if "领导" in args.request else "未指定受众")
-    routed = route_profile(index, "\n".join((args.request, audience, args.purpose or "", material_context(sources + templates))), prompt_id=args.prompt_id)
+    routed = route_profile(index, "\n".join((args.request, audience, args.purpose or "", material_context(sources))), prompt_id=args.prompt_id)
     if routed["status"] != "selected":
         raise WorkflowError(routed["question"], code="NEEDS_INPUT", next_actions=[item["id"] for item in routed["candidates"]])
     intent = detect_template_intent(args.request, templates, explicit=args.template_intent)
     if intent["status"] != "selected":
         raise WorkflowError(intent["question"], code="NEEDS_INPUT", next_actions=intent["candidates"])
-    if len(templates) > 1:
-        raise WorkflowError("only one primary template is supported")
     base = Path(args.project_base).expanduser().resolve() if args.project_base else (Path.home() / "PPT Director" / "projects")
     manager = modules["project_manager"].ProjectManager(base)
     with redirect_stdout(io.StringIO()):
         project = Path(manager.init_project(args.project_name or f"router_{routed['entry']['id']}", args.format, str(base))).resolve()
         imported = manager.import_sources(str(project), list(dict.fromkeys(sources)), copy=not args.move, move=args.move) if sources else {}
+    _validate_converted_sources(project, sources, imported)
+    reference_paths: list[str] = []
+    if references:
+        material_dir = project / "references" / "materials"
+        material_dir.mkdir(parents=True, exist_ok=True)
+        for raw in references:
+            source_reference = Path(raw)
+            destination = material_dir / source_reference.name
+            if destination.exists():
+                raise WorkflowError(f"reference material already exists in project: {destination}")
+            if args.move:
+                shutil.move(str(source_reference), destination)
+            else:
+                shutil.copy2(source_reference, destination)
+            reference_paths.append(str(destination.resolve()))
     template_path = None
     if templates:
         reference_dir = project / "references"
@@ -278,14 +343,26 @@ def command_start(
         else:
             shutil.copy2(source_template, destination)
         template_path = str(destination.resolve())
-    contract = _write_contract(project, routed["entry"], compile_director_profile(ROOT, routed["entry"]), args, intent["intent"], template_path)
+    contract = _write_contract(project, routed["entry"], compile_director_profile(ROOT, routed["entry"]), args, intent["intent"], template_path, reference_paths)
     modules["production"].initialize_project(project)
     reporter = None
     if operation_emitter:
         reporter = lambda event_type, name, inputs, outputs, error: operation_emitter(project, event_type, name, inputs, outputs, error)
     snapshot = capability_preflight(project, RUNTIME, operation_reporter=reporter)
-    contexts = _required(ROOT / "SKILL.md", RUNTIME / "MASTER.md", RUNTIME / "references" / "strategist.md", project / "analysis" / "director_profile.md", *sorted((project / "sources").glob("*.md")))
-    return project, {"status": "director_pending", "project": str(project), "profile_id": routed["entry"]["id"], "template_intent": intent["intent"], "director_contract": str(contract), "capability_snapshot": str(project / ".director" / "capability_snapshot.json"), "available_modes": [key for key, value in snapshot["modes"].items() if value["status"] == "available_model_workflow"], "required_context": contexts, "next_allowed_actions": ["mode-propose"]}
+    contract_value = _json(contract)
+    return project, {
+        "status": "READY_FOR_MODE_SELECTION",
+        "next_action": "select a generation mode and create the content-strategist context",
+        "next_command": f"mode-select {project} --mode auto",
+        "project": str(project),
+        "profile_id": routed["entry"]["id"],
+        "template_intent": intent["intent"],
+        "director_contract": str(contract),
+        "material_inventory": {"content": contract_value["source_files"], "reference": contract_value["reference_files"], "template": contract_value["template"]},
+        "capability_snapshot": str(project / ".director" / "capability_snapshot.json"),
+        "available_modes": [key for key, value in snapshot["modes"].items() if value["status"] == "available_model_workflow"],
+        "next_allowed_actions": [f"mode-propose {project}", f"mode-select {project} --mode auto"],
+    }
 
 
 def _project(args: argparse.Namespace) -> Path:
@@ -309,15 +386,46 @@ def dispatch(
     reporter = None
     if operation_emitter:
         reporter = lambda event_type, name, inputs, outputs, error: operation_emitter(project, event_type, name, inputs, outputs, error)
+    if args.command == "context":
+        loaded = plan.load_plan(project) if (project / "analysis" / "director_plan.json").is_file() else None
+        page_id = args.page_id or (production.status(project).get("active_page") if args.role in {"slide_designer", "visual_reviewer"} else None)
+        page = plan.page_by_id(loaded, page_id) if loaded and page_id else None
+        ordered = [item["page_id"] for item in plan.plan_pages(loaded)] if loaded else []
+        previous = ordered[ordered.index(page_id) - 1] if page_id in ordered and ordered.index(page_id) else None
+        return project, assemble_role_context(project, role=args.role, page=page, previous_page=previous, router_root=ROOT, runtime_root=RUNTIME), sys.modules[__name__]
+    if args.command == "submit":
+        if args.role == "visual_reviewer":
+            return project, production.install_page_review(project, args.artifact), production
+        result = submit_role_artifact(project, role=args.role, artifact=args.artifact)
+        if args.role == "content_strategist":
+            result["registration"] = production.register_director_plan(project)
+        elif args.role in {"template_analyst", "visual_director"}:
+            result["registration"] = production.record_phase1_artifact(project, args.role)
+            if args.role == "visual_director":
+                result["next_allowed_actions"] = ["lock-spec"]
+        return project, result, sys.modules[__name__]
+    if args.command == "approve":
+        result = production.approve_phase1(project, args.type, args.decision, feedback=args.feedback, reset_scope=args.reset_scope, page_id=args.page_id, source=args.source, source_id=args.source_id)
+        if args.type == "brief" and args.decision == "A":
+            mode = require_mode(project).get("mode")
+            profile = project / "analysis" / "template_profile.json"
+            role = "template_analyst" if mode in {"template", "premium"} and not profile.is_file() else "visual_director"
+            result["context"] = assemble_role_context(project, role=role, router_root=ROOT, runtime_root=RUNTIME)
+        return project, result, production
     if args.command == "mode-propose":
         return project, propose_mode(project, ROOT, RUNTIME, quality_preference=args.quality_preference, fidelity_requirement=args.fidelity_requirement, requested_mode=args.requested_mode, operation_reporter=reporter), sys.modules[__name__]
     if args.command == "mode-select":
-        return project, select_mode(project, ROOT, RUNTIME, mode=args.mode, quality_preference=args.quality_preference, fidelity_requirement=args.fidelity_requirement, operation_reporter=reporter), sys.modules[__name__]
+        aliases = {"free_design": "standard", "template_guided": "template", "deep_fusion": "premium"}
+        result = select_mode(project, ROOT, RUNTIME, mode=aliases.get(args.mode, args.mode), quality_preference=args.quality_preference, fidelity_requirement=args.fidelity_requirement, operation_reporter=reporter)
+        result["content_context"] = assemble_role_context(project, role="content_strategist", router_root=ROOT, runtime_root=RUNTIME)
+        return project, result, sys.modules[__name__]
     if args.command == "plan":
         mode = require_mode(project)
+        context = refresh_context(project, command="director-plan", router_root=ROOT, runtime_root=RUNTIME)
         result = plan.install_director_plan(project, args.apply) if args.apply else plan.planning_context(project, ROOT, RUNTIME)
         result["generation_mode"] = mode["mode"]
-        result.setdefault("required_context", []).append(str(project / ".director" / "master_handoff.md"))
+        result["context_rehydrate"] = context
+        result["required_context"] = [context["path"]]
         return project, result, plan
     if args.command == "lock-spec":
         require_mode(project)
@@ -328,24 +436,28 @@ def dispatch(
         ordered = [page["page_id"] for page in plan.plan_pages(plan.load_plan(project))]
         previous = ordered[ordered.index(args.page_id) - 1] if args.page_id in ordered and ordered.index(args.page_id) > 0 else None
         context = refresh_context(project, command="page-begin", page=plan_page, previous_page=previous, router_root=ROOT, runtime_root=RUNTIME)
-        result = production.begin_page(project, args.page_id, ROOT, RUNTIME, direction=args.direction)
+        result = production.begin_page(project, args.page_id, ROOT, RUNTIME)
         result["context_rehydrate"] = context
         result["generation_mode"] = mode["mode"]
-        result.setdefault("required_context", []).append(context["path"])
         return project, result, production
     if args.command == "page-check":
         return project, production.check_page(project), production
     if args.command == "page-review":
         state = production.status(project)
-        page_id = state.get("active_page")
-        context = refresh_context(project, command="page-review", page=plan.page_by_id(plan.load_plan(project), page_id) if page_id else None, router_root=ROOT, runtime_root=RUNTIME)
+        active_candidate = state.get("active_candidate") or {}
+        page_id = active_candidate.get("page_id") or state.get("active_page")
+        loaded_plan = plan.load_plan(project)
+        ordered = [page["page_id"] for page in plan.plan_pages(loaded_plan)]
+        previous = ordered[ordered.index(page_id) - 1] if page_id in ordered and ordered.index(page_id) > 0 else None
+        context = refresh_context(project, command="page-review", page=plan.page_by_id(loaded_plan, page_id) if page_id else None, previous_page=previous, router_root=ROOT, runtime_root=RUNTIME)
         result = production.install_page_review(project, args.apply) if args.apply else production.review_context(project, RUNTIME)
         result["context_rehydrate"] = context
         return project, result, production
     if args.command == "page-pass":
         return project, production.pass_page(project), production
     if args.command == "sample-confirm":
-        return project, production.sample_confirm(project, args.decision, page_id=args.page_id, replacements=args.pages), production
+        result = production.approve_phase1(project, "design", args.decision, feedback=args.reason, reset_scope=args.reset_scope)
+        return project, result, production
     if args.command == "sample-reject":
         result = production.sample_reject(project, args.reason)
         context = refresh_context(project, command="sample-reject", router_root=ROOT, runtime_root=RUNTIME)
@@ -364,18 +476,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="PPT Director 3.1")
     sub = parser.add_subparsers(dest="command", required=True)
     start = sub.add_parser("start")
-    start.add_argument("--request", required=True); start.add_argument("--source", action="append", default=[]); start.add_argument("--template", action="append", default=[])
+    start.add_argument("--request", required=True); start.add_argument("--source", action="append", default=[]); start.add_argument("--reference", action="append", default=[]); start.add_argument("--template", action="append", default=[])
     start.add_argument("--template-intent", choices=sorted(TEMPLATE_INTENTS)); start.add_argument("--page-count", type=int); start.add_argument("--audience"); start.add_argument("--purpose"); start.add_argument("--prompt-id")
     start.add_argument("--format", default="ppt169"); start.add_argument("--project-name"); start.add_argument("--project-base"); start.add_argument("--move", action="store_true")
+    context = sub.add_parser("context"); context.add_argument("project"); context.add_argument("--role", required=True, choices=("director", "content_strategist", "template_analyst", "visual_director", "slide_designer", "visual_reviewer")); context.add_argument("--page-id")
+    submit = sub.add_parser("submit"); submit.add_argument("project"); submit.add_argument("--role", required=True, choices=("director", "content_strategist", "template_analyst", "visual_director", "slide_designer", "visual_reviewer")); submit.add_argument("--artifact", required=True)
+    approve = sub.add_parser("approve"); approve.add_argument("project"); approve.add_argument("--type", required=True, choices=("brief", "design", "page")); approve.add_argument("--decision", default="A", choices=("A", "B", "C")); approve.add_argument("--feedback"); approve.add_argument("--reset-scope", choices=("content", "template", "visual")); approve.add_argument("--source", default="cli_unverified", choices=("cli_unverified", "host_user_message")); approve.add_argument("--source-id"); approve.add_argument("--page-id")
     propose = sub.add_parser("mode-propose"); propose.add_argument("project"); propose.add_argument("--quality-preference", choices=("speed", "balanced", "quality"), default="balanced"); propose.add_argument("--fidelity-requirement", choices=("light", "high", "mirror")); propose.add_argument("--requested-mode", choices=("standard", "template", "premium"))
-    select = sub.add_parser("mode-select"); select.add_argument("project"); select.add_argument("--mode", required=True, choices=("standard", "template", "premium", "auto")); select.add_argument("--quality-preference", choices=("speed", "balanced", "quality"), default="balanced"); select.add_argument("--fidelity-requirement", choices=("light", "high", "mirror"))
+    select = sub.add_parser("mode-select"); select.add_argument("project"); select.add_argument("--mode", required=True, choices=("standard", "template", "premium", "free_design", "template_guided", "deep_fusion", "auto")); select.add_argument("--quality-preference", choices=("speed", "balanced", "quality"), default="balanced"); select.add_argument("--fidelity-requirement", choices=("light", "high", "mirror"))
     plan = sub.add_parser("plan"); plan.add_argument("project"); plan.add_argument("--apply")
     lock = sub.add_parser("lock-spec"); lock.add_argument("project")
-    begin = sub.add_parser("page-begin"); begin.add_argument("project"); begin.add_argument("page_id"); begin.add_argument("--direction", choices=("A", "B", "C"))
+    begin = sub.add_parser("page-begin"); begin.add_argument("project"); begin.add_argument("page_id")
     check = sub.add_parser("page-check"); check.add_argument("project")
     review_page = sub.add_parser("page-review"); review_page.add_argument("project"); review_page.add_argument("--apply")
     passed = sub.add_parser("page-pass"); passed.add_argument("project")
-    confirm = sub.add_parser("sample-confirm"); confirm.add_argument("project"); confirm.add_argument("decision", choices=("A", "B", "C")); confirm.add_argument("--page-id"); confirm.add_argument("--pages", nargs="*")
+    confirm = sub.add_parser("sample-confirm"); confirm.add_argument("project"); confirm.add_argument("decision", choices=("A", "B", "C")); confirm.add_argument("--reason"); confirm.add_argument("--reset-scope", choices=("content", "template", "visual"))
     reject = sub.add_parser("sample-reject"); reject.add_argument("project"); reject.add_argument("--reason", required=True)
     review = sub.add_parser("review"); review.add_argument("project"); review.add_argument("kind", choices=("midpoint", "deck")); review.add_argument("--status", required=True, choices=("passed", "failed")); review.add_argument("--pages", nargs="*")
     status = sub.add_parser("status"); status.add_argument("project")
@@ -391,11 +506,12 @@ def _event_files(project: Path, command: str) -> tuple[list[Path], list[Path]]:
         project / ".director" / "capability_snapshot.json",
         project / ".director" / "generation_mode.json",
         project / ".director" / "master_handoff.md",
-        project / ".director" / "context_rehydrate.md",
-        project / ".director" / "selected_sample.json",
+        project / "design_genome.json",
     ]
     current = project / ".page_work" / "current.svg"
     inputs = [*shared_inputs, current]
+    context_dir = project / ".director" / "context" / "current"
+    inputs.extend(sorted(context_dir.glob("*.json")) if context_dir.is_dir() else [])
     outputs = [analysis / "production_state.json"]
     if command == "start":
         outputs.extend((analysis / "director_contract.json", analysis / "director_profile.md"))
@@ -408,7 +524,8 @@ def _event_files(project: Path, command: str) -> tuple[list[Path], list[Path]]:
         outputs.append(analysis / "director_plan.json")
     elif command in {"page-check", "page-review", "page-pass"}:
         state = _json(analysis / "production_state.json") if (analysis / "production_state.json").is_file() else {}
-        page_id = state.get("active_page")
+        active_candidate = (state.get("samples") or {}).get("active_candidate") or {}
+        page_id = active_candidate.get("page_id") or state.get("active_page")
         if page_id:
             outputs.extend((project / ".preview" / f"{page_id}.png", project / ".review" / f"{page_id}.json", project / "svg_output" / f"{page_id}.svg"))
         elif command == "page-pass":
@@ -479,13 +596,27 @@ def main(argv: list[str] | None = None) -> int:
         mode = _json(mode_path).get("mode") if mode_path.is_file() else None
         page_id = getattr(args, "page_id", None)
         if args.command == "plan" and not args.apply:
-            emit_operation(project, "model_workflow_context_issued", "strategist_plan", [project / ".director" / "master_handoff.md"], [project / "analysis" / "director_plan.json"], None)
+            emit_operation(project, "model_workflow_context_issued", "strategist_plan", [
+                project / ".director" / "master_handoff.md",
+                project / ".director" / "context_rehydrate.md",
+                RUNTIME / "references" / "strategist.md",
+            ], [project / "analysis" / "director_plan.json"], None)
         elif args.command == "plan" and args.apply:
             emit_operation(project, "model_workflow_artifacts_observed", "strategist_plan", [Path(args.apply)], [project / "analysis" / "director_plan.json"], None)
-            emit_operation(project, "model_workflow_context_issued", "design_system", [project / "analysis" / "director_plan.json", project / ".director" / "master_handoff.md"], [project / "design_spec.md", project / "spec_lock.md"], None)
+        elif args.command == "approve" and args.type == "brief" and args.decision == "A":
+            emit_operation(project, "model_workflow_context_issued", "visual_director", [
+                project / ".director" / "context" / "current" / "visual_director.json",
+            ], [project / "design_genome.json"], None)
         elif args.command == "lock-spec":
-            emit_operation(project, "model_workflow_artifacts_observed", "design_system", [project / "analysis" / "director_plan.json"], [project / "design_spec.md", project / "spec_lock.md"], None)
-        append_event(project, run_id=run_id, command=args.command, module=module.__name__, module_file=module_file, inputs=inputs, outputs=outputs, stage_before=before, stage_after=after, exit_code=0, event_type=event_types.get(args.command), started_at=started_at, duration_seconds=round(time.monotonic() - started_clock, 6), mode=mode, page_id=page_id, details={"capability_snapshot_refreshed": result.get("capability_snapshot_refreshed")} if isinstance(result, dict) else None)
+            emit_operation(project, "model_workflow_artifacts_observed", "master_design_system", [project / "analysis" / "director_plan.json"], [project / "design_spec.md", project / "spec_lock.md"], None)
+        context = result.get("context_rehydrate") if isinstance(result, dict) else None
+        if not context and isinstance(result, dict) and result.get("role") and result.get("context_hash"):
+            context = result
+        details = {"capability_snapshot_refreshed": result.get("capability_snapshot_refreshed")} if isinstance(result, dict) else {}
+        if isinstance(context, dict):
+            details["context"] = {key: context.get(key) for key in ("role", "context_hash", "input_hashes")}
+            details["execution_mode"] = "controlled_same_session"
+        append_event(project, run_id=run_id, command=args.command, module=module.__name__, module_file=module_file, inputs=inputs, outputs=outputs, stage_before=before, stage_after=after, exit_code=0, event_type=event_types.get(args.command), started_at=started_at, duration_seconds=round(time.monotonic() - started_clock, 6), mode=mode, page_id=page_id, details=details or None)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (PackageError, RuntimeError, OSError, ValueError) as exc:
