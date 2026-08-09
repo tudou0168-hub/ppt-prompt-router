@@ -1,12 +1,19 @@
-## Router Profile
+# 商务提案／投标PPT Director Profile
 
-communication_job: 让评审方清楚看到需求理解、响应匹配、交付保障和承诺边界。
-audience_register: 面向采购方、评审专家和合作决策者，正式、可核验、便于比选。
-required_story_beats: 招标需求 | 响应策略 | 方案能力 | 交付实施 | 保障承诺
-required_content_fields: client_requirements | response_strategy | delivery_assurance
-title_voice: 使用需求响应和评审结论式标题，突出匹配度与可交付性。
-opening_task: 建立对采购目标、评审重点和项目难点的准确理解。
-closing_task: 以实施承诺、风险保障和合作行动完成收口。
-visual_posture: 严谨、可信、易评审，以对应关系、证据和路径组织页面。
-evidence_standard: 资质、案例、报价、工期和承诺必须准确且可追溯；未授权信息不得虚构。
-key_failure_modes: 客户提案式泛化表达 | 资质和承诺无证据 | 功能清单替代评审逻辑
+## 场景目标
+让客户/评审相信“我们真正理解需求、方案能落地、风险可控、值得选择”。
+
+## 推荐叙事
+客户目标/评审标准 → 需求与痛点 → 响应策略 → 方案与能力 → 交付路径 → 证据/案例 → 风险与保障 → 商务/行动。
+
+## 优先识别的真实关系
+需求-响应、问题-方案、能力-价值、阶段交付、责任、风险-措施、对比。
+
+## 视觉判断偏好
+可信、结构清楚、证据优先；复杂方案表达真实流程和交付关系。
+
+## 优化重点
+先呈现客户问题与评审标准，再用方案回应需求；功能始终连接客户价值，资质始终说明其对项目交付的证明作用。
+
+## 交接方式
+结合当前材料形成逐页内容时，使用 Director Kernel 定义的六字段语义接口；具体构图、能力选择、实现手段和生产步骤交由 PPT Master 原生 Strategist / Executor 完成。

@@ -1,97 +1,88 @@
 ---
 name: ppt-prompt-router
-description: PPT Director 单 Skill 入口。完成场景路由、内容导演、风险样张、逐页复核和受控导出。
-version: 3.1.0
+description: PPT Master 4.4+ 的专业导演路由与语义增强层；在专业导演确有增量价值时补充场景知识和六字段逐页语义，PPT Master继续负责完整原生生产流程。
+version: 3.1.3
 ---
 
-# PPT Director 3.1
+# PPT Prompt Router 3.1.3 Stable
 
-本 Skill 是唯一公开入口。内部 `runtime/ppt-master/` 保留 PPT Master 的
-Strategist、设计资源、SVG、检查、复核和导出能力，但不注册为第二个 Skill。
+## 核心执行偏好
 
-客户材料、日志、SVG、PNG、Review 和 PPTX 只能写入 Skill 目录外的项目。
+**不考虑 Token、工具调用和思考次数，以最终汇报效果为优先，充分发挥 PPT Master 原生完整能力。**
 
-## 唯一命令入口
+Router 负责专业场景判断、内容导演和页面语义；PPT Master 负责顶层 Route、用户确认、模板应用、Strategist、Design Spec / Spec Lock、Executor、质量流程与导出。
+
+## Default Generate 主流程
+
+### 1. Router Preflight
+
+先运行：
 
 ```bash
-python3 <skill>/scripts/route.py <command> ...
+python3 scripts/route.py --phase preflight ... --json
 ```
 
-公开命令仅有：
+得到 `FULL / LIGHT / BYPASS`、Primary Profile、可选 Secondary Lens、workspace intent 和非权威 Route Hint。已解析 Profile 时，`director_handoff.base_prompt` 已内联 Director Kernel、语义词汇、Primary Profile 与 Lens，Profile 选择与实际读取合并为同一交接结果。
 
-```text
-start
-mode-propose
-mode-select
-plan
-lock-spec
-page-begin
-page-check
-page-review
-page-pass
-sample-confirm
-sample-reject
-review
-status
-export
+### 2. PPT Master Stage 1
+
+从 PPT Master 自己的 `SKILL.md` 启动，由当前 `workflows/routing.md` 确认最终 Route。Default Generate 按原生流程完成项目初始化、Communication Contract、Template Candidate Preparation 与 Stage 1确认。
+
+精确 `workspace-root` 默认表达 `explicit_use_requested`：Stage 1 以该路径作为明确模板使用意图和候选输入，最终仍由 PPT Master 原生确认机制完成确认。
+
+### 3. Director V15
+
+Stage 1确认后，再运行同一个 `route.py`：
+
+```bash
+python3 scripts/route.py   --phase director   --prompt-id <preflight选中的profile_id>   --stage1-contract <confirmed-stage1-json-or-path>   --project-dir <project_path>   <保留原始任务、材料、workspace等参数>   --json
 ```
 
-不得直接执行内部 Master CLI、直接写 `svg_output/`、跳过 Visual Review，
-或直接调用导出脚本。受控步骤失败时不得切换 legacy 流程。
+Router 在这一阶段只编译并返回 `director_handoff.inline_prompt`。当前主智能体以专业 Director 角色执行它，并实际生成：
 
-## 阶段读取
+`<project_path>/analysis/presentation_plan.md`
 
-- `start`：只创建项目、分离导入内容材料与参考PPT、记录Hash、编译唯一
-  `director_profile.md`并执行首次能力预检；不得规划内容、分析模板或生成设计规范。
-- `mode-propose`：读取能力快照；快照缺失或runtime、依赖变化时先自动重做预检，
-  再推荐 `standard`、`template` 或 `premium`。`degraded`不得自动推荐，
-  `unavailable`不得选择。
-- `mode-select`：由用户明确选择模式，写入唯一模式记录和Master handoff，再调用
-  PPT Master现有工具或工作流处理模板。premium默认使用fidelity；mirror仅在用户
-  明确要求且完整工作流可用时开放。
-- `plan`：完整读取命令返回的 `MASTER.md`、Strategist说明、Profile和源材料，
-  只生成 `analysis/director_plan.json`。模式未选择前不得规划。
-- `lock-spec`：Director Plan存在后，完成并冻结 `design_spec.md`与`spec_lock.md`。
-- `page-begin`：逐项读取命令返回的当前页Director字段、设计系统和Executor说明，
-  再判断内容关系、资源或自定义SVG。
-- `page-check`：调用Master现有机器检查和渲染。
-- `page-review`：必须真实打开最新PNG，按Master现有Visual Review规则独立复核。
-- `page-pass`：仅放行与当前SVG、PNG、Review Hash一致的页面。
-- `sample-confirm`：standard沿用三张风险样张A/B/C；template/premium在三组同页
-  样张完成后，由用户在后续独立调用中选择A、B或C方向，不得由模型自行批准。
-- `sample-reject`：用户拒绝template/premium三组方向后返回样张生产，下一轮必须
-  读取用户反馈；不创建新状态或平行计划。
-- `review`：仅允许 `midpoint` 或 `deck`。
-- `export`：仅在现有 `can-export` 与全部门禁通过后调用Master导出。
+文件头记录 Router version、Profile、Profile SHA 与 Stage 1 SHA，便于项目审计。它不是 Router 的第二套内容生产器，也不新增状态机或独立质量门禁。逐页策划使用：
 
-## 导演边界
+`page_role / audience_move / relationship / hierarchy / rhythm_intent / visual_semantics`
 
-Router决定受众、目的、语体、叙事节点、事实边界和关键退化风险；不替
-PPT Master选择具体布局、资源或构图。Director Plan是唯一内容规划源，
-每页只表达一个核心观点，并保留页面意图、必需信息、来源和事实约束。
+同时形成 Core message、页面 Content、Evidence / image material 与 Speaker Notes。
 
-standard的三张样张必须分别验证：
+### 4. Strategist / Stage 2
 
-1. 信息密度与卡片堆砌风险。
-2. 复杂流程、机制或关系风险。
-3. 图片、图表、架构或项目独特视觉能力。
+Stage 2 从 `presentation_plan.md` 开始，并应用 `stage2_handoff.activation_prompt`：
 
-封面、目录、结语和普通文字页不得作为样张。样张通过即停止在
-`sample_confirmation`，等待用户后续A/B/C。
+- Visual Style 统一颜色、字体、线条、材质、图像处理、图标和整体气质；
+- 页面空间结构由每页真实 `relationship / hierarchy / rhythm_intent / visual_semantics` 决定；
+- 关系明确的页面先进行语义 Visualization Recall / 能力族召回，再选择候选、组合候选或自由设计；
+- 卡片/面板服务等权并列、KPI、短清单和局部容器任务；递进、流程、汇聚、对比、层级、系统、主张-证据等关系使用相应结构或自由构图；卡片依赖、连续 dense 与构图重复只用于诊断，不设机械配额；
+- Page Rhythm 综合页面角色、Audience Move、关系、信息密度和章节位置形成全篇节奏；
+- 图片角色和位置随页面语义变化，形成侧证据、横幅、局部大图、背景图、小型佐证等不同角色。
 
-template与premium在Plan完成后固定同一对测试页：一个封面或总览页、一个
-关系复杂正文页。A/B/C三组的page_id、page_intent、required_messages、
-source_refs、factual_constraints、参考模板和内容范围必须完全相同；只有
-PPT Master的设计方向、视觉表达、构图和信息组织可以不同。Director不得规定
-三组版式差异，也不得用简单标题页、纯文字页或单一卡片页充当复杂页。
+Strategist 将这些语义与原始材料、用户确认、模板和当前项目共同形成完整 `design_spec.md`。
 
-## 最低交付边界
+### 5. Design Spec / Spec Lock / Executor
 
-- 每页SVG通过Master现有Quality Checker。
-- 每页渲染后真实查看PNG并绑定Review。
-- 当前页通过后才能进入下一页。
-- SVG、Notes、Plan或设计锁变化时旧检查自动失效。
-- 中途复核通过后回到`production`，全稿复核通过后进入`export_ready`。
-- 无来源的数字、年份、日期、金额、比例、机构、责任部门和案例成效阻断导出。
-- `government_strategy`与`decision_meeting`正文最低20px，其他Profile最低18px；
-  辅助正文16px，脚注与来源12px。
+Stage 2确认后按 PPT Master 原生机制完成 `design_spec.md`、`spec_lock.md`、资源获取与 Executor。
+
+Executor 围绕 page-scale composition 先完成语义骨架，再充分发挥 Visualization、Native Shape、Charts / Diagrams、SVG、图片融合、数据表达、Visual Job Router、Live Preview 与当前页面适用的其他原生视觉能力。
+
+### 6. Review / Export
+
+继续采用 PPT Master 当前原生 Final Quality Check、Visual Review、Speaker Notes、后处理、Export 与 Postflight。
+
+## 介入深度
+
+- **FULL**：新生成或重构型专业汇报，包括政府年度/半年总结、政务专项汇报、经营分析、技术方案等。
+- **LIGHT**：Quick、Beautify、需要先提炼内容的 Fill Native、明确专业场景的模板建设。
+- **BYPASS**：Enhance Native、纯原生替换、纯模板提取、专业信号不足的模糊 PPT 请求。
+
+## 26 个 Director Profile
+
+`government_annual_summary` 专门服务政府机关年度总结、半年总结与阶段性总结。它与 `government_strategy` 分工：前者围绕“工作—成效—变化—下一步—问题建议”，后者围绕“责任/现状—差距—目标—建设路径—决策”。当政府 + 阶段总结语义明确且没有专项规划、建设方案、实施方案、战略规划或路线图等反证时，年度总结优先于泛化的“政府汇报”信号。
+
+## 设计能力融合
+
+`references/ppt_master_design_capability_map.md` 是 Stage 2 的语义能力地图，`references/ppt_master_4_4_mapping_protocol.md` 定义六字段二次编译和视觉激活边界。
+
+**导演限定问题空间，Strategist限定设计空间，Executor完成视觉解。**

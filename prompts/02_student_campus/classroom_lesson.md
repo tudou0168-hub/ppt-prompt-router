@@ -1,12 +1,19 @@
-## Router Profile
+# 课堂课件／讲课PPT Director Profile
 
-communication_job: 帮助学生建立概念、关系和迁移能力，并在关键处参与思考。
-audience_register: 面向学生和教师，清楚、循序渐进、可互动。
-required_story_beats: 问题导入 | 概念理解 | 关系讲解 | 示例练习 | 总结迁移
-required_content_fields: learning_objectives | core_concepts | examples_and_exercises
-title_voice: 使用学习目标、关键问题或结论式标题，避免教材目录标题。
-opening_task: 用问题或情境唤起已有知识并明确本课学习目标。
-closing_task: 回扣关键概念，提供迁移问题或可操作的总结。
-visual_posture: 清晰、具引导性、强调关系和示例，不做企业培训或政策宣讲语体。
-evidence_standard: 教材事实、公式、定义和案例必须准确；练习答案和推导不可虚构。
-key_failure_modes: 教材逐段搬运 | 只讲概念不讲关系 | 缺少示例与练习
+## 场景目标
+让学生按认知顺序理解一个知识点并能检查理解。
+
+## 推荐叙事
+问题情境 → 概念 → 原理 → 示例 → 对比/误区 → 练习 → 小结。
+
+## 优先识别的真实关系
+定义-示例、因果、步骤、比较、分类、整体-部分。
+
+## 视觉判断偏好
+教学直观、层级清楚、适合投影；抽象概念尽量有例子或图解。
+
+## 优化重点
+按学习者认知顺序组织页面，每页聚焦一个主要学习任务，并用示例或练习完成理解验证。
+
+## 交接方式
+结合当前材料形成逐页内容时，使用 Director Kernel 定义的六字段语义接口；具体构图、能力选择、实现手段和生产步骤交由 PPT Master 原生 Strategist / Executor 完成。

@@ -1,506 +1,404 @@
 #!/usr/bin/env python3
-"""PPT Director 3.0 single-Skill workflow dispatcher."""
-
 from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib
-import io
 import json
-import os
-import re
-import shutil
 import sys
-import time
-import uuid
-import zipfile
-from contextlib import contextmanager, redirect_stdout
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator
-from xml.etree import ElementTree as ET
 
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+INDEX = ROOT / "prompt-index.json"
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNTIME = ROOT / "runtime" / "ppt-master"
-RUNTIME_SCRIPTS = RUNTIME / "scripts"
-PUBLIC_COMMANDS = (
-    "start", "mode-propose", "mode-select", "plan", "lock-spec", "page-begin",
-    "page-check", "page-review", "page-pass", "sample-confirm", "sample-reject",
-    "review", "status", "export",
-)
-TEMPLATE_INTENTS = {"reference_elements", "native_fill", "reusable_template", "none"}
-
-if str(ROOT) not in sys.path:
+if __package__:
+    from . import scoring, semantics
+    from . import template_intent as intent_mod
+else:
     sys.path.insert(0, str(ROOT))
+    from scripts import scoring, semantics
+    from scripts import template_intent as intent_mod
 
-from scripts.router_profile import (  # noqa: E402
-    PackageError,
-    compile_director_profile,
-    load_index,
-    validate_prompt_index,
+ROUTER_VERSION = "3.1.3"
+TARGET = "4.4+"
+DIRECTOR_PROTOCOL = "V15"
+SEMANTIC_FIELDS = (
+    "page_role", "audience_move", "relationship",
+    "hierarchy", "rhythm_intent", "visual_semantics",
 )
-from scripts.run_log import append_event, sha256  # noqa: E402
-from scripts.director_runtime import (  # noqa: E402
-    DirectorRuntimeError,
-    capability_preflight,
-    propose_mode,
-    refresh_context,
-    require_mode,
-    select_mode,
-)
+QUALITY_PRIORITY = "不考虑 Token、工具调用和思考次数，以最终汇报效果为优先，充分发挥 PPT Master 原生完整能力。"
 
 
-class WorkflowError(PackageError):
-    def __init__(self, message: str, *, code: str = "WORKFLOW_BLOCKED", next_actions: list[str] | None = None):
-        super().__init__(message)
-        self.code = code
-        self.next_actions = next_actions or []
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="PPT Prompt Router 3.1.3 semantic director interface")
+    p.add_argument("--phase", choices=("preflight", "director"), default="preflight")
+    p.add_argument("--project-name", default="")
+    p.add_argument("--format", default="ppt169")
+    p.add_argument("--project-dir")
+    p.add_argument("--material", action="append", default=[])
+    p.add_argument("--reference-path", action="append", default=[])
+    p.add_argument("--template-path", action="append", default=[])
+    p.add_argument("--workspace-root", action="append", default=[])
+    p.add_argument("--workspace-intent", choices=("explicit_use_requested", "candidate"))
+    p.add_argument("--context", action="append", default=[])
+    p.add_argument("--audience", default="")
+    p.add_argument("--page-count", type=int)
+    p.add_argument("--delivery-purpose", default="")
+    p.add_argument("--user-request", default="")
+    p.add_argument("--prompt-id")
+    p.add_argument("--stage1-contract")
+    p.add_argument("--pptx-intent", choices=intent_mod.VALID_INTENTS)
+    p.add_argument("--template-intent", choices=tuple(intent_mod.LEGACY_INTENT_MAP))
+    p.add_argument("--json", action="store_true")
+    return p
 
 
-def _json(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise WorkflowError(f"invalid JSON: {path}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise WorkflowError(f"expected JSON object: {path}")
-    return value
-
-
-def _stage(project: Path | None) -> str | None:
-    if project is None:
-        return None
-    path = project / "analysis" / "production_state.json"
-    return str(_json(path).get("stage")) if path.is_file() else None
-
-
-def _required(*paths: Path) -> list[dict[str, str | None]]:
-    return [{"path": str(path.resolve()), "sha256": sha256(path)} for path in paths]
-
-
-def _runtime_check() -> None:
-    required = (RUNTIME / "MASTER.md", RUNTIME_SCRIPTS, RUNTIME / "references")
-    if not all(path.exists() for path in required):
-        raise WorkflowError("internal PPT Master runtime is incomplete", code="RUNTIME_INVALID")
-    if any(RUNTIME.rglob("SKILL.md")):
-        raise WorkflowError("internal runtime exposes a second Skill", code="RUNTIME_INVALID")
-
-
-@contextmanager
-def master_modules() -> Iterator[dict[str, Any]]:
-    _runtime_check()
-    sys.path.insert(0, str(RUNTIME_SCRIPTS))
-    guard = importlib.import_module("runtime_guard")
-    marker = guard.ROUTER_MARKER
-    old = os.environ.get(marker)
-    os.environ[marker] = uuid.uuid4().hex
-    try:
-        modules = {
-            name: importlib.import_module(name)
-            for name in ("project_manager", "director_plan", "production")
-        }
-        modules["runtime_guard"] = guard
-        for name, module in modules.items():
-            try:
-                Path(module.__file__).resolve().relative_to(RUNTIME.resolve())
-            except (AttributeError, ValueError) as exc:
-                raise WorkflowError(
-                    f"internal module loaded outside bundled runtime: {name}",
-                    code="RUNTIME_INVALID",
-                ) from exc
-        yield modules
-    finally:
-        if old is None:
-            os.environ.pop(marker, None)
-        else:
-            os.environ[marker] = old
-        try:
-            sys.path.remove(str(RUNTIME_SCRIPTS))
-        except ValueError:
-            pass
-
-
-def _terms(entry: dict[str, Any], key: str) -> list[str]:
-    value = entry.get(key) or []
-    return [value] if isinstance(value, str) else [str(item) for item in value if str(item).strip()]
-
-
-def score_profile(entry: dict[str, Any], text: str) -> tuple[int, dict[str, list[str]]]:
-    lowered = text.lower()
-    groups = {
-        "primary": ("required_signals", 6), "strong": ("strong_signals", 3),
-        "supporting": ("supporting_signals", 1), "negative": ("negative_signals", -5),
-        "avoid_when": ("avoid_when", -8),
-    }
-    score, matched = 0, {}
-    for label, (key, weight) in groups.items():
-        hits = list(dict.fromkeys(term for term in _terms(entry, key) if term.lower() in lowered))
-        if hits:
-            matched[label] = hits
-            score += weight * len(hits)
-    return score, matched
-
-
-def route_profile(index: dict[str, Any], text: str, *, prompt_id: str | None = None) -> dict[str, Any]:
-    entries = validate_prompt_index(index)
-    if prompt_id:
-        entry = next((item for item in entries if item["id"] == prompt_id), None)
-        if entry is None:
-            raise WorkflowError(f"unknown prompt_id: {prompt_id}")
-        return {"status": "selected", "entry": entry, "score": None, "matched": {"explicit": [prompt_id]}}
-    ranked = []
-    for entry in entries:
-        score, matched = score_profile(entry, text)
-        ranked.append({"entry": entry, "score": score, "matched": matched})
-    ranked.sort(key=lambda item: (-item["score"], item["entry"]["id"]))
-    first, second = ranked[0], ranked[1]
-    if first["score"] < 3 or first["score"] - second["score"] < 2:
-        return {"status": "needs_input", "question": "请确认本次 PPT 的主要场景。", "candidates": [
-            {"id": item["entry"]["id"], "name": item["entry"]["name_zh"], "score": item["score"]}
-            for item in ranked[:2]
-        ]}
-    return {"status": "selected", **first}
-
-
-def detect_template_intent(request_text: str, template_paths: list[str], *, explicit: str | None = None) -> dict[str, Any]:
-    if explicit:
-        if explicit not in TEMPLATE_INTENTS:
-            raise WorkflowError(f"unsupported template intent: {explicit}")
-        if explicit != "none" and not template_paths:
-            raise WorkflowError(f"template intent {explicit} requires a PPTX template")
-        return {"status": "selected", "intent": explicit, "reason": "explicit"}
-    if not template_paths:
-        return {"status": "selected", "intent": "none", "reason": "no template supplied"}
-    lowered = request_text.lower()
-    signals = {
-        "reusable_template": ("可复用模板", "模板工作区", "模板资产包"),
-        "reference_elements": ("模板设计元素", "参考模板元素", "参考这个模板", "提炼设计语言", "不要套用", "不套版"),
-        "native_fill": ("套用模板", "沿用原版式", "替换内容", "保持模板版式", "填充模板"),
-    }
-    active = [intent for intent, terms in signals.items() if any(term in lowered for term in terms)]
-    if len(active) == 1:
-        return {"status": "selected", "intent": active[0], "reason": "request signal"}
-    return {"status": "selected", "intent": "reference_elements", "reason": "deferred to generation mode selection"}
-
-
-def _docx_opening(path: Path, limit: int = 1200) -> str:
-    try:
-        with zipfile.ZipFile(path) as package:
-            root = ET.fromstring(package.read("word/document.xml"))
-        return "".join(node.text or "" for node in root.iter() if node.tag.endswith("}t"))[:limit]
-    except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError):
-        return ""
-
-
-def material_context(paths: list[str]) -> str:
-    chunks = []
-    for raw in paths:
-        path = Path(raw).expanduser()
-        chunks.append(path.name)
-        if path.suffix.lower() in {".md", ".txt"} and path.is_file():
-            chunks.append(path.read_text(encoding="utf-8", errors="replace")[:1200])
-        elif path.suffix.lower() == ".docx" and path.is_file():
-            chunks.append(_docx_opening(path))
-    return "\n".join(chunks)
-
-
-def _page_count(raw: int | None, request: str) -> int:
-    if raw:
-        return raw
-    match = re.search(r"(\d{1,3})\s*页", request)
-    if not match:
-        raise WorkflowError("page count is required")
-    return int(match.group(1))
-
-
-def _write_contract(project: Path, entry: dict[str, Any], profile_text: str, args: argparse.Namespace, intent: str, template_path: str | None) -> Path:
-    analysis = project / "analysis"
-    profile = analysis / "director_profile.md"
-    profile.write_text(profile_text, encoding="utf-8")
-    source_files = [
-        {"path": str(path.resolve()), "sha256": sha256(path)}
-        for path in sorted((project / "sources").iterdir())
-        if path.is_file() and path.suffix.lower() not in {".pptx", ".ppt", ".pptm"}
+def task_text(a: argparse.Namespace, refs: list[str]) -> str:
+    parts = [
+        a.user_request, *a.context, a.delivery_purpose, a.audience,
+        *[Path(x).name for x in a.material],
+        *[Path(x).name for x in refs],
     ]
-    template_hash = sha256(Path(template_path)) if template_path else None
-    contract = {
-        "schema_version": "3.1", "router_version": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
-        "profile": {"id": entry["id"], "version": str(entry.get("version") or "3.0.0"), "sha256": sha256(profile), "validation_status": entry.get("validation_status", "experimental")},
-        "request": args.request,
-        "audience": args.audience or "未指定受众", "purpose": args.purpose or args.request,
-        "page_count": _page_count(args.page_count, args.request),
-        "source_files": source_files,
-        "template": {"intent": intent, "path": template_path, "sha256": template_hash},
-    }
-    path = analysis / "director_contract.json"
-    path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
+    return " ".join(x for x in parts if x).strip() or "default"
 
 
-OperationEmitter = Callable[[Path, str, str, list[Path], list[Path], str | None], None]
+def generation_profile_hint(text: str) -> str:
+    t = text.lower()
+    if any(x in t for x in ("快速生成", "快速做", "quick generate", "quick", "直接生成", "跳过策略")):
+        return "quick_generate"
+    if any(x in t for x in ("1:1", "一比一", "保留原文字", "保留文字", "保留页数", "保留顺序", "只美化", "美化这份ppt")):
+        return "beautify"
+    return "default"
 
 
-def command_start(
-    args: argparse.Namespace,
-    modules: dict[str, Any],
-    *,
-    operation_emitter: OperationEmitter | None = None,
-) -> tuple[Path, dict[str, Any]]:
-    sources = [str(Path(path).expanduser().resolve()) for path in args.source]
-    templates = [str(Path(path).expanduser().resolve()) for path in args.template]
-    index = load_index(ROOT)
-    audience = args.audience or ("政府领导" if "领导" in args.request else "未指定受众")
-    routed = route_profile(index, "\n".join((args.request, audience, args.purpose or "", material_context(sources + templates))), prompt_id=args.prompt_id)
-    if routed["status"] != "selected":
-        raise WorkflowError(routed["question"], code="NEEDS_INPUT", next_actions=[item["id"] for item in routed["candidates"]])
-    intent = detect_template_intent(args.request, templates, explicit=args.template_intent)
-    if intent["status"] != "selected":
-        raise WorkflowError(intent["question"], code="NEEDS_INPUT", next_actions=intent["candidates"])
-    if len(templates) > 1:
-        raise WorkflowError("only one primary template is supported")
-    base = Path(args.project_base).expanduser().resolve() if args.project_base else (Path.home() / "PPT Director" / "projects")
-    manager = modules["project_manager"].ProjectManager(base)
-    with redirect_stdout(io.StringIO()):
-        project = Path(manager.init_project(args.project_name or f"router_{routed['entry']['id']}", args.format, str(base))).resolve()
-        imported = manager.import_sources(str(project), list(dict.fromkeys(sources)), copy=not args.move, move=args.move) if sources else {}
-    template_path = None
-    if templates:
-        reference_dir = project / "references"
-        reference_dir.mkdir(parents=True, exist_ok=True)
-        source_template = Path(templates[0])
-        destination = reference_dir / source_template.name
-        if destination.exists():
-            raise WorkflowError(f"reference PPTX already exists in project: {destination}")
-        if args.move:
-            shutil.move(str(source_template), destination)
-        else:
-            shutil.copy2(source_template, destination)
-        template_path = str(destination.resolve())
-    contract = _write_contract(project, routed["entry"], compile_director_profile(ROOT, routed["entry"]), args, intent["intent"], template_path)
-    modules["production"].initialize_project(project)
-    reporter = None
-    if operation_emitter:
-        reporter = lambda event_type, name, inputs, outputs, error: operation_emitter(project, event_type, name, inputs, outputs, error)
-    snapshot = capability_preflight(project, RUNTIME, operation_reporter=reporter)
-    contexts = _required(ROOT / "SKILL.md", RUNTIME / "MASTER.md", RUNTIME / "references" / "strategist.md", project / "analysis" / "director_profile.md", *sorted((project / "sources").glob("*.md")))
-    return project, {"status": "director_pending", "project": str(project), "profile_id": routed["entry"]["id"], "template_intent": intent["intent"], "director_contract": str(contract), "capability_snapshot": str(project / ".director" / "capability_snapshot.json"), "available_modes": [key for key, value in snapshot["modes"].items() if value["status"] == "available_model_workflow"], "required_context": contexts, "next_allowed_actions": ["mode-propose"]}
+def intervention_mode(text: str, source_intent: str) -> tuple[str, str, str]:
+    t = text.lower()
+    profile = generation_profile_hint(text)
+    if source_intent == "enhance_native":
+        return "bypass", profile, "native enhancement由PPT Master原生能力直接完成"
+    if source_intent == "create_reusable_template":
+        scenario = any(x in t for x in ("政府", "政务", "年度总结", "半年总结", "工作汇报", "经营复盘", "培训", "技术方案", "销售提案"))
+        return ("light" if scenario else "bypass"), profile, ("专业场景模板补充场景语义" if scenario else "模板提取直接交由PPT Master")
+    if source_intent == "fill_native":
+        restructuring = any(x in t for x in ("提炼", "压缩", "浓缩", "重构", "重组", "从材料", "生成", "整理成", "总结"))
+        return ("light" if restructuring else "bypass"), profile, ("原生填充前补充内容重构" if restructuring else "原生页面直接填充")
+    if profile in ("quick_generate", "beautify"):
+        return "light", profile, "以轻量导演语义辅助原生生成"
+    return "full", profile, "新生成或重构型PPT适合完整专业导演"
 
 
-def _project(args: argparse.Namespace) -> Path:
-    project = Path(args.project).expanduser().resolve()
-    if not (project / "analysis" / "director_contract.json").is_file():
-        raise WorkflowError(f"not a managed project: {project}")
-    return project
+def choose(index: dict, text: str, sem: dict, forced: str | None = None):
+    if forced:
+        entry = next((x for x in index["prompts"] if x["id"] == forced), None)
+        if not entry:
+            raise ValueError(f"unknown prompt id: {forced}")
+        return entry, [], "high", False
+    ranked = scoring.rank(index, text.lower(), sem)
+    if not ranked:
+        raise ValueError("prompt registry is empty")
+    top = ranked[0]
+    entry = next(x for x in index["prompts"] if x["id"] == top.profile_id)
+    shortlist = [{"id": x.profile_id, "score": x.score} for x in ranked[:3]]
+    conf = scoring.confidence(ranked)
+    arbitrate = scoring.is_ambiguous(ranked) or conf == "low"
+    return entry, shortlist, conf, arbitrate
 
 
-def dispatch(
-    args: argparse.Namespace,
-    modules: dict[str, Any],
-    *,
-    operation_emitter: OperationEmitter | None = None,
-) -> tuple[Path, dict[str, Any], Any]:
-    if args.command == "start":
-        project, result = command_start(args, modules, operation_emitter=operation_emitter)
-        return project, result, modules["project_manager"]
-    project = _project(args)
-    production, plan = modules["production"], modules["director_plan"]
-    reporter = None
-    if operation_emitter:
-        reporter = lambda event_type, name, inputs, outputs, error: operation_emitter(project, event_type, name, inputs, outputs, error)
-    if args.command == "mode-propose":
-        return project, propose_mode(project, ROOT, RUNTIME, quality_preference=args.quality_preference, fidelity_requirement=args.fidelity_requirement, requested_mode=args.requested_mode, operation_reporter=reporter), sys.modules[__name__]
-    if args.command == "mode-select":
-        return project, select_mode(project, ROOT, RUNTIME, mode=args.mode, quality_preference=args.quality_preference, fidelity_requirement=args.fidelity_requirement, operation_reporter=reporter), sys.modules[__name__]
-    if args.command == "plan":
-        mode = require_mode(project)
-        result = plan.install_director_plan(project, args.apply) if args.apply else plan.planning_context(project, ROOT, RUNTIME)
-        result["generation_mode"] = mode["mode"]
-        result.setdefault("required_context", []).append(str(project / ".director" / "master_handoff.md"))
-        return project, result, plan
-    if args.command == "lock-spec":
-        require_mode(project)
-        return project, production.lock_spec(project), production
-    if args.command == "page-begin":
-        mode = require_mode(project)
-        plan_page = plan.page_by_id(plan.load_plan(project), args.page_id)
-        ordered = [page["page_id"] for page in plan.plan_pages(plan.load_plan(project))]
-        previous = ordered[ordered.index(args.page_id) - 1] if args.page_id in ordered and ordered.index(args.page_id) > 0 else None
-        context = refresh_context(project, command="page-begin", page=plan_page, previous_page=previous, router_root=ROOT, runtime_root=RUNTIME)
-        result = production.begin_page(project, args.page_id, ROOT, RUNTIME, direction=args.direction)
-        result["context_rehydrate"] = context
-        result["generation_mode"] = mode["mode"]
-        result.setdefault("required_context", []).append(context["path"])
-        return project, result, production
-    if args.command == "page-check":
-        return project, production.check_page(project), production
-    if args.command == "page-review":
-        state = production.status(project)
-        page_id = state.get("active_page")
-        context = refresh_context(project, command="page-review", page=plan.page_by_id(plan.load_plan(project), page_id) if page_id else None, router_root=ROOT, runtime_root=RUNTIME)
-        result = production.install_page_review(project, args.apply) if args.apply else production.review_context(project, RUNTIME)
-        result["context_rehydrate"] = context
-        return project, result, production
-    if args.command == "page-pass":
-        return project, production.pass_page(project), production
-    if args.command == "sample-confirm":
-        return project, production.sample_confirm(project, args.decision, page_id=args.page_id, replacements=args.pages), production
-    if args.command == "sample-reject":
-        result = production.sample_reject(project, args.reason)
-        context = refresh_context(project, command="sample-reject", router_root=ROOT, runtime_root=RUNTIME)
-        result["context_rehydrate"] = context
-        return project, result, production
-    if args.command == "review":
-        return project, production.record_review(project, args.kind, args.status, reviewed_pages=args.pages or []), production
-    if args.command == "status":
-        return project, production.status(project), production
-    if args.command == "export":
-        return project, production.export_deck(project, args.output), production
-    raise WorkflowError(f"unsupported command: {args.command}")
+def candidate_profiles(index: dict, ranking: list[dict]) -> list[dict]:
+    by_id = {x["id"]: x for x in index.get("prompts", [])}
+    out = []
+    for item in ranking:
+        entry = by_id.get(item["id"])
+        if entry:
+            out.append({
+                "id": entry["id"], "name_zh": entry.get("name_zh"),
+                "score": item["score"],
+                "profile_path": str((ROOT / entry["file"]).resolve()),
+                "default_lens": entry.get("default_lens"),
+            })
+    return out
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="PPT Director 3.1")
-    sub = parser.add_subparsers(dest="command", required=True)
-    start = sub.add_parser("start")
-    start.add_argument("--request", required=True); start.add_argument("--source", action="append", default=[]); start.add_argument("--template", action="append", default=[])
-    start.add_argument("--template-intent", choices=sorted(TEMPLATE_INTENTS)); start.add_argument("--page-count", type=int); start.add_argument("--audience"); start.add_argument("--purpose"); start.add_argument("--prompt-id")
-    start.add_argument("--format", default="ppt169"); start.add_argument("--project-name"); start.add_argument("--project-base"); start.add_argument("--move", action="store_true")
-    propose = sub.add_parser("mode-propose"); propose.add_argument("project"); propose.add_argument("--quality-preference", choices=("speed", "balanced", "quality"), default="balanced"); propose.add_argument("--fidelity-requirement", choices=("light", "high", "mirror")); propose.add_argument("--requested-mode", choices=("standard", "template", "premium"))
-    select = sub.add_parser("mode-select"); select.add_argument("project"); select.add_argument("--mode", required=True, choices=("standard", "template", "premium", "auto")); select.add_argument("--quality-preference", choices=("speed", "balanced", "quality"), default="balanced"); select.add_argument("--fidelity-requirement", choices=("light", "high", "mirror"))
-    plan = sub.add_parser("plan"); plan.add_argument("project"); plan.add_argument("--apply")
-    lock = sub.add_parser("lock-spec"); lock.add_argument("project")
-    begin = sub.add_parser("page-begin"); begin.add_argument("project"); begin.add_argument("page_id"); begin.add_argument("--direction", choices=("A", "B", "C"))
-    check = sub.add_parser("page-check"); check.add_argument("project")
-    review_page = sub.add_parser("page-review"); review_page.add_argument("project"); review_page.add_argument("--apply")
-    passed = sub.add_parser("page-pass"); passed.add_argument("project")
-    confirm = sub.add_parser("sample-confirm"); confirm.add_argument("project"); confirm.add_argument("decision", choices=("A", "B", "C")); confirm.add_argument("--page-id"); confirm.add_argument("--pages", nargs="*")
-    reject = sub.add_parser("sample-reject"); reject.add_argument("project"); reject.add_argument("--reason", required=True)
-    review = sub.add_parser("review"); review.add_argument("project"); review.add_argument("kind", choices=("midpoint", "deck")); review.add_argument("--status", required=True, choices=("passed", "failed")); review.add_argument("--pages", nargs="*")
-    status = sub.add_parser("status"); status.add_argument("project")
-    export = sub.add_parser("export"); export.add_argument("project"); export.add_argument("--output")
-    return parser
+def file_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8").strip()
 
 
-def _event_files(project: Path, command: str) -> tuple[list[Path], list[Path]]:
-    analysis = project / "analysis"
-    shared_inputs = [
-        analysis / "director_contract.json", analysis / "director_profile.md",
-        analysis / "director_plan.json", project / "design_spec.md", project / "spec_lock.md",
-        project / ".director" / "capability_snapshot.json",
-        project / ".director" / "generation_mode.json",
-        project / ".director" / "master_handoff.md",
-        project / ".director" / "context_rehydrate.md",
-        project / ".director" / "selected_sample.json",
+def sha_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def read_stage1_contract(value: str | None) -> tuple[str, str | None]:
+    if not value:
+        return "", None
+    p = Path(value).expanduser()
+    if p.is_file():
+        text = p.read_text(encoding="utf-8")
+        return text, str(p.resolve())
+    return value, None
+
+
+def director_base(profile: dict, lens: str | None) -> dict:
+    refs = ROOT / "references"
+    kernel = file_text(refs / "director_kernel.md")
+    vocab = file_text(refs / "ppt_semantic_vocabulary.md")
+    profile_path = ROOT / profile["file"]
+    profile_text = file_text(profile_path)
+    lens_text = ""
+    lens_path = None
+    if lens:
+        p = ROOT / "lenses" / f"{lens}.md"
+        if p.is_file():
+            lens_path = str(p.resolve())
+            lens_text = file_text(p)
+    chunks = [
+        "# Director Runtime Payload",
+        f"Router: {ROUTER_VERSION}",
+        f"Primary Profile: {profile['id']} / {profile.get('name_zh','')}",
+        "\n## Director Kernel\n" + kernel,
+        "\n## Semantic Vocabulary\n" + vocab,
+        "\n## Primary Profile\n" + profile_text,
     ]
-    current = project / ".page_work" / "current.svg"
-    inputs = [*shared_inputs, current]
-    outputs = [analysis / "production_state.json"]
-    if command == "start":
-        outputs.extend((analysis / "director_contract.json", analysis / "director_profile.md"))
-        outputs.append(project / ".director" / "capability_snapshot.json")
-    elif command == "mode-select":
-        outputs.extend((project / ".director" / "generation_mode.json", project / ".director" / "master_handoff.md"))
-    elif command == "sample-reject":
-        outputs.append(project / ".director" / "sample_feedback.md")
-    elif command == "plan":
-        outputs.append(analysis / "director_plan.json")
-    elif command in {"page-check", "page-review", "page-pass"}:
-        state = _json(analysis / "production_state.json") if (analysis / "production_state.json").is_file() else {}
-        page_id = state.get("active_page")
-        if page_id:
-            outputs.extend((project / ".preview" / f"{page_id}.png", project / ".review" / f"{page_id}.json", project / "svg_output" / f"{page_id}.svg"))
-        elif command == "page-pass":
-            outputs.extend(sorted((project / "svg_output").glob("*.svg")))
-    elif command == "export":
-        outputs.extend(project.glob("exports/*.pptx"))
-    return inputs, outputs
+    if lens_text:
+        chunks.append("\n## Secondary Lens\n" + lens_text)
+    base = "\n".join(chunks).strip()
+    return {
+        "profile_path": str(profile_path.resolve()),
+        "profile_sha256": sha_text(profile_text),
+        "secondary_lens_path": lens_path,
+        "base_prompt": base,
+        "base_prompt_sha256": sha_text(base),
+    }
+
+
+def presentation_plan_path(project_dir: str | None) -> str:
+    if project_dir:
+        return str((Path(project_dir).expanduser() / "analysis" / "presentation_plan.md").resolve())
+    return "analysis/presentation_plan.md"
+
+
+def compile_director_handoff(profile: dict | None, lens: str | None, mode: str, phase: str,
+                             stage1_contract: str, stage1_source: str | None, project_dir: str | None) -> dict:
+    refs = ROOT / "references"
+    out = {
+        "protocol": DIRECTOR_PROTOCOL,
+        "intervention": mode,
+        "activation_point": "after_stage1_confirmation",
+        "semantic_fields": list(SEMANTIC_FIELDS),
+        "output_path": presentation_plan_path(project_dir),
+        "mapping_protocol_path": str((refs / "ppt_master_4_4_mapping_protocol.md").resolve()),
+        "capability_map_path": str((refs / "ppt_master_design_capability_map.md").resolve()),
+        "brief_template_path": str((refs / "director_brief_template.md").resolve()),
+        "status": "bypass" if profile is None else ("ready" if phase == "director" else "prepared"),
+        "profile_path": None,
+        "profile_sha256": None,
+        "secondary_lens_path": None,
+        "base_prompt": None,
+        "inline_prompt": None,
+        "inline_prompt_sha256": None,
+        "stage1_contract_source": stage1_source,
+        "stage1_sha256": sha_text(stage1_contract) if stage1_contract else None,
+    }
+    if profile is None:
+        return out
+    base = director_base(profile, lens)
+    out.update(base)
+    if phase == "director":
+        if not stage1_contract:
+            raise ValueError("director phase needs --stage1-contract with the confirmed Stage 1 communication contract")
+        trace = (
+            "<!-- router_trace\n"
+            f"router_version: {ROUTER_VERSION}\n"
+            f"primary_profile: {profile['id']}\n"
+            f"profile_sha256: {base['profile_sha256']}\n"
+            f"stage1_sha256: {sha_text(stage1_contract)}\n"
+            "-->"
+        )
+        prompt = f"""{QUALITY_PRIORITY}
+
+{base['base_prompt']}
+
+## Confirmed Stage 1 Communication Contract
+{stage1_contract.strip()}
+
+## Current Director Task
+Router 仅编译本次专业导演 handoff，不直接生成页面计划。当前主智能体现在切换为专业 Director：完整读取原始材料、用户明确要求和以上已确认 Communication Contract，执行当前 Primary Profile 的专业导演方法，实际生成 `{out['output_path']}`。
+
+`presentation_plan.md` 开头写入以下追踪头，随后形成 Deck North Star 和完整逐页策划：
+
+{trace}
+
+每页落实 `page_role / audience_move / relationship / hierarchy / rhythm_intent / visual_semantics` 六字段，同时给出 Core message、适合上屏的 Content、Evidence / image material 与 Speaker Notes。事实、数据、案例、机制、问题和建议以原始材料为依据；表达可按领导汇报需要完成归纳、合并、拆分、重组和凝练。
+
+完成 `presentation_plan.md` 后，将它作为 PPT Master Stage 2 的首要页面语义来源。正常形成的计划、Design Spec、Spec Lock 与最终页面共同构成本次研发审计证据；不要为追踪另建页面状态或质量门禁。""".strip()
+        out["inline_prompt"] = prompt
+        out["inline_prompt_sha256"] = sha_text(prompt)
+    return out
+
+
+def stage2_design_activation(plan_path: str) -> dict:
+    text = f"""Stage 2 从 `{plan_path}` 开始，结合 Stage 1 确认、原始材料、已确认模板与当前项目完成二次编译。
+
+Visual Style 统一颜色、字体、线条、材质、图像处理、图标和整体气质；每页空间结构由 `relationship / hierarchy / rhythm_intent / visual_semantics` 决定。
+
+关系明确的页面先做一次语义 Visualization Recall / 能力族召回，再结合页面角色、内容密度、模板和全篇节奏选择候选、组合候选或自由设计。等权并列、KPI、短清单适合卡片或面板；递进、流程、汇聚、对比、层级、系统、主张-证据等页面优先体现对应真实结构。
+
+Page Rhythm 综合页面角色、Audience Move、真实关系、信息密度和章节位置形成全篇节奏；关键成果与章节转折形成视觉停顿。图片角色与位置随页面语义变化，可采用侧证据、横幅、局部大图、背景图或小型佐证。
+
+Executor 围绕 page-scale composition 先完成语义骨架，再充分发挥 Visualization、Native Shape、Charts / Diagrams、SVG、图片融合、数据表达、Visual Job Router、Live Preview 与当前页面适用的其他 PPT Master 原生能力。
+
+卡片依赖、连续 dense 与构图重复只作为审阅时的诊断信号，不设数量配额。没有特殊关系时，清晰、稳健的排版就是合适的设计。""".strip()
+    return {
+        "semantic_source": plan_path,
+        "activation_prompt": text,
+        "activation_sha256": sha_text(text),
+        "visual_style_scope": "project_identity_and_aesthetic",
+        "page_composition_driver": "relationship + hierarchy + rhythm_intent + visual_semantics",
+        "relationship_recall": "semantic_recall_before_final_composition_when_relationship_is_explicit",
+        "image_role": "page_semantics_driven",
+    }
+
+
+def execution_policy(generation_profile: str, workspace_roots: list[str], workspace_intent: str, plan_path: str,
+                     selected_profile_id: str | None) -> dict:
+    resume = None
+    if selected_profile_id:
+        resume = (
+            "Stage 1确认后再次运行同一个 scripts/route.py，使用 `--phase director --prompt-id "
+            f"{selected_profile_id} --stage1-contract <confirmed-stage1-json-or-path>`，并保留本次原始任务、材料、project-dir与workspace参数。"
+        )
+    default_generate = {
+        "stage_1": "完整理解原始材料、汇报对象、使用场景和明确约束，按 PPT Master 原生流程完成项目初始化、Communication Contract、Template Candidate Preparation 与 Stage 1确认。",
+        "director_resume": resume,
+        "director": f"执行 Director Runtime Payload，生成 `{plan_path}`；该文件承载故事主线、页面任务、核心观点、六字段页面语义、事实内容、素材和 Speaker Notes。",
+        "stage_2": f"Stage 2 从 `{plan_path}` 开始，应用 `stage2_handoff.activation_prompt` 完成二次编译，再形成完整 `design_spec.md`。",
+        "spec_lock": "Stage 2确认后，按 PPT Master 原生机制完成 design_spec.md、spec_lock.md 及实际命中的资源获取流程。",
+        "executor": f"{QUALITY_PRIORITY} 围绕每页目标、核心观点、真实关系、信息层级和全篇视觉节奏，由 PPT Master Executor 逐页自主完成 page-scale composition，并充分发挥当前页面适用的原生视觉能力。",
+        "review_export": "页面生产完成后，按 PPT Master 当前原生流程完成 Final Quality Check、当前任务适用的 Visual Review、Speaker Notes、后处理、Export 与 Postflight。",
+    }
+    return {
+        "quality_priority": QUALITY_PRIORITY,
+        "master_boot": "完整读取 PPT Master SKILL.md 及本任务实际命中的工作流；由 PPT Master 当前 routing 权威确定最终 Route。",
+        "default_generate": default_generate,
+        "generation_profile_hint": generation_profile,
+        "workspace_roots": workspace_roots,
+        "workspace_intent": workspace_intent,
+        "application": "Default Generate 采用 Stage 1 → Director V15 → presentation_plan.md → Stage 2 → Design Spec/Lock → Executor 的交接；Quick、Beautify、Fill Native、Enhance Native、Create Template 沿用各自 Master 原生流程，并按 Router intervention 深度吸收专业语义。",
+    }
+
+
+def resolve(a: argparse.Namespace) -> dict:
+    refs = list(dict.fromkeys([*a.reference_path, *a.template_path]))
+    text = task_text(a, refs)
+    if a.pptx_intent and a.template_intent:
+        raise ValueError("use one intent option only")
+
+    source_intent = a.pptx_intent or (
+        intent_mod.normalize_legacy_intent(a.template_intent)
+        if a.template_intent
+        else intent_mod.classify(a.user_request, refs, workspace_roots=a.workspace_root)
+    )
+    mode, generation_profile, reason = intervention_mode(a.user_request, source_intent)
+    sem = semantics.classify(text)
+    index = json.loads(INDEX.read_text(encoding="utf-8"))
+
+    selected = None
+    ranking = []
+    confidence = "n/a"
+    arbitrate = False
+    lens = None
+
+    if mode != "bypass":
+        selected, ranking, confidence, arbitrate = choose(index, text, sem, a.prompt_id)
+        if not a.prompt_id and ranking and ranking[0]["score"] < 5:
+            mode = "bypass"
+            reason = "专业场景信号较弱，PPT Master原生判断更合适"
+            selected, ranking, confidence, arbitrate = None, [], "n/a", False
+        else:
+            lens = selected.get("default_lens")
+            if "government" in sem["domains"] and selected["id"] not in ("government_strategy", "government_annual_summary"):
+                lens = "government_formality"
+            if "decide" in sem["jobs"] and selected["id"] not in ("decision_meeting", "government_strategy", "government_annual_summary"):
+                lens = "decision_ask"
+            if arbitrate:
+                lens = None
+
+    resolved_profile = selected if (selected and not arbitrate) else None
+    candidates = candidate_profiles(index, ranking) if arbitrate else []
+    stage1_contract, stage1_source = read_stage1_contract(a.stage1_contract)
+    if a.phase == "director" and (mode == "bypass" or resolved_profile is None):
+        raise ValueError("director phase needs a resolved Director profile")
+
+    plan_path = presentation_plan_path(a.project_dir)
+    workspace_intent = a.workspace_intent or ("explicit_use_requested" if a.workspace_root else "candidate")
+    handoff = compile_director_handoff(
+        resolved_profile, lens, mode, a.phase, stage1_contract, stage1_source, a.project_dir
+    )
+    selected_id = resolved_profile["id"] if resolved_profile else None
+
+    return {
+        "schema_version": "ppt_prompt_router.result.v3_1_3",
+        "router_version": ROUTER_VERSION,
+        "target_ppt_master": TARGET,
+        "phase": a.phase,
+        "action": "invoke_ppt_master" if a.phase == "preflight" else "execute_director_then_resume_ppt_master",
+        "intervention": {
+            "mode": mode,
+            "reason": reason,
+            "generation_profile_hint": generation_profile,
+        },
+        "profile_selection": {
+            "status": "arbitrate" if arbitrate else ("resolved" if resolved_profile else "bypass"),
+            "primary_profile": None if not selected else {
+                "id": selected["id"], "name_zh": selected["name_zh"], "confidence": confidence
+            },
+            "candidates": candidates,
+            "arbitration_basis": "受众 + Communication Job + 预期Audience Move" if arbitrate else None,
+        },
+        "secondary_lens": lens,
+        "source_intent": {
+            "value": source_intent,
+            "master_route_hint": intent_mod.route_hint(source_intent),
+            "authoritative": False,
+        },
+        "director_handoff": handoff,
+        "stage2_handoff": stage2_design_activation(plan_path) if resolved_profile else None,
+        "execution_policy": execution_policy(
+            generation_profile, a.workspace_root, workspace_intent, plan_path, selected_id
+        ),
+        "master_handoff": {
+            "authority": "PPT Master",
+            "route_authority": "PPT Master SKILL.md + workflows/routing.md",
+            "instruction": f"{QUALITY_PRIORITY} 从 PPT Master 自己的 SKILL.md 开始，完整读取实际命中的工作流。Default Generate 完成 Stage 1 确认后执行 Router director phase 与 presentation_plan.md，再进入 Stage 2；PPT Master 继续负责 Route、确认、Strategist、Design Spec/Lock、Executor、原生质量流程与导出。",
+        },
+        "request_context": {
+            "original_user_request": a.user_request,
+            "audience": a.audience,
+            "delivery_purpose": a.delivery_purpose,
+            "page_count": a.page_count,
+            "format_hint": a.format,
+            "materials": a.material,
+            "reference_paths": refs,
+            "workspace_roots": a.workspace_root,
+            "workspace_intent": workspace_intent,
+        },
+        "semantic_classification": sem,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
-    run_id, project, before, module_file = uuid.uuid4().hex, None, None, __file__
-    started_at = datetime.now(timezone.utc).isoformat()
-    started_clock = time.monotonic()
-    args = None
-    operation_ids: dict[str, str] = {}
-
-    def emit_operation(
-        event_project: Path,
-        event_type: str,
-        operation_name: str,
-        inputs: list[Path],
-        outputs: list[Path],
-        error: str | None,
-    ) -> None:
-        operation_id = operation_ids.setdefault(operation_name, f"{run_id}:op:{len(operation_ids) + 1}")
-        now = datetime.now(timezone.utc).isoformat()
-        stage = _stage(event_project)
-        mode_path = event_project / ".director" / "generation_mode.json"
-        mode = _json(mode_path).get("mode") if mode_path.is_file() else None
-        append_event(
-            event_project,
-            run_id=f"{run_id}:{operation_name}:{event_type}",
-            operation_id=operation_id,
-            command=args.command if args else "unknown",
-            module="director_runtime",
-            module_file=Path(__file__).with_name("director_runtime.py"),
-            inputs=inputs,
-            outputs=outputs,
-            stage_before=stage,
-            stage_after=stage,
-            exit_code=None if event_type in {"tool_started", "model_workflow_context_issued"} else (0 if event_type in {"tool_completed", "model_workflow_artifacts_observed"} else 3),
-            error_code="TOOL_FAILED" if event_type == "tool_failed" else ("WORKFLOW_BLOCKED" if event_type == "model_workflow_gate_failed" else None),
-            event_type=event_type,
-            started_at=now,
-            finished_at=now,
-            duration_seconds=0.0,
-            mode=mode,
-            details={"operation_name": operation_name, "expected_outputs": [str(path) for path in outputs], "error": error} if error else {"operation_name": operation_name, "expected_outputs": [str(path) for path in outputs]},
-        )
-
+    a = parser().parse_args(argv)
     try:
-        args = build_parser().parse_args(argv)
-        if args.command != "start":
-            project = Path(args.project).expanduser().resolve()
-            before = _stage(project)
-        with master_modules() as modules:
-            project, result, module = dispatch(args, modules, operation_emitter=emit_operation)
-            module_file = module.__file__
-        after = _stage(project)
-        inputs, outputs = _event_files(project, args.command)
-        event_types = {
-            "mode-propose": "mode_proposed", "mode-select": "mode_selected",
-            "sample-confirm": "sample_selected", "sample-reject": "sample_rejected",
-            "page-begin": "context_rehydrated", "page-check": "ppt_master_call_finished",
-            "export": "export_finished",
-        }
-        mode_path = project / ".director" / "generation_mode.json"
-        mode = _json(mode_path).get("mode") if mode_path.is_file() else None
-        page_id = getattr(args, "page_id", None)
-        if args.command == "plan" and not args.apply:
-            emit_operation(project, "model_workflow_context_issued", "strategist_plan", [project / ".director" / "master_handoff.md"], [project / "analysis" / "director_plan.json"], None)
-        elif args.command == "plan" and args.apply:
-            emit_operation(project, "model_workflow_artifacts_observed", "strategist_plan", [Path(args.apply)], [project / "analysis" / "director_plan.json"], None)
-            emit_operation(project, "model_workflow_context_issued", "design_system", [project / "analysis" / "director_plan.json", project / ".director" / "master_handoff.md"], [project / "design_spec.md", project / "spec_lock.md"], None)
-        elif args.command == "lock-spec":
-            emit_operation(project, "model_workflow_artifacts_observed", "design_system", [project / "analysis" / "director_plan.json"], [project / "design_spec.md", project / "spec_lock.md"], None)
-        append_event(project, run_id=run_id, command=args.command, module=module.__name__, module_file=module_file, inputs=inputs, outputs=outputs, stage_before=before, stage_after=after, exit_code=0, event_type=event_types.get(args.command), started_at=started_at, duration_seconds=round(time.monotonic() - started_clock, 6), mode=mode, page_id=page_id, details={"capability_snapshot_refreshed": result.get("capability_snapshot_refreshed")} if isinstance(result, dict) else None)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    except (PackageError, RuntimeError, OSError, ValueError) as exc:
-        code = getattr(exc, "code", "ERROR")
-        actions = getattr(exc, "next_actions", [])
-        after = _stage(project) if project and project.exists() else before
-        if project and (project / "analysis" / "director_contract.json").is_file():
-            inputs, outputs = _event_files(project, getattr(args, "command", "unknown"))
-            mode_path = project / ".director" / "generation_mode.json"
-            mode = _json(mode_path).get("mode") if mode_path.is_file() else None
-            if getattr(args, "command", None) == "lock-spec" and mode in {"template", "premium"}:
-                emit_operation(project, "model_workflow_gate_failed", "design_system", [project / "analysis" / "director_plan.json"], [project / "design_spec.md", project / "spec_lock.md"], str(exc))
-            append_event(project, run_id=run_id, command=getattr(args, "command", "unknown"), module="route", module_file=module_file, inputs=inputs, outputs=outputs, stage_before=before, stage_after=after, exit_code=3, error_code=code, event_type="command_failed", started_at=started_at, duration_seconds=round(time.monotonic() - started_clock, 6), mode=mode, page_id=getattr(args, "page_id", None))
-        print(json.dumps({"status": "error", "error_code": code, "error": str(exc), "next_allowed_actions": actions}, ensure_ascii=False, indent=2))
-        return 2 if code == "NEEDS_INPUT" else 3
+        out = resolve(a)
+    except ValueError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+    if a.json:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        profile = out["profile_selection"]["primary_profile"]
+        selected = profile["id"] if profile else "BYPASS"
+        print(f"{out['phase']} / {out['intervention']['mode']}: {selected} -> {out['action']}")
+    return 0
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 {
-  "schema_version": "2.0",
-  "prompts": {
-    "work_report": {
+  "schema_version": "3.1.3",
+  "prompts": [
+    {
+      "id": "work_report",
       "name_zh": "工作汇报PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/work_report.md",
       "use_when": "汇报周期任务、进度、成果、问题和下一步计划",
-      "required_signals": [],
       "strong_signals": [
         "工作汇报",
         "周报",
@@ -14,59 +14,106 @@
         "季度总结",
         "年度述职",
         "项目进度",
-        "复盘"
-      ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "招投标",
-        "融资",
-        "课堂授课",
-        "专项规划",
-        "数字政府"
+        "复盘",
+        "半年总结",
+        "年度总结",
+        "月度总结",
+        "总结汇报"
       ],
       "conflicts_with": [
         "government_strategy",
-        "data_analysis",
-        "memorial_album"
+        "data_analysis"
       ],
-      "tie_breaker": "汇报周期任务、进度、成果、问题和下一步计划"
+      "required_signals": [
+        "workreport",
+        "工作汇报",
+        "项目进度汇报",
+        "工作总结"
+      ],
+      "supporting_signals": [
+        "汇报周期任务",
+        "进度",
+        "成果",
+        "问题和下一步计划"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "project"
+      ],
+      "jobs": [
+        "report",
+        "review"
+      ],
+      "default_lens": "executive_readability",
+      "counter_signals": [
+        "不做工作汇报",
+        "不是工作汇报"
+      ],
+      "downrank_when": [
+        "招投标",
+        "融资",
+        "课堂授课"
+      ]
     },
-    "planning_proposal": {
+    {
+      "id": "planning_proposal",
       "name_zh": "方案策划PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/planning_proposal.md",
       "use_when": "活动、营销、推广、运营或传播策划",
-      "required_signals": [],
       "strong_signals": [
         "策划",
+        "方案",
         "推广",
         "运营",
-        "预算"
-      ],
-      "supporting_signals": [
-        "方案",
         "活动",
+        "预算",
         "执行"
-      ],
-      "negative_signals": [],
-      "avoid_when": [
-        "投标",
-        "课堂",
-        "融资"
       ],
       "conflicts_with": [
         "business_proposal",
         "event_promotion"
       ],
-      "tie_breaker": "活动、营销、推广、运营或传播策划"
+      "required_signals": [
+        "planningproposal",
+        "方案策划"
+      ],
+      "supporting_signals": [
+        "活动",
+        "营销",
+        "推广",
+        "运营或传播策划"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "project"
+      ],
+      "jobs": [
+        "plan",
+        "decide"
+      ],
+      "default_lens": "decision_ask",
+      "counter_signals": [
+        "决策会",
+        "拍板",
+        "董事会决策"
+      ],
+      "downrank_when": [
+        "投标",
+        "课堂",
+        "融资"
+      ]
     },
-    "product_introduction": {
+    {
+      "id": "product_introduction",
       "name_zh": "产品介绍PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/product_introduction.md",
       "use_when": "新品、卖点、功能、销售支持或竞品对比",
-      "required_signals": [],
       "strong_signals": [
         "产品介绍",
         "新品",
@@ -75,92 +122,144 @@
         "竞品对比",
         "销售支持"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
+      "conflicts_with": [
+        "product_technical",
+        "company_introduction"
+      ],
+      "required_signals": [
+        "productintroduction",
+        "产品介绍"
+      ],
+      "supporting_signals": [
+        "新品",
+        "卖点",
+        "功能",
+        "销售支持或竞品对比"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "product",
+        "sales"
+      ],
+      "jobs": [
+        "explain",
+        "persuade"
+      ],
+      "default_lens": "sales_persuasion",
+      "counter_signals": [],
+      "downrank_when": [
         "技术架构",
         "系统建设",
         "政务"
-      ],
-      "conflicts_with": [
-        "product_technical",
-        "company_introduction",
-        "business_bid"
-      ],
-      "tie_breaker": "新品、卖点、功能、销售支持或竞品对比"
+      ]
     },
-    "business_bid": {
+    {
+      "id": "business_bid",
       "name_zh": "商务提案／投标PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/business_bid.md",
       "use_when": "招标、投标、竞标、报价、资质和正式合作方案",
-      "required_signals": [
-        "招标",
-        "投标"
-      ],
       "strong_signals": [
         "投标",
         "竞标",
         "招标",
-        "招标文件",
-        "评标",
-        "技术标",
         "报价",
         "资质",
         "中标"
       ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "融资路演"
-      ],
-      "avoid_when": [
-        "课程",
-        "培训",
-        "公开课",
-        "客户提案",
-        "咨询建议"
-      ],
       "conflicts_with": [
         "business_proposal",
-        "product_introduction",
-        "government_strategy"
+        "product_introduction"
       ],
-      "tie_breaker": "招标、投标、竞标、报价、资质和正式合作方案"
+      "required_signals": [
+        "businessbid",
+        "商务提案／投标"
+      ],
+      "supporting_signals": [
+        "招标",
+        "投标",
+        "竞标",
+        "报价",
+        "资质和正式合作方案"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "sales"
+      ],
+      "jobs": [
+        "persuade",
+        "decide",
+        "bid"
+      ],
+      "default_lens": "sales_persuasion",
+      "counter_signals": [],
+      "downrank_when": [
+        "课程",
+        "培训",
+        "公开课"
+      ]
     },
-    "corporate_training": {
+    {
+      "id": "corporate_training",
       "name_zh": "培训课件PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/corporate_training.md",
       "use_when": "企业内训、制度、流程、岗位技能和新员工培训",
-      "required_signals": [],
       "strong_signals": [
         "培训",
         "内训",
         "制度",
         "流程",
         "新员工",
-        "岗位技能"
-      ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "课堂授课",
-        "投标",
-        "融资"
+        "岗位技能",
+        "企业内训",
+        "内部培训",
+        "新员工培训"
       ],
       "conflicts_with": [
         "classroom_lesson",
-        "teaching_explainer",
-        "public_talk"
+        "teaching_explainer"
       ],
-      "tie_breaker": "企业内训、制度、流程、岗位技能和新员工培训"
+      "required_signals": [
+        "corporatetraining",
+        "培训课件"
+      ],
+      "supporting_signals": [
+        "企业内训",
+        "制度",
+        "流程",
+        "岗位技能和新员工培训"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business"
+      ],
+      "jobs": [
+        "teach"
+      ],
+      "default_lens": "teaching_clarity",
+      "counter_signals": [
+        "政策解读",
+        "知识普及"
+      ],
+      "downrank_when": [
+        "课堂授课",
+        "投标",
+        "融资",
+        "公开课",
+        "不是内部制度培训"
+      ]
     },
-    "meeting_speech": {
+    {
+      "id": "meeting_speech",
       "name_zh": "会议演讲PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/meeting_speech.md",
       "use_when": "年会、战略会议、高层讲话或内部大会演讲",
-      "required_signals": [],
       "strong_signals": [
         "年会",
         "高层讲话",
@@ -169,106 +268,175 @@
         "演讲",
         "动员"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "决策会议",
-        "投标"
-      ],
       "conflicts_with": [
         "decision_meeting",
         "public_talk"
       ],
-      "tie_breaker": "年会、战略会议、高层讲话或内部大会演讲"
+      "required_signals": [
+        "meetingspeech",
+        "会议演讲"
+      ],
+      "supporting_signals": [
+        "年会",
+        "战略会议",
+        "高层讲话或内部大会演讲"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "public"
+      ],
+      "jobs": [
+        "speak",
+        "persuade"
+      ],
+      "default_lens": "presentation_energy",
+      "counter_signals": [
+        "演讲者备注",
+        "speaker notes",
+        "添加备注",
+        "备注和转场"
+      ],
+      "downrank_when": [
+        "决策会议",
+        "投标"
+      ]
     },
-    "data_analysis": {
+    {
+      "id": "data_analysis",
       "name_zh": "数据分析PPT",
       "category": "01_workplace_office",
       "file": "prompts/01_workplace_office/data_analysis.md",
       "use_when": "经营、市场、财务或销售分析，图表报告占主导",
-      "required_signals": [],
       "strong_signals": [
         "数据分析",
         "图表",
         "经营分析",
-        "同比",
-        "环比",
         "财务复盘",
-        "销售分析"
-      ],
-      "supporting_signals": [
+        "销售分析",
         "趋势"
       ],
-      "negative_signals": [],
-      "avoid_when": [
-        "政策解读",
-        "技术架构",
-        "管理报告"
-      ],
       "conflicts_with": [
-        "data_report",
-        "work_report"
+        "data_report"
       ],
-      "tie_breaker": "经营、市场、财务或销售分析，图表报告占主导"
+      "required_signals": [
+        "dataanalysis",
+        "数据分析"
+      ],
+      "supporting_signals": [
+        "经营",
+        "市场"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "data"
+      ],
+      "jobs": [
+        "analyze",
+        "report"
+      ],
+      "default_lens": "data_evidence",
+      "counter_signals": [
+        "指标报告"
+      ],
+      "downrank_when": [
+        "政策解读",
+        "技术架构"
+      ]
     },
-    "classroom_lesson": {
+    {
+      "id": "classroom_lesson",
       "name_zh": "课堂课件／讲课PPT",
       "category": "02_student_campus",
       "file": "prompts/02_student_campus/classroom_lesson.md",
       "use_when": "学校课堂、教师授课、学科知识和课件",
-      "required_signals": [],
       "strong_signals": [
         "课堂",
         "讲课",
         "课件",
         "教师",
         "学生",
-        "学科",
-        "教学设计"
-      ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "企业内训",
-        "公开课",
-        "政策解读",
-        "知识普及"
+        "学科"
       ],
       "conflicts_with": [
         "corporate_training",
         "teaching_explainer"
       ],
-      "tie_breaker": "学校课堂、教师授课、学科知识和课件"
+      "required_signals": [
+        "classroomlesson",
+        "课堂课件／讲课"
+      ],
+      "supporting_signals": [
+        "学校课堂",
+        "教师授课",
+        "学科知识和课件"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "education"
+      ],
+      "jobs": [
+        "teach",
+        "classroom"
+      ],
+      "default_lens": "teaching_clarity",
+      "counter_signals": [],
+      "downrank_when": [
+        "企业内训",
+        "公开课"
+      ]
     },
-    "course_assignment": {
+    {
+      "id": "course_assignment",
       "name_zh": "课程作业PPT",
       "category": "02_student_campus",
       "file": "prompts/02_student_campus/course_assignment.md",
       "use_when": "课程汇报、课堂作业、学期任务或课程成果展示",
-      "required_signals": [],
       "strong_signals": [
         "课程作业",
         "作业",
         "课堂汇报",
         "课程展示"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "答辩",
-        "投标"
-      ],
       "conflicts_with": [
         "thesis_defense"
       ],
-      "tie_breaker": "课程汇报、课堂作业、学期任务或课程成果展示"
+      "required_signals": [
+        "courseassignment",
+        "课程作业"
+      ],
+      "supporting_signals": [
+        "课程汇报",
+        "课堂作业",
+        "学期任务或课程成果展示"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "education"
+      ],
+      "jobs": [
+        "report",
+        "explain",
+        "assignment"
+      ],
+      "default_lens": "teaching_clarity",
+      "counter_signals": [],
+      "downrank_when": [
+        "答辩",
+        "投标"
+      ]
     },
-    "thesis_defense": {
+    {
+      "id": "thesis_defense",
       "name_zh": "毕业论文答辩PPT",
       "category": "02_student_campus",
       "file": "prompts/02_student_campus/thesis_defense.md",
       "use_when": "毕业论文答辩、研究汇报和学术答辩场景",
-      "required_signals": [],
       "strong_signals": [
         "答辩",
         "论文",
@@ -276,24 +444,41 @@
         "毕业",
         "学术"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "课程作业",
-        "路演"
-      ],
       "conflicts_with": [
         "course_assignment",
         "competition_pitch"
       ],
-      "tie_breaker": "毕业论文答辩、研究汇报和学术答辩场景"
+      "required_signals": [
+        "thesisdefense",
+        "毕业论文答辩"
+      ],
+      "supporting_signals": [
+        "毕业论文答辩",
+        "研究汇报和学术答辩场景"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "education",
+        "research"
+      ],
+      "jobs": [
+        "defend",
+        "explain"
+      ],
+      "default_lens": "data_evidence",
+      "counter_signals": [],
+      "downrank_when": [
+        "课程作业",
+        "路演"
+      ]
     },
-    "competition_pitch": {
+    {
+      "id": "competition_pitch",
       "name_zh": "竞赛路演PPT",
       "category": "02_student_campus",
       "file": "prompts/02_student_campus/competition_pitch.md",
       "use_when": "面向比赛评委、争取评分和竞赛支持",
-      "required_signals": [],
       "strong_signals": [
         "竞赛",
         "路演",
@@ -302,88 +487,130 @@
         "创新",
         "奖项"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "融资",
-        "投标",
-        "融资BP",
-        "投资人"
-      ],
       "conflicts_with": [
-        "fundraising_bp",
-        "thesis_defense"
+        "fundraising_bp"
       ],
-      "tie_breaker": "面向比赛评委、争取评分和竞赛支持"
+      "required_signals": [
+        "competitionpitch",
+        "竞赛路演"
+      ],
+      "supporting_signals": [
+        "面向比赛评委",
+        "争取评分和竞赛支持"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "education",
+        "startup"
+      ],
+      "jobs": [
+        "persuade",
+        "pitch"
+      ],
+      "default_lens": "presentation_energy",
+      "counter_signals": [],
+      "downrank_when": [
+        "融资",
+        "投标"
+      ]
     },
-    "company_introduction": {
+    {
+      "id": "company_introduction",
       "name_zh": "企业介绍PPT",
       "category": "03_promotion_showcase",
       "file": "prompts/03_promotion_showcase/company_introduction.md",
       "use_when": "公司业务、能力、案例、资质和合作方式介绍",
-      "required_signals": [],
       "strong_signals": [
         "企业介绍",
         "公司介绍",
-        "资质"
-      ],
-      "supporting_signals": [
         "业务",
         "案例",
+        "资质",
         "合作"
-      ],
-      "negative_signals": [],
-      "avoid_when": [
-        "品牌故事",
-        "加盟",
-        "品牌定位",
-        "品牌文化"
       ],
       "conflicts_with": [
         "brand_presentation",
-        "franchise_recruitment",
-        "product_introduction"
+        "franchise_recruitment"
       ],
-      "tie_breaker": "公司业务、能力、案例、资质和合作方式介绍"
+      "required_signals": [
+        "companyintroduction",
+        "企业介绍"
+      ],
+      "supporting_signals": [
+        "公司业务",
+        "能力",
+        "案例",
+        "资质和合作方式介绍"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "sales"
+      ],
+      "jobs": [
+        "present",
+        "persuade"
+      ],
+      "default_lens": "sales_persuasion",
+      "counter_signals": [],
+      "downrank_when": [
+        "品牌故事",
+        "加盟"
+      ]
     },
-    "brand_presentation": {
+    {
+      "id": "brand_presentation",
       "name_zh": "品牌宣讲PPT",
       "category": "03_promotion_showcase",
       "file": "prompts/03_promotion_showcase/brand_presentation.md",
       "use_when": "品牌故事、定位、价值、文化和传播表达",
-      "required_signals": [],
       "strong_signals": [
         "品牌",
-        "品牌故事",
-        "品牌定位",
-        "品牌文化",
         "宣讲",
         "定位",
+        "价值",
         "文化",
         "故事"
-      ],
-      "supporting_signals": [
-        "价值"
-      ],
-      "negative_signals": [],
-      "avoid_when": [
-        "企业资质",
-        "招商",
-        "企业介绍",
-        "公司介绍"
       ],
       "conflicts_with": [
         "company_introduction",
         "event_promotion"
       ],
-      "tie_breaker": "品牌故事、定位、价值、文化和传播表达"
+      "required_signals": [
+        "brandpresentation",
+        "品牌宣讲"
+      ],
+      "supporting_signals": [
+        "品牌故事",
+        "定位",
+        "价值",
+        "文化和传播表达"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "brand",
+        "marketing"
+      ],
+      "jobs": [
+        "persuade",
+        "present"
+      ],
+      "default_lens": "brand_expression",
+      "counter_signals": [],
+      "downrank_when": [
+        "企业资质",
+        "招商"
+      ]
     },
-    "franchise_recruitment": {
+    {
+      "id": "franchise_recruitment",
       "name_zh": "招商加盟PPT",
       "category": "03_promotion_showcase",
       "file": "prompts/03_promotion_showcase/franchise_recruitment.md",
       "use_when": "招商、加盟、渠道拓展和合作招募",
-      "required_signals": [],
       "strong_signals": [
         "招商",
         "加盟",
@@ -391,24 +618,42 @@
         "渠道",
         "投资"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "品牌故事",
-        "课堂"
-      ],
       "conflicts_with": [
         "company_introduction",
         "fundraising_bp"
       ],
-      "tie_breaker": "招商、加盟、渠道拓展和合作招募"
+      "required_signals": [
+        "franchiserecruitment",
+        "招商加盟"
+      ],
+      "supporting_signals": [
+        "招商",
+        "加盟",
+        "渠道拓展和合作招募"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "sales",
+        "business"
+      ],
+      "jobs": [
+        "persuade",
+        "decide"
+      ],
+      "default_lens": "sales_persuasion",
+      "counter_signals": [],
+      "downrank_when": [
+        "品牌故事",
+        "课堂"
+      ]
     },
-    "event_promotion": {
+    {
+      "id": "event_promotion",
       "name_zh": "活动宣传PPT",
       "category": "03_promotion_showcase",
       "file": "prompts/03_promotion_showcase/event_promotion.md",
       "use_when": "面向参与者宣传活动、说明价值、日程和报名",
-      "required_signals": [],
       "strong_signals": [
         "活动宣传",
         "报名",
@@ -417,111 +662,163 @@
         "时间地点",
         "参与"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
+      "conflicts_with": [
+        "planning_proposal"
+      ],
+      "required_signals": [
+        "eventpromotion",
+        "活动宣传"
+      ],
+      "supporting_signals": [
+        "面向参与者宣传活动",
+        "说明价值",
+        "日程和报名"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "marketing"
+      ],
+      "jobs": [
+        "promote",
+        "persuade"
+      ],
+      "default_lens": "presentation_energy",
+      "counter_signals": [],
+      "downrank_when": [
         "活动策划",
         "内部方案"
-      ],
-      "conflicts_with": [
-        "planning_proposal",
-        "brand_presentation"
-      ],
-      "tie_breaker": "面向参与者宣传活动、说明价值、日程和报名"
+      ]
     },
-    "resume_profile": {
+    {
+      "id": "resume_profile",
       "name_zh": "简历／个人介绍PPT",
       "category": "04_personal_general",
       "file": "prompts/04_personal_general/resume_profile.md",
       "use_when": "求职简历、个人介绍和自我展示",
-      "required_signals": [],
       "strong_signals": [
         "简历",
         "个人介绍",
         "求职",
         "自我展示"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "路演融资",
-        "公开课"
-      ],
       "conflicts_with": [
         "fundraising_bp",
         "public_talk"
       ],
-      "tie_breaker": "求职简历、个人介绍和自我展示"
+      "required_signals": [
+        "resumeprofile",
+        "简历／个人介绍"
+      ],
+      "supporting_signals": [
+        "求职简历",
+        "个人介绍和自我展示"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "personal",
+        "career"
+      ],
+      "jobs": [
+        "present",
+        "persuade"
+      ],
+      "default_lens": "executive_readability",
+      "counter_signals": [],
+      "downrank_when": [
+        "路演融资",
+        "公开课"
+      ]
     },
-    "fundraising_bp": {
+    {
+      "id": "fundraising_bp",
       "name_zh": "路演融资PPT／BP商业计划书",
       "category": "04_personal_general",
       "file": "prompts/04_personal_general/fundraising_bp.md",
       "use_when": "面向投资人争取融资、展示商业模式和资金用途",
-      "required_signals": [
-        "融资",
-        "商业计划书"
-      ],
       "strong_signals": [
         "融资",
         "BP",
         "投资人",
-        "融资用途",
-        "估值",
-        "财务预测",
-        "投资机构",
-        "商业计划书"
-      ],
-      "supporting_signals": [
+        "商业计划书",
         "市场",
         "团队"
       ],
-      "negative_signals": [
-        "政务汇报"
-      ],
-      "avoid_when": [
-        "竞赛",
-        "简历",
-        "参赛",
-        "评委"
-      ],
       "conflicts_with": [
         "competition_pitch",
-        "resume_profile",
-        "franchise_recruitment",
-        "decision_meeting"
+        "resume_profile"
       ],
-      "tie_breaker": "面向投资人争取融资、展示商业模式和资金用途"
+      "required_signals": [
+        "fundraisingbp",
+        "路演融资"
+      ],
+      "supporting_signals": [
+        "面向投资人争取融资",
+        "展示商业模式和资金用途"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "startup",
+        "finance"
+      ],
+      "jobs": [
+        "pitch",
+        "persuade"
+      ],
+      "default_lens": "decision_ask",
+      "counter_signals": [],
+      "downrank_when": [
+        "竞赛",
+        "简历"
+      ]
     },
-    "memorial_album": {
+    {
+      "id": "memorial_album",
       "name_zh": "纪念相册PPT",
       "category": "04_personal_general",
       "file": "prompts/04_personal_general/memorial_album.md",
       "use_when": "纪念活动、相册、回顾与情感留存",
-      "required_signals": [],
       "strong_signals": [
         "纪念",
         "相册",
         "回顾",
         "留念"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "工作汇报",
-        "投标"
-      ],
       "conflicts_with": [
         "work_report"
       ],
-      "tie_breaker": "纪念活动、相册、回顾与情感留存"
+      "required_signals": [
+        "memorialalbum",
+        "纪念相册"
+      ],
+      "supporting_signals": [
+        "纪念活动",
+        "相册",
+        "回顾与情感留存"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "personal"
+      ],
+      "jobs": [
+        "present"
+      ],
+      "default_lens": "presentation_energy",
+      "counter_signals": [],
+      "downrank_when": [
+        "工作汇报",
+        "投标"
+      ]
     },
-    "public_talk": {
+    {
+      "id": "public_talk",
       "name_zh": "公开课／演讲分享PPT",
       "category": "04_personal_general",
       "file": "prompts/04_personal_general/public_talk.md",
       "use_when": "面向公众或行业听众的公开课、沙龙和演讲分享",
-      "required_signals": [],
       "strong_signals": [
         "公开课",
         "演讲分享",
@@ -529,105 +826,204 @@
         "公众",
         "观点"
       ],
-      "supporting_signals": [],
-      "negative_signals": [],
-      "avoid_when": [
-        "企业内训",
-        "课堂授课"
-      ],
       "conflicts_with": [
         "corporate_training",
-        "meeting_speech",
-        "resume_profile"
+        "meeting_speech"
       ],
-      "tie_breaker": "面向公众或行业听众的公开课、沙龙和演讲分享"
+      "required_signals": [
+        "publictalk",
+        "公开课／演讲分享"
+      ],
+      "supporting_signals": [
+        "沙龙和演讲分享"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "public",
+        "education"
+      ],
+      "jobs": [
+        "speak",
+        "explain"
+      ],
+      "default_lens": "presentation_energy",
+      "counter_signals": [],
+      "downrank_when": [
+        "企业内训",
+        "课堂授课"
+      ]
     },
-    "government_strategy": {
-      "validation_status": "validated",
+    {
+      "id": "government_annual_summary",
+      "name_zh": "政府年度/半年总结",
+      "category": "05_professional_scenarios",
+      "file": "prompts/05_professional_scenarios/government_annual_summary.md",
+      "use_when": "政府机关年度总结、半年总结、阶段性工作总结及面向领导的年度/半年工作汇报",
+      "strong_signals": [
+        "政府年度总结",
+        "政府半年总结",
+        "机关年度总结",
+        "机关半年总结",
+        "政务年度总结",
+        "政务半年总结",
+        "年度工作总结",
+        "半年工作总结",
+        "上半年工作总结",
+        "年度工作汇报",
+        "半年工作汇报",
+        "年度总结",
+        "半年总结"
+      ],
+      "conflicts_with": [
+        "government_strategy",
+        "work_report"
+      ],
+      "required_signals": [
+        "governmentannualsummary",
+        "政府年度总结",
+        "政府半年总结",
+        "机关年度总结",
+        "政务年度总结"
+      ],
+      "supporting_signals": [
+        "重点工作",
+        "主要成效",
+        "代表性数据",
+        "问题建议",
+        "下一步工作",
+        "工作谋划",
+        "领导听取"
+      ],
+      "maturity": "validated",
+      "profile_version": "3.1.2",
+      "domains": [
+        "government"
+      ],
+      "jobs": [
+        "annual_review"
+      ],
+      "default_lens": "government_formality",
+      "counter_signals": [
+        "公司年度总结",
+        "企业年度总结",
+        "经营年度复盘",
+        "年度经营总结"
+      ],
+      "downrank_when": [
+        "专项规划",
+        "建设方案",
+        "政策解读培训",
+        "投标"
+      ]
+    },
+    {
+      "id": "government_strategy",
       "name_zh": "政务汇报与战略规划",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/government_strategy.md",
       "use_when": "政务专项规划、政策实施、政府项目和领导汇报",
-      "required_signals": [
-        "政务专项规划",
-        "政府领导",
-        "数字政府",
-        "省级汇报"
-      ],
       "strong_signals": [
         "政务",
-        "政务服务",
         "战略规划",
         "政策",
         "专项规划",
         "政府项目",
         "领导汇报",
-        "人工智能+"
-      ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "客户提案",
-        "融资"
-      ],
-      "avoid_when": [
-        "普通周报",
-        "投标",
-        "项目进度",
-        "月报"
+        "数字政府",
+        "政务服务",
+        "管委会",
+        "政府",
+        "专项汇报"
       ],
       "conflicts_with": [
         "work_report",
         "business_bid"
       ],
-      "tie_breaker": "政务专项规划、政策实施、政府项目和领导汇报"
+      "required_signals": [
+        "governmentstrategy",
+        "政务汇报与战略规划",
+        "政务汇报",
+        "政府汇报"
+      ],
+      "supporting_signals": [
+        "政务专项规划",
+        "政策实施",
+        "政府项目和领导汇报"
+      ],
+      "maturity": "validated",
+      "profile_version": "3.1.2",
+      "domains": [
+        "government"
+      ],
+      "jobs": [
+        "report",
+        "plan",
+        "decide"
+      ],
+      "default_lens": "government_formality",
+      "counter_signals": [
+        "政策解读培训",
+        "知识普及培训",
+        "不做工作汇报",
+        "不是工作汇报"
+      ],
+      "downrank_when": [
+        "普通周报",
+        "投标"
+      ]
     },
-    "business_proposal": {
+    {
+      "id": "business_proposal",
       "name_zh": "商务方案与客户提案",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/business_proposal.md",
       "use_when": "客户方案、经营提升、试点合作和咨询建议",
-      "required_signals": [
-        "客户提案",
-        "合作方案",
-        "咨询建议"
-      ],
       "strong_signals": [
         "客户提案",
         "商务方案",
         "经营提升",
         "合作决策",
         "试点",
-        "咨询",
-        "解决方案"
-      ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "投标",
-        "融资"
-      ],
-      "avoid_when": [
-        "投标",
-        "活动宣传",
-        "招标文件",
-        "评标"
+        "咨询"
       ],
       "conflicts_with": [
         "business_bid",
-        "planning_proposal",
-        "product_technical"
+        "planning_proposal"
       ],
-      "tie_breaker": "客户方案、经营提升、试点合作和咨询建议"
+      "required_signals": [
+        "businessproposal",
+        "商务方案与客户提案"
+      ],
+      "supporting_signals": [
+        "客户方案",
+        "经营提升",
+        "试点合作和咨询建议"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "sales"
+      ],
+      "jobs": [
+        "persuade",
+        "decide",
+        "proposal"
+      ],
+      "default_lens": "sales_persuasion",
+      "counter_signals": [],
+      "downrank_when": [
+        "投标",
+        "活动宣传"
+      ]
     },
-    "decision_meeting": {
+    {
+      "id": "decision_meeting",
       "name_zh": "决策会议与管理层拍板",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/decision_meeting.md",
       "use_when": "多方案比较、预算审批、资源选择和管理层决策",
-      "required_signals": [
-        "决策",
-        "拍板",
-        "管理层"
-      ],
       "strong_signals": [
         "决策会议",
         "拍板",
@@ -636,104 +1032,137 @@
         "预算审批",
         "管理层"
       ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "课堂",
-        "纪念"
-      ],
-      "avoid_when": [
-        "演讲",
-        "课程作业"
-      ],
       "conflicts_with": [
         "meeting_speech",
         "fundraising_bp"
       ],
-      "tie_breaker": "多方案比较、预算审批、资源选择和管理层决策"
+      "required_signals": [
+        "decisionmeeting",
+        "决策会议与管理层拍板",
+        "决策会",
+        "拍板",
+        "董事会决策"
+      ],
+      "supporting_signals": [
+        "多方案比较",
+        "预算审批",
+        "资源选择和管理层决策"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "business",
+        "management"
+      ],
+      "jobs": [
+        "decide"
+      ],
+      "default_lens": "decision_ask",
+      "counter_signals": [],
+      "downrank_when": [
+        "演讲",
+        "课程作业"
+      ]
     },
-    "data_report": {
+    {
+      "id": "data_report",
       "name_zh": "数据报告与经营分析",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/data_report.md",
       "use_when": "指标报告、趋势报告、风险报告和结论型数据叙事",
-      "required_signals": [
-        "数据报告",
-        "经营数据",
-        "指标报告"
-      ],
       "strong_signals": [
         "数据报告",
-        "管理报告",
-        "风险报告",
         "指标",
+        "趋势",
         "风险",
         "结论",
         "经营分析"
-      ],
-      "supporting_signals": [
-        "趋势"
-      ],
-      "negative_signals": [
-        "课堂",
-        "相册"
-      ],
-      "avoid_when": [
-        "技术架构",
-        "公开课",
-        "探索分析",
-        "图表分析"
       ],
       "conflicts_with": [
         "data_analysis",
         "teaching_explainer"
       ],
-      "tie_breaker": "指标报告、趋势报告、风险报告和结论型数据叙事"
+      "required_signals": [
+        "datareport",
+        "数据报告与经营分析",
+        "经营数据",
+        "指标报告",
+        "年度经营数据"
+      ],
+      "supporting_signals": [
+        "指标报告",
+        "趋势报告",
+        "风险报告和结论型数据叙事"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "data",
+        "business"
+      ],
+      "jobs": [
+        "report",
+        "analyze"
+      ],
+      "default_lens": "data_evidence",
+      "counter_signals": [],
+      "downrank_when": [
+        "技术架构",
+        "公开课"
+      ]
     },
-    "teaching_explainer": {
+    {
+      "id": "teaching_explainer",
       "name_zh": "教学解释与培训课件",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/teaching_explainer.md",
       "use_when": "知识讲解、政策解读、认知普及和通用解释型PPT",
-      "required_signals": [
-        "教学解释",
-        "知识讲解",
-        "政策解读"
-      ],
       "strong_signals": [
         "教学解释",
         "知识讲解",
         "政策解读",
         "认知普及"
       ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "投标",
-        "融资"
-      ],
-      "avoid_when": [
-        "投标",
-        "融资",
-        "学生",
-        "学校",
-        "课堂"
-      ],
       "conflicts_with": [
         "classroom_lesson",
-        "corporate_training",
-        "data_report"
+        "corporate_training"
       ],
-      "tie_breaker": "知识讲解、政策解读、认知普及和通用解释型PPT"
+      "required_signals": [
+        "teachingexplainer",
+        "教学解释与培训课件",
+        "政策解读",
+        "知识普及",
+        "知识讲解",
+        "认知普及"
+      ],
+      "supporting_signals": [
+        "知识讲解",
+        "政策解读"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "education",
+        "government",
+        "public"
+      ],
+      "jobs": [
+        "explain",
+        "teach"
+      ],
+      "default_lens": "teaching_clarity",
+      "counter_signals": [],
+      "downrank_when": [
+        "投标",
+        "融资"
+      ]
     },
-    "product_technical": {
+    {
+      "id": "product_technical",
       "name_zh": "产品与技术方案",
       "category": "05_professional_scenarios",
       "file": "prompts/05_professional_scenarios/product_technical.md",
       "use_when": "技术架构、数字化系统、平台建设、数据集成和实施方案",
-      "required_signals": [
-        "技术架构",
-        "产品架构",
-        "系统架构"
-      ],
       "strong_signals": [
         "技术架构",
         "系统建设",
@@ -742,20 +1171,45 @@
         "实施方案",
         "数字化"
       ],
-      "supporting_signals": [],
-      "negative_signals": [
-        "纯营销",
-        "纪念"
-      ],
-      "avoid_when": [
-        "产品卖点",
-        "品牌宣讲"
-      ],
       "conflicts_with": [
         "product_introduction",
         "business_proposal"
       ],
-      "tie_breaker": "技术架构、数字化系统、平台建设、数据集成和实施方案"
+      "required_signals": [
+        "producttechnical",
+        "产品与技术方案",
+        "技术架构",
+        "系统架构",
+        "数据流",
+        "安全边界"
+      ],
+      "supporting_signals": [
+        "技术架构",
+        "数字化系统",
+        "平台建设",
+        "数据集成和实施方案"
+      ],
+      "maturity": "experimental",
+      "profile_version": "3.1.2",
+      "domains": [
+        "technology",
+        "product"
+      ],
+      "jobs": [
+        "explain",
+        "plan",
+        "decide"
+      ],
+      "default_lens": "technical_traceability",
+      "counter_signals": [],
+      "downrank_when": [
+        "产品卖点",
+        "品牌宣讲"
+      ]
     }
-  }
+  ],
+  "router_version": "3.1.3",
+  "target_ppt_master": "4.4.x",
+  "integration_contract": "profile-guidance-only",
+  "director_protocol": "V15"
 }

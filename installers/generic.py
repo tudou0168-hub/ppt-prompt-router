@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .base import HostAdapter, HostError, expand_path
+from .base import HostAdapter, expand_path
 
 
 class GenericAdapter(HostAdapter):
@@ -21,8 +21,3 @@ class GenericAdapter(HostAdapter):
             if value:
                 values.append(expand_path(value))
         return values
-
-    def default_skills_dir(self) -> Path:
-        if not self.explicit_skills_dir:
-            raise HostError("generic 模式必须使用 --skills-dir 或 AGENT_SKILLS_DIR 明确指定技能目录。")
-        return self.explicit_skills_dir

@@ -1,12 +1,19 @@
-## Router Profile
+# 路演融资PPT／BP商业计划书 Director Profile
 
-communication_job: 帮助投资人形成对机会、验证、增长逻辑、团队和融资用途的可信判断。
-audience_register: 面向投资人和投资决策者，直接、可量化、区分事实与假设。
-required_story_beats: 机会与问题 | 解决方案 | 市场与验证 | 增长与壁垒 | 团队与融资用途
-required_content_fields: investment_thesis | traction_and_moat | team_and_funding_plan
-title_voice: 使用投资判断和增长结论式标题，不使用产品说明书标题。
-opening_task: 建立投资机会、核心问题和差异化判断。
-closing_task: 明确融资用途、关键里程碑和投资人需要作出的判断。
-visual_posture: 投资叙事应聚焦机会、验证和可规模化逻辑，避免竞赛展示化。
-evidence_standard: 市场、营收、用户、预测、估值和融资用途必须区分事实、假设、目标与建议。
-key_failure_modes: 竞赛路演化 | 预测伪装为实绩 | 只讲产品不讲商业与壁垒
+## 场景目标
+推动投资人形成“问题大、方案强、增长可证、团队能做、资金用途清楚”的投资判断。
+
+## 推荐叙事
+机会/痛点 → 产品 → 市场 → 商业模式 → 增长/验证 → 竞争 → 团队 → 财务/融资 → 里程碑。
+
+## 优先识别的真实关系
+市场-机会、产品-价值、增长漏斗、竞品对比、资金-里程碑。
+
+## 视觉判断偏好
+强结论、强数据、强证据；关键投资判断形成视觉锚点。
+
+## 优化重点
+愿景由市场、产品和增长验证支撑，关键假设透明呈现，整套 BP 围绕投资判断而非产品功能展开。
+
+## 交接方式
+结合当前材料形成逐页内容时，使用 Director Kernel 定义的六字段语义接口；具体构图、能力选择、实现手段和生产步骤交由 PPT Master 原生 Strategist / Executor 完成。

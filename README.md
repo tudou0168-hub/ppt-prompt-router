@@ -1,53 +1,18 @@
-# PPT Director 3.1
+# PPT Prompt Router 3.1.3 Stable
 
-PPT Director 以一个公开 `ppt-prompt-router` Skill 强集成固定版本的 PPT
-Master runtime。Router负责场景、受众和导演约束；Master负责Strategist、
-资源选择、SVG设计、机器检查、视觉复核和PPTX导出；Production State只负责
-流程与Hash放行。
+PPT Master 4.4+ 专业导演增强层。
 
-## 构建
+核心偏好：
 
-```bash
-python scripts/build_offline_suite.py sync-vendor --master-source <clean-master-clone>
-python scripts/build_offline_suite.py build --output-dir <output-dir>
-```
+> **不考虑 Token、工具调用和思考次数，以最终汇报效果为优先，充分发挥 PPT Master 原生完整能力。**
 
-固定基线：
+## 本版关键变化
 
-- Router `3567a510bd64e3197e009f5af4e02b03ac69af2c`
-- PPT Master `f63de240cf25bd0fbbe384e5f344efa9a177726e`
+- 保持 **26 个** Director Profile，并修正政府阶段性总结与泛化政务汇报之间的优先级；
+- Default Generate 使用两阶段 Router 调用：Preflight 选 Profile，Stage 1确认后进入 Director phase；
+- Director Payload 直接内联 Kernel + Semantic Vocabulary + Primary Profile + Lens；Router只编译 handoff，由当前主智能体作为专业 Director 生成计划；
+- `presentation_plan.md` 写入 Router/Profile/Stage1 SHA 追踪头，交接是否发生可以直接审计；
+- Stage 2 设计激活明确区分 Visual Style 与 Page Composition，并通过 relationship-driven recall 激活 Visualization / Native Shape / SVG / Visual Job Router 等 Master 原生能力；卡片和 dense 等只作审阅诊断，不设机械比例；
+- workspace root 保留 `explicit_use_requested` 或 `candidate` 语义强度。
 
-离线包仅含一个公开Skill和根目录唯一`install.py`。目标机不需要Git或网络，
-安装器不会修改plugin cache或marketplace，也不会联网安装Python依赖。
-
-## 安装
-
-```bash
-python install.py install --host claude-code
-python install.py validate --host claude-code
-python install.py upgrade --host claude-code
-python install.py rollback --host claude-code
-python install.py uninstall --host claude-code --yes
-```
-
-存在任何宿主可发现的外部`ppt-master`或重复Router时返回`CONFLICT`；非受管
-冲突只报告路径，不自动删除。安装完成后宿主只能发现一个相关Skill。
-
-## 工作流
-
-```text
-start -> capability preflight -> mode-propose -> mode-select
--> Master模式化模板处理 -> plan -> lock-spec -> 样张 -> sample_confirmation
--> 用户A/B/C -> 逐页生产 -> midpoint review -> 全稿review -> export
-```
-
-`start`不做Plan、模板分析或设计规范。`template`和`premium`使用同一个总览页与
-同一个复杂正文页生成A/B/C三组方向；三组内容输入相同，只允许Master改变设计。
-`standard`继续使用原有三张风险样张流程。
-
-项目产物始终位于Skill目录之外，日志只写入：
-
-```text
-<project>/logs/events.jsonl
-<project>/logs/run_summary.md
-```
+详细流程见 `SKILL.md`。

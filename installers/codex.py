@@ -18,8 +18,6 @@ class CodexAdapter(HostAdapter):
             return 40
         return 10 if (Path.home() / ".codex").is_dir() else 0
 
-    def detection_reasons(self) -> list[str]:
-        return ["Codex environment/process/config evidence"] if self.detection_score() else []
 
     def canonical_skills_dir(self, scope: str = "user") -> Path:
         # New installs use the generic Agent skills root; CODEX_HOME is discovery-only.
