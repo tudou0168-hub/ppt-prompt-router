@@ -1,5 +1,15 @@
 # 本轮审查交接
 
+## 当前轮次状态（2026-08-10）
+
+本轮已冻结 Router 的 routing、scoring、Profile 与回归数量优化，转为对审批服务局 Router B1 失败样本做根因分析。
+
+- 原生 PPT Master A 已按同一 DOCX、8 页、ppt169、蓝金约束和无外部素材条件补跑，并完成 PPTX、Notes、SVG/PPTX 渲染 PNG 与 Contact Sheet。
+- B1 的 Stage 1 Contract / Director handoff 没有作为项目文件保存；该缺口已如实记录。
+- A/B 逐页视觉结论为 **Router 零增益**：B1 的语义关系多数进入了 Stage 2 / SVG，但没有转化为明显的页面级视觉导演优势。
+- 完整证据、逐页责任和不属于 Router 的问题见 `docs/failure-analysis-3.1.3.md`。
+- 本轮没有修改 Router 产品代码；下一轮在 Reviewer 判断前不得进入功能开发。
+
 ## 本轮目标
 
 将 PPT Prompt Router 升级为 3.1.3：修正政府半年／年度总结场景的选择优先级，并固化 Router 作为“专业导演增强与交接层”的职责边界。
