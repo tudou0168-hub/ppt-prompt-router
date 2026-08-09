@@ -1,0 +1,15 @@
+{
+  "page": "P03_service_efficiency.svg",
+  "page_role": "data",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [".preview/P03_service_efficiency.png"],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "以总办件、线上占比和企业业务占比形成可核验的质效结构。",
+    "render_delivers": true,
+    "note": "总办件主数字、线上环形占比和企业业务侧栏层级清晰，统计口径已在页脚标注。"
+  }
+}

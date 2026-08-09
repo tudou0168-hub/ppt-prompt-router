@@ -21,11 +21,11 @@
 
 ## 关键证据
 
-- B2 项目：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/approval-router-b2_ppt169_20260810`
-- Router 正式产物：`analysis/presentation_plan.md`；该文件由独立 Router Context 直接写入，未带 Master 内容。
+- GitHub 审查附件：`review/artifacts/approval-router-b2-p03-p05-p06/`（含材料 Markdown、计划、规格、锁定、SVG、PNG、Contact Sheet、Notes、验证、PPTX）。
+- Router 正式产物：`review/artifacts/approval-router-b2-p03-p05-p06/analysis/presentation_plan.md`；该文件由独立 Router Context 直接写入，未带 Master 内容。
 - B2 计划明确了 P03 的主数字／证据层级、P05 的机制—场景—成效边界、P06 的真实并列任务关系，未把并列六项任务伪造为路径。
-- B2 最终 Contact Sheet：`.preview/contact_sheet.png`；最终 PPTX：`exports/approval-router-b2_20260810_070324.pptx`。
-- 对照：A 原生 Contact Sheet 为 `approval-native-a-r1_ppt169_20260810/validation/contact_sheet_svg_rendered.png`；B1 旧 Router 为 `approval-router-b-r1_ppt169_20260809/validation/contact_sheet_svg_rendered.png`。
+- B2 最终 Contact Sheet：`review/artifacts/approval-router-b2-p03-p05-p06/preview/contact_sheet.png`；最终 PPTX：`review/artifacts/approval-router-b2-p03-p05-p06/exports/approval-router-b2_20260810_070324.pptx`。
+- 对照：A 原生与 B1 旧 Router 的 Contact Sheet 均已附在 `review/artifacts/comparison/`。
 
 ## 已知问题
 

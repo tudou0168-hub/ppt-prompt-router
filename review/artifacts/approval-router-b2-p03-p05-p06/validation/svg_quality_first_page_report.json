@@ -1,0 +1,92 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "first-page",
+  "target": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/approval-router-b2_ppt169_20260810",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "0447728f99ca72f7d01b0c82bd50640aeeca632eceda75f2c3f575f912c03fe1",
+    "file_count": 1,
+    "files": [
+      {
+        "file": "P03_service_efficiency.svg",
+        "sha256": "d320baf8848bec0397d5623acb1300a0ade7c30d089dceada98abc157c43a56f"
+      }
+    ]
+  },
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "warnings": 0,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 0,
+      "issues": []
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {},
+    "fonts": {},
+    "sizes": {
+      "108": [
+        "P03_service_efficiency.svg"
+      ],
+      "34": [
+        "P03_service_efficiency.svg"
+      ],
+      "68": [
+        "P03_service_efficiency.svg"
+      ]
+    }
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "P03_service_efficiency.svg",
+      "path": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/approval-router-b2_ppt169_20260810/svg_output/P03_service_efficiency.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "fonts": [
+          "Menlo, Consolas, monospace",
+          "Microsoft YaHei, PingFang SC, Arial, sans-serif",
+          "Songti SC, STSong, SimSun, serif"
+        ],
+        "text_elements": 33,
+        "tspan_elements": 0,
+        "sparse_typography_sizes": {
+          "108": 1,
+          "34": 1,
+          "68": 1
+        }
+      },
+      "passed": true,
+      "source_sha256": "d320baf8848bec0397d5623acb1300a0ade7c30d089dceada98abc157c43a56f"
+    }
+  ]
+}
