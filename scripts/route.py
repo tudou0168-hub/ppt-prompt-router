@@ -21,12 +21,6 @@ else:
 
 ROUTER_VERSION = "3.1.3"
 TARGET = "4.4+"
-DIRECTOR_PROTOCOL = "V15"
-SEMANTIC_FIELDS = (
-    "page_role", "audience_move", "relationship",
-    "hierarchy", "rhythm_intent", "visual_semantics",
-)
-QUALITY_PRIORITY = "不考虑 Token、工具调用和思考次数，以最终汇报效果为优先，充分发挥 PPT Master 原生完整能力。"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -46,7 +40,6 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--delivery-purpose", default="")
     p.add_argument("--user-request", default="")
     p.add_argument("--prompt-id")
-    p.add_argument("--stage1-contract")
     p.add_argument("--pptx-intent", choices=intent_mod.VALID_INTENTS)
     p.add_argument("--template-intent", choices=tuple(intent_mod.LEGACY_INTENT_MAP))
     p.add_argument("--json", action="store_true")
@@ -127,20 +120,8 @@ def sha_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def read_stage1_contract(value: str | None) -> tuple[str, str | None]:
-    if not value:
-        return "", None
-    p = Path(value).expanduser()
-    if p.is_file():
-        text = p.read_text(encoding="utf-8")
-        return text, str(p.resolve())
-    return value, None
-
-
-def director_base(profile: dict, lens: str | None) -> dict:
-    refs = ROOT / "references"
-    kernel = file_text(refs / "director_kernel.md")
-    vocab = file_text(refs / "ppt_semantic_vocabulary.md")
+def director_task(profile: dict, lens: str | None, plan_path: str, a: argparse.Namespace) -> dict:
+    """Build Router-only instructions.  This object must never cross into Master."""
     profile_path = ROOT / profile["file"]
     profile_text = file_text(profile_path)
     lens_text = ""
@@ -151,22 +132,31 @@ def director_base(profile: dict, lens: str | None) -> dict:
             lens_path = str(p.resolve())
             lens_text = file_text(p)
     chunks = [
-        "# Director Runtime Payload",
+        "# Router Director Task (Router context only)",
         f"Router: {ROUTER_VERSION}",
         f"Primary Profile: {profile['id']} / {profile.get('name_zh','')}",
-        "\n## Director Kernel\n" + kernel,
-        "\n## Semantic Vocabulary\n" + vocab,
-        "\n## Primary Profile\n" + profile_text,
+        "\n## Professional Director Prompt\n" + profile_text,
+        "\n## Run Inputs",
+        f"- User request: {a.user_request or '未单独提供'}",
+        f"- Materials: {', '.join(a.material) or '未单独提供'}",
+        f"- References: {', '.join(a.reference_path) or '无'}",
+        f"- Template / workspace references: {', '.join([*a.template_path, *a.workspace_root]) or '无'}",
+        f"- Audience: {a.audience or '由材料和用户要求判断'}",
+        f"- Page count: {a.page_count if a.page_count else '由用户要求和材料判断'}",
+        f"- Format: {a.format}",
+        f"- Final output path: {plan_path}",
+        "\n## Boundary",
+        "你处于独立 Router Director Context。读取以上材料并直接写入最终 presentation_plan.md；完成后结束。不要执行 PPT Master，不要生成 Design Spec、Spec Lock、SVG、图片、PPTX 或第二份计划。",
     ]
     if lens_text:
         chunks.append("\n## Secondary Lens\n" + lens_text)
-    base = "\n".join(chunks).strip()
+    prompt = "\n".join(chunks).strip()
     return {
         "profile_path": str(profile_path.resolve()),
         "profile_sha256": sha_text(profile_text),
         "secondary_lens_path": lens_path,
-        "base_prompt": base,
-        "base_prompt_sha256": sha_text(base),
+        "prompt": prompt,
+        "prompt_sha256": sha_text(prompt),
     }
 
 
@@ -176,113 +166,25 @@ def presentation_plan_path(project_dir: str | None) -> str:
     return "analysis/presentation_plan.md"
 
 
-def compile_director_handoff(profile: dict | None, lens: str | None, mode: str, phase: str,
-                             stage1_contract: str, stage1_source: str | None, project_dir: str | None) -> dict:
-    refs = ROOT / "references"
-    out = {
-        "protocol": DIRECTOR_PROTOCOL,
-        "intervention": mode,
-        "activation_point": "after_stage1_confirmation",
-        "semantic_fields": list(SEMANTIC_FIELDS),
-        "output_path": presentation_plan_path(project_dir),
-        "mapping_protocol_path": str((refs / "ppt_master_4_4_mapping_protocol.md").resolve()),
-        "capability_map_path": str((refs / "ppt_master_design_capability_map.md").resolve()),
-        "brief_template_path": str((refs / "director_brief_template.md").resolve()),
-        "status": "bypass" if profile is None else ("ready" if phase == "director" else "prepared"),
-        "profile_path": None,
-        "profile_sha256": None,
-        "secondary_lens_path": None,
-        "base_prompt": None,
-        "inline_prompt": None,
-        "inline_prompt_sha256": None,
-        "stage1_contract_source": stage1_source,
-        "stage1_sha256": sha_text(stage1_contract) if stage1_contract else None,
-    }
-    if profile is None:
-        return out
-    base = director_base(profile, lens)
-    out.update(base)
-    if phase == "director":
-        if not stage1_contract:
-            raise ValueError("director phase needs --stage1-contract with the confirmed Stage 1 communication contract")
-        trace = (
-            "<!-- router_trace\n"
-            f"router_version: {ROUTER_VERSION}\n"
-            f"primary_profile: {profile['id']}\n"
-            f"profile_sha256: {base['profile_sha256']}\n"
-            f"stage1_sha256: {sha_text(stage1_contract)}\n"
-            "-->"
-        )
-        prompt = f"""{QUALITY_PRIORITY}
-
-{base['base_prompt']}
-
-## Confirmed Stage 1 Communication Contract
-{stage1_contract.strip()}
-
-## Current Director Task
-Router 仅编译本次专业导演 handoff，不直接生成页面计划。当前主智能体现在切换为专业 Director：完整读取原始材料、用户明确要求和以上已确认 Communication Contract，执行当前 Primary Profile 的专业导演方法，实际生成 `{out['output_path']}`。
-
-`presentation_plan.md` 开头写入以下追踪头，随后形成 Deck North Star 和完整逐页策划：
-
-{trace}
-
-每页落实 `page_role / audience_move / relationship / hierarchy / rhythm_intent / visual_semantics` 六字段，同时给出 Core message、适合上屏的 Content、Evidence / image material 与 Speaker Notes。事实、数据、案例、机制、问题和建议以原始材料为依据；表达可按领导汇报需要完成归纳、合并、拆分、重组和凝练。
-
-完成 `presentation_plan.md` 后，将它作为 PPT Master Stage 2 的首要页面语义来源。正常形成的计划、Design Spec、Spec Lock 与最终页面共同构成本次研发审计证据；不要为追踪另建页面状态或质量门禁。""".strip()
-        out["inline_prompt"] = prompt
-        out["inline_prompt_sha256"] = sha_text(prompt)
-    return out
-
-
-def stage2_design_activation(plan_path: str) -> dict:
-    text = f"""Stage 2 从 `{plan_path}` 开始，结合 Stage 1 确认、原始材料、已确认模板与当前项目完成二次编译。
-
-Visual Style 统一颜色、字体、线条、材质、图像处理、图标和整体气质；每页空间结构由 `relationship / hierarchy / rhythm_intent / visual_semantics` 决定。
-
-关系明确的页面先做一次语义 Visualization Recall / 能力族召回，再结合页面角色、内容密度、模板和全篇节奏选择候选、组合候选或自由设计。等权并列、KPI、短清单适合卡片或面板；递进、流程、汇聚、对比、层级、系统、主张-证据等页面优先体现对应真实结构。
-
-Page Rhythm 综合页面角色、Audience Move、真实关系、信息密度和章节位置形成全篇节奏；关键成果与章节转折形成视觉停顿。图片角色与位置随页面语义变化，可采用侧证据、横幅、局部大图、背景图或小型佐证。
-
-Executor 围绕 page-scale composition 先完成语义骨架，再充分发挥 Visualization、Native Shape、Charts / Diagrams、SVG、图片融合、数据表达、Visual Job Router、Live Preview 与当前页面适用的其他 PPT Master 原生能力。
-
-卡片依赖、连续 dense 与构图重复只作为审阅时的诊断信号，不设数量配额。没有特殊关系时，清晰、稳健的排版就是合适的设计。""".strip()
+def master_handoff(a: argparse.Namespace, plan_path: str) -> dict:
+    """The only Router-to-Master boundary: paths plus a short native activation."""
+    template_paths = list(dict.fromkeys([*a.template_path, *a.reference_path, *a.workspace_root]))
     return {
-        "semantic_source": plan_path,
-        "activation_prompt": text,
-        "activation_sha256": sha_text(text),
-        "visual_style_scope": "project_identity_and_aesthetic",
-        "page_composition_driver": "relationship + hierarchy + rhythm_intent + visual_semantics",
-        "relationship_recall": "semantic_recall_before_final_composition_when_relationship_is_explicit",
-        "image_role": "page_semantics_driven",
-    }
-
-
-def execution_policy(generation_profile: str, workspace_roots: list[str], workspace_intent: str, plan_path: str,
-                     selected_profile_id: str | None) -> dict:
-    resume = None
-    if selected_profile_id:
-        resume = (
-            "Stage 1确认后再次运行同一个 scripts/route.py，使用 `--phase director --prompt-id "
-            f"{selected_profile_id} --stage1-contract <confirmed-stage1-json-or-path>`，并保留本次原始任务、材料、project-dir与workspace参数。"
-        )
-    default_generate = {
-        "stage_1": "完整理解原始材料、汇报对象、使用场景和明确约束，按 PPT Master 原生流程完成项目初始化、Communication Contract、Template Candidate Preparation 与 Stage 1确认。",
-        "director_resume": resume,
-        "director": f"执行 Director Runtime Payload，生成 `{plan_path}`；该文件承载故事主线、页面任务、核心观点、六字段页面语义、事实内容、素材和 Speaker Notes。",
-        "stage_2": f"Stage 2 从 `{plan_path}` 开始，应用 `stage2_handoff.activation_prompt` 完成二次编译，再形成完整 `design_spec.md`。",
-        "spec_lock": "Stage 2确认后，按 PPT Master 原生机制完成 design_spec.md、spec_lock.md 及实际命中的资源获取流程。",
-        "executor": f"{QUALITY_PRIORITY} 围绕每页目标、核心观点、真实关系、信息层级和全篇视觉节奏，由 PPT Master Executor 逐页自主完成 page-scale composition，并充分发挥当前页面适用的原生视觉能力。",
-        "review_export": "页面生产完成后，按 PPT Master 当前原生流程完成 Final Quality Check、当前任务适用的 Visual Review、Speaker Notes、后处理、Export 与 Postflight。",
-    }
-    return {
-        "quality_priority": QUALITY_PRIORITY,
-        "master_boot": "完整读取 PPT Master SKILL.md 及本任务实际命中的工作流；由 PPT Master 当前 routing 权威确定最终 Route。",
-        "default_generate": default_generate,
-        "generation_profile_hint": generation_profile,
-        "workspace_roots": workspace_roots,
-        "workspace_intent": workspace_intent,
-        "application": "Default Generate 采用 Stage 1 → Director V15 → presentation_plan.md → Stage 2 → Design Spec/Lock → Executor 的交接；Quick、Beautify、Fill Native、Enhance Native、Create Template 沿用各自 Master 原生流程，并按 Router intervention 深度吸收专业语义。",
+        "original_material_paths": a.material,
+        "presentation_plan_path": plan_path,
+        "template_or_reference_paths": template_paths,
+        "concise_user_request": a.user_request,
+        "activation_prompt": (
+            "调用 PPT Master 完成当前 PPT。从当前 PPT Master SKILL.md 开始，按实际命中的原生流程执行 "
+            "Default Generate PPTX；读取 presentation_plan.md 作为已完成的专业内容与页面导演稿，原始材料仍是事实权威。"
+            "自主完成 Strategist、Executor、Visualization、Native Shape、SVG、Visual Job Router、Live Preview、Review、"
+            "Export、Postflight 及任务实际命中的其他原生高级/条件能力。不要重新执行 PPT Prompt Router，不要创建第二份 presentation plan。"
+            "如计划与用户明确要求或原始事实冲突，以用户要求和事实材料为准。"
+        ),
+        "stage1_restart_rule": (
+            "仅当 Master Stage 1 实质改变核心任务、材料范围或页面规模时，停止当前 Master Context；"
+            "启动新的独立 Router Context 更新 presentation_plan.md 后，再启动新的 Master Context。"
+        ),
     }
 
 
@@ -324,23 +226,23 @@ def resolve(a: argparse.Namespace) -> dict:
 
     resolved_profile = selected if (selected and not arbitrate) else None
     candidates = candidate_profiles(index, ranking) if arbitrate else []
-    stage1_contract, stage1_source = read_stage1_contract(a.stage1_contract)
     if a.phase == "director" and (mode == "bypass" or resolved_profile is None):
         raise ValueError("director phase needs a resolved Director profile")
 
     plan_path = presentation_plan_path(a.project_dir)
+    if a.phase == "director" and a.project_dir:
+        # Ordinary host-side work-directory preparation only.  Router owns no
+        # project lifecycle beyond ensuring its output directory exists.
+        Path(plan_path).parent.mkdir(parents=True, exist_ok=True)
     workspace_intent = a.workspace_intent or ("explicit_use_requested" if a.workspace_root else "candidate")
-    handoff = compile_director_handoff(
-        resolved_profile, lens, mode, a.phase, stage1_contract, stage1_source, a.project_dir
-    )
-    selected_id = resolved_profile["id"] if resolved_profile else None
+    task = director_task(resolved_profile, lens, plan_path, a) if resolved_profile else None
 
     return {
-        "schema_version": "ppt_prompt_router.result.v3_1_3",
+        "schema_version": "ppt_prompt_router.result.v3_1_3.direct_plan",
         "router_version": ROUTER_VERSION,
         "target_ppt_master": TARGET,
         "phase": a.phase,
-        "action": "invoke_ppt_master" if a.phase == "preflight" else "execute_director_then_resume_ppt_master",
+        "action": "invoke_ppt_master" if a.phase == "preflight" else "generate_plan_then_start_fresh_ppt_master_context",
         "intervention": {
             "mode": mode,
             "reason": reason,
@@ -360,16 +262,13 @@ def resolve(a: argparse.Namespace) -> dict:
             "master_route_hint": intent_mod.route_hint(source_intent),
             "authoritative": False,
         },
-        "director_handoff": handoff,
-        "stage2_handoff": stage2_design_activation(plan_path) if resolved_profile else None,
-        "execution_policy": execution_policy(
-            generation_profile, a.workspace_root, workspace_intent, plan_path, selected_id
-        ),
-        "master_handoff": {
-            "authority": "PPT Master",
-            "route_authority": "PPT Master SKILL.md + workflows/routing.md",
-            "instruction": f"{QUALITY_PRIORITY} 从 PPT Master 自己的 SKILL.md 开始，完整读取实际命中的工作流。Default Generate 完成 Stage 1 确认后执行 Router director phase 与 presentation_plan.md，再进入 Stage 2；PPT Master 继续负责 Route、确认、Strategist、Design Spec/Lock、Executor、原生质量流程与导出。",
+        "director_task": {
+            "status": "bypass" if task is None else ("ready" if a.phase == "director" else "prepared"),
+            "output_path": plan_path,
+            "router_context_only": True,
+            "task": task if a.phase == "director" else None,
         },
+        "master_handoff": master_handoff(a, plan_path),
         "request_context": {
             "original_user_request": a.user_request,
             "audience": a.audience,

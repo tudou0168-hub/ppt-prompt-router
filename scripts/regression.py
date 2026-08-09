@@ -87,27 +87,33 @@ def assert_non_default_paths() -> int:
     return len(checks)
 
 
-def assert_director_handoff() -> None:
-    contract = json.dumps({
-        "audience": "管委会领导", "communication_intent": "汇报半年工作成效与下一步",
-    }, ensure_ascii=False)
+def assert_direct_plan_handoff() -> None:
     with tempfile.TemporaryDirectory(prefix="ppt-router-regression-") as tmp:
         out = route.resolve(route.parser().parse_args([
             "--phase", "director", "--prompt-id", "government_annual_summary",
-            "--stage1-contract", contract, "--project-dir", tmp,
-            "--user-request", "政府半年工作总结",
+            "--project-dir", tmp, "--user-request", "政府半年工作总结",
+            "--material", "/tmp/source.docx", "--template-path", "/tmp/government-report",
         ]))
-    handoff = out["director_handoff"]
-    prompt = handoff["inline_prompt"] or ""
+        plan_path = Path(tmp) / "analysis" / "presentation_plan.md"
+        if not plan_path.parent.is_dir():
+            raise AssertionError("director phase did not prepare the ordinary analysis directory")
+    task = out["director_task"]
+    prompt = task["task"]["prompt"] if task["task"] else ""
+    handoff = out["master_handoff"]
     required = (
-        "Director Runtime Payload", "Confirmed Stage 1 Communication Contract",
-        "government_annual_summary", "Director Kernel", "Semantic Vocabulary",
-        "Router 仅编译本次专业导演 handoff", "presentation_plan.md",
+        "Router Director Task", "Professional Director Prompt", "government_annual_summary",
+        "Final output path", "presentation_plan.md",
     )
-    if handoff["status"] != "ready" or not handoff["inline_prompt_sha256"]:
-        raise AssertionError("director handoff did not become ready")
+    if task["status"] != "ready" or not task["task"]["prompt_sha256"]:
+        raise AssertionError("director task did not become ready")
     if any(token not in prompt for token in required):
-        raise AssertionError("director handoff omitted a required context section")
+        raise AssertionError("director task omitted a required context section")
+    if handoff["presentation_plan_path"] != str(plan_path.resolve()):
+        raise AssertionError("Master did not receive the final plan path")
+    rendered_handoff = json.dumps(handoff, ensure_ascii=False)
+    forbidden = ("Director Kernel", "Semantic Vocabulary", "Primary Profile", "Secondary Lens", "scoring", "capability map")
+    if any(token in rendered_handoff for token in forbidden):
+        raise AssertionError("Router internals crossed the Master handoff boundary")
 
 
 def main() -> int:
@@ -118,13 +124,13 @@ def main() -> int:
     for expected, request in SPECIAL_CASES:
         assert_profile(expected, request)
     non_default = assert_non_default_paths()
-    assert_director_handoff()
+    assert_direct_plan_handoff()
     print(json.dumps({
         "router_version": route.ROUTER_VERSION,
         "profiles": len(index["prompts"]),
         "routing_cases": len(matrix) + len(SPECIAL_CASES),
         "non_default_cases": non_default,
-        "director_handoff": "passed",
+        "direct_plan_handoff": "passed",
     }, ensure_ascii=False, indent=2))
     return 0
 

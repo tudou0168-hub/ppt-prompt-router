@@ -1,70 +1,42 @@
-# 本轮审查交接
-
-## 当前轮次状态（2026-08-10）
-
-本轮已冻结 Router 的 routing、scoring、Profile 与回归数量优化，转为对审批服务局 Router B1 失败样本做根因分析。
-
-- 原生 PPT Master A 已按同一 DOCX、8 页、ppt169、蓝金约束和无外部素材条件补跑，并完成 PPTX、Notes、SVG/PPTX 渲染 PNG 与 Contact Sheet。
-- B1 的 Stage 1 Contract / Director handoff 没有作为项目文件保存；该缺口已如实记录。
-- A/B 逐页视觉结论为 **Router 零增益**：B1 的语义关系多数进入了 Stage 2 / SVG，但没有转化为明显的页面级视觉导演优势。
-- 完整证据、逐页责任和不属于 Router 的问题见 `docs/failure-analysis-3.1.3.md`。
-- 本轮没有修改 Router 产品代码；下一轮在 Reviewer 判断前不得进入功能开发。
-
-## 待确认的下一轮架构方案
-
-已新增 `docs/router-direct-plan-handoff-design.md`，提出先以 `government_annual_summary` 验证：Router 在独立 Context 直接生成 `presentation_plan.md`，结束 Router Context 后，由全新 PPT Master Context 从自己的 `SKILL.md` 执行原生流程。
-
-请 Reviewer 重点判断：项目路径预分配是否足够薄、自然语言导演稿能否替代六字段作为正式产物、Stage 1 实质变更时重跑 Router 是否合适，以及 P03/P05/P06 的 B2 正增益阈值是否可信。本轮不实施代码或批量 Profile 改造。
+# 本轮审查交接：Direct Plan Handoff reference implementation
 
 ## 本轮目标
 
-将 PPT Prompt Router 升级为 3.1.3：修正政府半年／年度总结场景的选择优先级，并固化 Router 作为“专业导演增强与交接层”的职责边界。
+落实 Reviewer 对 `eb65124` 的确认：Router 在独立 Context 中直接完成 `presentation_plan.md`，再以严格路径式白名单启动全新的 PPT Master Context。只实现 `government_annual_summary` reference implementation，并用审批服务局 P03／P05／P06 完成 B2 因果实验。
 
 ## 修改内容
 
-- 调整 `scripts/scoring.py`：当政府域、阶段总结语义成立且没有规划建设反证时，优先 `government_annual_summary`。
-- 调整 `scripts/route.py`：Stage 1 后只编译 Director handoff；明确当前主智能体作为 Director 实际生成 `analysis/presentation_plan.md`。
-- 更新 Profile、映射协议、README、SKILL、安装版本和回归脚本。
-- 新增依赖零的 `scripts/regression.py`，覆盖 Profile 路由、非默认路径和 Director handoff。
-- 本文件仅用于 GitHub 研发审查；不参与 Router 生产运行。
+- `scripts/route.py`：移除“PPT Master Stage 1 → Router Director → 同一 Context Stage 2”的往返链、Stage 1 contract 入参及 Stage 2 semantic payload；Director 阶段仅准备普通 `<project>/analysis/` 并返回 Router-only director task。
+- `scripts/route.py`：`master_handoff` 仅含原始材料路径、计划路径、用户明确模板／参考路径、简洁用户要求、短原生流程激活提示和 Stage 1 实质变更重启规则；不含 Router 内部上下文。
+- `government_annual_summary`：改写为直接写入自然语言 `presentation_plan.md` 的专业导演 Prompt，包含成果数据、改革机制、行动路径、问题建议四个完整页面示例及反例。
+- 同步更新 Router 运行说明、计划模板、Router→Master 边界说明和最小回归断言；未批量重写其余 25 个 Profile，未修改 PPT Master 源码。
 
 ## 测试
 
-- `python3 scripts/regression.py`：通过，26 个 Profile、188 个路由案例、4 条非默认路径、Director handoff。
-- `python3 -m py_compile scripts/*.py installers/*.py`：通过。
-- `python3 -m json.tool prompt-index.json`：通过。
-- 隔离真实项目验证：审批服务局完成 8 页完整 Router 样本；五寨规划、河南郑州差距分析、智能招生方案各完成一张高复杂度代表页。所有已生产 SVG 通过 final quality check，所有 PPTX 通过 delivery check。
+- `python3 scripts/regression.py`：通过，26 个 Profile、188 个路由案例、4 条非默认路径、Direct Plan handoff。
+- `python3 -m py_compile scripts/route.py scripts/regression.py scripts/scoring.py scripts/semantics.py scripts/template_intent.py`：通过。
+- 临时安装后 `python3 install.py validate --target <temp>`：通过。
+- 手工 smoke：Director 阶段仅创建 `<project>/analysis/`；Master handoff 的序列化内容不包含 Director Kernel、Semantic Vocabulary、Primary/Secondary Profile、scoring 或 capability map。
+- B2 隔离实测：独立 Router Context 先生成计划；独立 Master Context 从自己的 `SKILL.md` 运行 Default Generate，仅产出 P03／P05／P06。最终 SVG 3/3 通过，Visual Review 3/3 无问题，PPTX postflight `passed`、3 页、0 warning，ZIP 完整性通过。
 
 ## 关键证据
 
-- 隔离项目根目录：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809`
-- 审批服务局完整 Router 样本：`approval-router-b-r1_ppt169_20260809`
-- 审批服务局导出：`approval-router-b-r1_ppt169_20260809/exports/approval-router-b-r1_20260809_224240.pptx`
-- 审批服务局 Contact Sheet：`approval-router-b-r1_ppt169_20260809/validation/contact_sheet.png`
-- 完整研发验证说明：`docs/validation-report-3.1.3.md`
+- B2 项目：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/approval-router-b2_ppt169_20260810`
+- Router 正式产物：`analysis/presentation_plan.md`；该文件由独立 Router Context 直接写入，未带 Master 内容。
+- B2 计划明确了 P03 的主数字／证据层级、P05 的机制—场景—成效边界、P06 的真实并列任务关系，未把并列六项任务伪造为路径。
+- B2 最终 Contact Sheet：`.preview/contact_sheet.png`；最终 PPTX：`exports/approval-router-b2_20260810_070324.pptx`。
+- 对照：A 原生 Contact Sheet 为 `approval-native-a-r1_ppt169_20260810/validation/contact_sheet_svg_rendered.png`；B1 旧 Router 为 `approval-router-b-r1_ppt169_20260809/validation/contact_sheet_svg_rendered.png`。
 
 ## 已知问题
 
-- 原审批服务局原生 Master A 基线没有可导出的 PPTX，尚未形成同材料、同条件的 A/B 视觉对照。
-- 审批服务局 Router 样本的导演结构和关系表达已验证，但视觉上仍偏同色与文本化，缺少业务场景证据图；后三份材料目前只验证代表页，不代表完整成册质量。
-- 当前源码目录是发布包，不含 Git 元数据；推送将通过独立、干净的 Git 工作副本进行，避免覆盖本地旧工作副本中的无关未提交内容。
-
-## 请 ChatGPT 独立评审的四个问题
-
-1. **A/B 基线缺失**：原审批服务局项目只读保留，但没有原生 Master A 的可导出 PPTX。请给出最小可信补跑方案，明确输入、保持不变的条件、必需产物和人工对照维度。
-2. **证据链强度**：当前用 `presentation_plan.md → design_spec.md → spec_lock.md → SVG / Contact Sheet / PPTX` 证明 Router 语义传递。请判断这是否足够轻量且可信；如不足，只提出不侵入生产流程的最小补证方式。
-3. **真实样本代表性**：审批服务局已完成 8 页，另外三类材料仅完成最复杂、最易卡片化的代表页。请判断下一轮是补全整册，还是继续扩展高风险页面；给出选择标准，不要按页数机械凑产物。
-4. **Router 与视觉问题的优先级**：现有视觉样本仍偏同色、文本化、场景证据不足。请区分哪些可能是 Router / Director handoff 问题，哪些属于 PPT Master 执行或素材问题，并给出按优先级排序的改进执行方案。
-
-## 请 Reviewer 输出
-
-- 对四个问题分别给出：结论、理由、最小可执行改动、验证方法与通过标准。
-- 标明哪些建议应直接进入 Router，哪些只能作为 Director 或 PPT Master 的生产建议。
-- 若建议与“Router 不生成计划、不接管 PPT Master、不增加生产状态机或质量门禁”的边界冲突，请明确指出并给出更轻的替代方案。
+- B2 是三页因果实验，不是新的八页完整成册结论；不能据此发布为 Stable 或推广到其余 25 个 Profile。
+- P03 的主数字／环形证据结构有可见正增益；P05 的内容导演重心已从 B1 的“企业专区系统”改为“基层与群众服务”，因此不能把两张不同页面任务的视觉差异当作纯版式胜负。
+- P06 明确把六项工作表达为真实并列战场，避免 B1 中无事实依据的连续路径；视觉上仍是稳健的六项信息分区，是否足以形成领导汇报的高级感仍需 Reviewer 人工判断。
+- 当前机器缺少 Microsoft YaHei，LibreOffice 的最终 PPTX 渲染可能出现 CJK 字体替代；这属于本机字体／导出验证环境问题，不属于 Router。
 
 ## 请 Reviewer 重点判断
 
-1. Router 对 `government_annual_summary` 的优先级边界是否足够窄，是否会误伤建设规划或决策分析？
-2. Router handoff 与 Director 实际产出计划的职责边界是否清楚，是否仍有 Router 变成第二套内容系统的风险？
-3. 在没有原生 A 导出的情况下，最小可信 A/B 验证应如何补跑？
-4. 下一阶段应优先修正 Router 逻辑，还是先补齐真实完整 PPT 生产基线与视觉评审？
+1. 严格路径式 `master_handoff` 是否已满足隔离边界，是否存在仍会把 Router 内部语义泄露给 Master 的字段或文档入口？
+2. `government_annual_summary` 的自然语言计划格式是否已足以替代六字段作为正式业务接口，特别是“表达意图”能否真实指导页面视觉导演？
+3. B2 P03 的明显层级改善，是否可以归因于新计划与 fresh Master context；P05/P06 的比较应如何避免把内容任务变化误判成视觉正增益？
+4. 在只看到 P03/P05/P06 的情况下，下一步最小验证应是补齐同一八页 B2，还是先只修正新 Prompt 中 P05/P06 的页面任务与视觉导演具体度？请给出可证伪的判断标准。
