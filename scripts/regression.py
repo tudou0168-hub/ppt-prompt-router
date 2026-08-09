@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Small, dependency-free Router regression runner.
-
-The Router is a handoff compiler, not a presentation generator.  This runner
-therefore checks deterministic routing and the two handoff payloads without
-creating production artifacts or pretending to validate PPT Master output.
-"""
+"""Small, dependency-free Router routing and handoff regression runner."""
 from __future__ import annotations
 
 import json
@@ -108,12 +103,79 @@ def assert_direct_plan_handoff() -> None:
         raise AssertionError("director task did not become ready")
     if any(token not in prompt for token in required):
         raise AssertionError("director task omitted a required context section")
+    if "用户明确要求（含标题、章节、页数、图片、事实、模板和参考约束）" not in prompt:
+        raise AssertionError("director task omitted input-priority instructions")
     if handoff["presentation_plan_path"] != str(plan_path.resolve()):
         raise AssertionError("Master did not receive the final plan path")
+    if out["execution_path"] != {
+        "id": "router_director_then_fresh_master",
+        "requires_presentation_plan": True,
+        "director_protocol": "direct_plan_v1",
+    }:
+        raise AssertionError("migrated profile did not select the direct-plan execution path")
+    expected_paths = {
+        "material_paths": ["/tmp/source.docx"],
+        "template_paths": ["/tmp/government-report"],
+        "reference_paths": [],
+        "workspace_roots": [],
+    }
+    if {k: handoff[k] for k in expected_paths} != expected_paths:
+        raise AssertionError("Master handoff merged typed input paths")
     rendered_handoff = json.dumps(handoff, ensure_ascii=False)
     forbidden = ("Director Kernel", "Semantic Vocabulary", "Primary Profile", "Secondary Lens", "scoring", "capability map")
     if any(token in rendered_handoff for token in forbidden):
         raise AssertionError("Router internals crossed the Master handoff boundary")
+
+
+def assert_non_plan_paths() -> None:
+    legacy_full = preflight([
+        "--prompt-id", "government_strategy", "--user-request", "政府专项规划与建设方案",
+        "--material", "/tmp/strategy.docx", "--reference-path", "/tmp/reference.pptx",
+    ])
+    light = preflight([
+        "--pptx-intent", "fill_native", "--user-request", "保留页面壳，从材料重构生成政务半年总结",
+        "--material", "/tmp/content.docx", "--template-path", "/tmp/native-template.pptx",
+    ])
+    bypass = preflight([
+        "--pptx-intent", "enhance_native", "--user-request", "给现有PPT添加演讲者备注和转场",
+        "--reference-path", "/tmp/existing.pptx",
+    ])
+    for label, out in (("legacy full", legacy_full), ("light", light), ("bypass", bypass)):
+        if out["execution_path"]["requires_presentation_plan"]:
+            raise AssertionError(f"{label} incorrectly requires a plan")
+        if "presentation_plan_path" in out["master_handoff"]:
+            raise AssertionError(f"{label} passed a nonexistent plan path to Master")
+        if out["director_task"]["task"] is not None:
+            raise AssertionError(f"{label} incorrectly compiled a Director task")
+    if legacy_full["director_task"]["status"] != "not_migrated":
+        raise AssertionError("legacy profile migration status was not exposed")
+    try:
+        route.resolve(route.parser().parse_args([
+            "--phase", "director", "--prompt-id", "government_strategy",
+            "--project-dir", "/tmp/legacy-director", "--user-request", "政府专项规划",
+        ]))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("legacy profile incorrectly entered the direct-plan phase")
+
+
+def assert_user_constraint_preservation() -> None:
+    out = preflight([
+        "--prompt-id", "government_annual_summary", "--user-request", "严格按用户给定章节制作",
+        "--audience", "市政府专题会", "--page-count", "12", "--format", "ppt169",
+        "--delivery-purpose", "专题汇报", "--chapter-constraint", "按一、二、三章顺序",
+        "--title-constraint", "标题沿用用户目录", "--image-constraint", "P04必须使用现场照片",
+        "--fact-constraint", "所有数据保留原口径", "--template-constraint", "使用指定模板",
+        "--user-constraint", "不新增页面",
+    ])
+    c = out["master_handoff"]["explicit_user_constraints"]
+    if c["chapters"] != ["按一、二、三章顺序"] or c["titles"] != ["标题沿用用户目录"]:
+        raise AssertionError("explicit chapter/title constraints were lost")
+    if c["images"] != ["P04必须使用现场照片"] or c["facts"] != ["所有数据保留原口径"]:
+        raise AssertionError("explicit image/fact constraints were lost")
+    if out["master_handoff"]["page_count"] != 12 or out["master_handoff"]["format"] != "ppt169":
+        raise AssertionError("core user constraints were lost")
 
 
 def main() -> int:
@@ -125,6 +187,8 @@ def main() -> int:
         assert_profile(expected, request)
     non_default = assert_non_default_paths()
     assert_direct_plan_handoff()
+    assert_non_plan_paths()
+    assert_user_constraint_preservation()
     print(json.dumps({
         "router_version": route.ROUTER_VERSION,
         "profiles": len(index["prompts"]),
