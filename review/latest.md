@@ -10,6 +10,12 @@
 - 完整证据、逐页责任和不属于 Router 的问题见 `docs/failure-analysis-3.1.3.md`。
 - 本轮没有修改 Router 产品代码；下一轮在 Reviewer 判断前不得进入功能开发。
 
+## 待确认的下一轮架构方案
+
+已新增 `docs/router-direct-plan-handoff-design.md`，提出先以 `government_annual_summary` 验证：Router 在独立 Context 直接生成 `presentation_plan.md`，结束 Router Context 后，由全新 PPT Master Context 从自己的 `SKILL.md` 执行原生流程。
+
+请 Reviewer 重点判断：项目路径预分配是否足够薄、自然语言导演稿能否替代六字段作为正式产物、Stage 1 实质变更时重跑 Router 是否合适，以及 P03/P05/P06 的 B2 正增益阈值是否可信。本轮不实施代码或批量 Profile 改造。
+
 ## 本轮目标
 
 将 PPT Prompt Router 升级为 3.1.3：修正政府半年／年度总结场景的选择优先级，并固化 Router 作为“专业导演增强与交接层”的职责边界。
