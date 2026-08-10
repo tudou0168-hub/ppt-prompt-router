@@ -1,0 +1,17 @@
+{
+  "page": "08_smart-service.svg",
+  "page_role": "content",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [
+    ".preview/08_smart-service.png"
+  ],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "以场景—能力—共同依赖关系说明智能办事的可验证闭环，并标注建设预期的核验边界。",
+    "render_delivers": true,
+    "note": "标题、服务主路径、依赖带与页脚核验提示形成清晰且连续的阅读顺序。"
+  }
+}

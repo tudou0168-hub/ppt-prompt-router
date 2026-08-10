@@ -1,55 +1,37 @@
-# 审查交接：Semantic Adapter 最小因果验证
+# 审查交接：PPT Master 4.5 Universal Visual Prior 哨兵实验
 
 ## 本轮目标
 
-只验证 `presentation_plan.md` 的纯演示语义能否被 fresh PPT Master 的 Strategist 消费并转化为可靠的页面设计判断。不是迁移新 Profile，也不是精修某一页，更不修改 PPT Master。
+验证一个未注册、可撤销的通用 Visual Prior 能否通过 PPT Master 4.5 原生 Stage 1/Strategist 改善关系、层级、证据和跨页节奏；不改 Router 产品代码、routing/scoring/Profile，也不改 PPT Master 源码。
 
 ## 修改内容
 
-- 5 个 Direct Plan 专业 Prompt（年度总结、政务规划、工作汇报、决策会、产品技术）删除所有下游实现耦合；Prompt 只保留专业内容分析、故事组织、逐页演示语义导演和统一的 `presentation_plan.md` 输出边界。
-- `references/ppt_master_4_4_mapping_protocol.md` 改为 Master 侧的薄协议：页面任务、核心观点、内容关系、信息主次、表达意图、可用素材如何成为原生设计意图；不规定具体版式、图形、坐标、字体、颜色或 SVG。
-- `master_handoff.activation_prompt` 只新增一条语义激活：将 Plan 的页面任务、核心观点、内容关系、信息主次和表达意图作为 Strategist 输入。
-- 最小 regression 增加静态边界：5 个专业 Prompt 禁止出现 `PPT Master`、`design_spec`、`Stage 2`、`Spec Lock`、`Executor`、`§IX`、`§VIII` 及其他下游实现词。
+- 新增 v2.8 / v2.9 / v4.5 Visual DNA 考古报告与保留/淘汰映射。
+- 新增九项 Universal Professional Presentation Visual Prior。
+- 新增仅含沟通方法、通用视觉判断和 Review Focus 的未注册实验 Style 工作区；v4.5 原生 Style 契约已通过。
+- 未修改 Router 路由、评分、Profile 或 PPT Master 源码。
 
 ## 测试
 
-- `python3 scripts/regression.py`：通过（6 条代表路由、5 个 Direct Plan Profile、path-only Director、typed Master handoff、LIGHT/BYPASS/未迁移 Profile 无 Plan）。
-- `python3 -m py_compile scripts/route.py scripts/regression.py scripts/scoring.py scripts/semantics.py scripts/template_intent.py`：通过。
-- `python3 -m json.tool prompt-index.json`：通过。
-- 临时安装目录执行 `install.py install`、`install.py validate` 及安装副本 regression：通过。
-
-### 五寨县三页新项目盲测
-
-材料：`/Users/muzi/Desktop/源文件/五寨县“人工智能+”规划方案20260609v1.0.docx`
-项目：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-semantic-adapter-government-strategy_ppt169_20260810`
-
-Preflight 的 `government_strategy` 与 `planning_proposal` 并列，按本任务“面向领导的政务建设规划与决策沟通”人工仲裁为 `government_strategy`；不改 scoring。独立 Director 重新生成 15 页 Plan；fresh Master Context 只收到材料路径、Plan 路径、用户要求和短 activation。未传递 Router Prompt、Profile、Kernel、Lens、scoring 或此前 Context。
-
-只生成实际 Plan 中选出的三页，未生成整套、未导出 PPTX：
-
-| 页面 | Plan → Spec → Lock | PNG 实际审阅 | 首次失真 | 责任判断 |
-| --- | --- | --- | --- | --- |
-| P05 现有基础判断 | 保留“规划依托可确认 / 现状底数待核实”的事实边界与主次。 | 页码标签压住主标题。 | SVG/PNG | PPT Master Executor |
-| P08 总体体系 | 保留“三类业务能力由统一智能底座承接”的主空间关系。 | 底座内左右平台说明文字彼此重叠。 | SVG/PNG | PPT Master Executor |
-| P13 推进路径建议 | 保留“核实—试点—评估回看—扩展”的时序、门槛与风险保障。 | 阶段正文与“形成成果”行重叠，页码标签压住标题。 | SVG/PNG | PPT Master Executor |
-
-SVG 结构检查是 0 errors、3 项 CJK 可测性 warnings；但 PNG 肉眼审阅不通过，不能以结构检查替代视觉验收。
+- v2.8、v2.9 仅作只读考古；已记录 ZIP SHA-256、archive 身份和 v4.5 文件清单。
+- Router 从入口选择 `government_strategy`（与 `planning_proposal` 同分后按政务领导决策沟通人工仲裁），独立 Director 生成并冻结 15 页 Plan。
+- B/C 每页均用 fresh Master Context 和相同 Plan，仅 C 在 Stage 1 显式安装实验 Style：P08 → P05 → P13。
+- P08、P05 的 B/C PNG 均通过；C P13 的静态 SVG 检查 0 error/0 warning，但 PNG 中 `GATE 03` 条件文本被第 04 阶段面板遮挡，Visual Review H6 hard。
+- 按 fail-fast，停止于 C P13；未进入跨类型验证，未生成整套或 PPTX。
 
 ## 关键证据
 
-- Director Plan：`.../analysis/presentation_plan.md`
-- Master Design Spec：`.../design_spec.md`
-- Master Spec Lock：`.../spec_lock.md`
-- PNG：`.../.preview/05_现有基础判断.png`、`.../.preview/08_总体体系.png`、`.../.preview/13_推进路径建议.png`
-- SVG 质量报告：`.../validation/svg_quality_report.json`
-- 可下载证据包：`review/artifacts/semantic-adapter-wuzhai-small-sample-20260810.zip`
+- 详细报告：[docs/v45-universal-prior-validation.md](../docs/v45-universal-prior-validation.md)
+- 冻结 Plan、B/C Spec/Lock/SVG/PNG/Review：[review/artifacts/v45-universal-prior-wuzhai/](artifacts/v45-universal-prior-wuzhai/)
+- 重点对照：[B-vs-C-contact-sheet.png](artifacts/v45-universal-prior-wuzhai/B-vs-C-contact-sheet.png)
+- C P13 硬缺陷：[C/P13/after.png](artifacts/v45-universal-prior-wuzhai/C/P13/after.png)，[finding](artifacts/v45-universal-prior-wuzhai/C/P13/visual_review.json)
 
 ## 已知问题
 
-本轮没有发现 Prompt、Plan 或 Plan → Strategist 翻译首次失真；三页均在 Executor/SVG 文字几何阶段首次出现可见重叠。按 Fail Fast 规则，未对页面做项目专用修补，未执行工作汇报的跨场景测试，也未修改 Router 以掩盖 Master 的执行层问题。
+目前证据只能说明 Prior 在 P08 的 Strategist 语义表达上有可解释的正向变化；不能证明跨页、跨类型稳定增益。P13 的首次失真发生在 PPT Master Executor / SVG 几何，不应由 Router 补偿。
 
 ## 请 Reviewer 重点判断
 
-1. 是否同意：当前证据支持“语义 Adapter 已被 Strategist 消费”，但不能支持“最终三页视觉通过”；下一步应由 PPT Master 修复文字排版/几何质量，而不是继续改 Router Prompt？
-2. 是否同意：在代表页出现 Master Executor 首次失真后，停止工作汇报跨场景测试符合因果实验纪律？
-3. 请审查五个 Prompt 的下游耦合是否已清除，以及最小 activation 是否仍保持路径式、无内部上下文泄漏。
+1. 是否同意 C P13 的 H6 遮挡属于 PPT Master upstream Executor 几何问题，而非 Router、Direct Plan 或 Prior 的页面专用缺口？
+2. 是否同意在同一冻结 Plan 的 C P13 未通过前，停止 Profile 扩展与跨类型样页符合实验纪律？
+3. 是否同意后续先修复/验证 PPT Master 的文字与相邻模块遮挡回归，再以同一 C P13 fresh context 复跑，而不是修改 Router 或 Style 来回避失败？

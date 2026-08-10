@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content">
+  <rect id="page-background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F7F8FA"/>
+  <rect id="header-primary-rule" data-pptx-role="decoration" x="48" y="42" width="8" height="88" fill="#0B1F33"/>
+  <rect id="header-accent-rule" data-pptx-role="decoration" x="56" y="42" width="4" height="88" fill="#E68224"/>
+
+  <g id="title-block" data-pptx-bounds="76 36 860 108">
+    <text id="page-title" x="76" y="76" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="40" font-weight="700">
+      <tspan x="76" dy="0">先核验三端真实问题，</tspan><tspan x="76" dy="42">才能确定建设范围与试点排序</tspan>
+    </text>
+  </g>
+
+  <g id="fact-boundary" data-pptx-bounds="974 44 258 86">
+    <rect x="974" y="48" width="258" height="32" rx="4" fill="#FFF1E5" stroke="#E68224" stroke-width="1.5"/>
+    <text x="1103" y="70" text-anchor="middle" fill="#AA4B00" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">以下均为“待核实”</text>
+    <text x="974" y="110" fill="#667788" font-family="Microsoft YaHei, Arial, sans-serif" font-size="16">原始材料未提供量化基线</text>
+  </g>
+
+  <g id="section-rule" data-pptx-bounds="48 148 1184 36">
+    <rect x="48" y="154" width="1184" height="2" fill="#C6D1DC"/>
+    <rect x="48" y="154" width="232" height="4" fill="#1476D4"/>
+    <text x="48" y="176" fill="#526374" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">三端问题 → 各自核验对象 → 共同证据包</text>
+  </g>
+
+  <g id="citizen-diagnosis" data-pptx-bounds="48 190 368 288">
+    <rect x="48" y="190" width="368" height="274" rx="8" fill="#FFFFFF" stroke="#C6D1DC" stroke-width="1.5"/>
+    <rect x="48" y="190" width="368" height="8" rx="8" fill="#1476D4"/>
+    <text x="72" y="234" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="30" font-weight="700">群众端</text>
+    <rect x="287" y="210" width="103" height="28" rx="14" fill="#FFF1E5"/>
+    <text x="338.5" y="230" text-anchor="middle" fill="#AA4B00" font-family="Microsoft YaHei, Arial, sans-serif" font-size="16" font-weight="700">体验摩擦待测</text>
+    <text x="72" y="270" fill="#526374" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">问题线索</text>
+    <text x="72" y="298" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="20">
+      <tspan x="72" dy="0">找窗口与流程指引</tspan><tspan x="72" dy="28">材料填报与排队等待</tspan><tspan x="72" dy="28">跨层级／跨点位办事体验</tspan>
+    </text>
+    <rect x="72" y="392" width="320" height="48" rx="4" fill="#EAF3FB"/>
+    <text x="86" y="413" fill="#1476D4" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">核验对象</text>
+    <text x="86" y="432" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="17">事项／流程 + 业务量、时长、满意度基线</text>
+  </g>
+
+  <g id="counter-diagnosis" data-pptx-bounds="456 190 368 288">
+    <rect x="456" y="190" width="368" height="274" rx="8" fill="#FFFFFF" stroke="#C6D1DC" stroke-width="1.5"/>
+    <rect x="456" y="190" width="368" height="8" rx="8" fill="#159A8A"/>
+    <text x="480" y="234" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="30" font-weight="700">窗口端</text>
+    <rect x="695" y="210" width="103" height="28" rx="14" fill="#FFF1E5"/>
+    <text x="746.5" y="230" text-anchor="middle" fill="#AA4B00" font-family="Microsoft YaHei, Arial, sans-serif" font-size="16" font-weight="700">重复工作待测</text>
+    <text x="480" y="270" fill="#526374" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">问题线索</text>
+    <text x="480" y="298" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="20">
+      <tspan x="480" dy="0">知识查询与材料核验</tspan><tspan x="480" dy="28">受理派单与回访质检</tspan><tspan x="480" dy="28">重复工作量与人员负荷</tspan>
+    </text>
+    <rect x="480" y="392" width="320" height="48" rx="4" fill="#E7F6F3"/>
+    <text x="494" y="413" fill="#087C6E" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">核验对象</text>
+    <text x="494" y="432" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="17">知识库／规则现状 + 作业观察、系统接口</text>
+  </g>
+
+  <g id="management-diagnosis" data-pptx-bounds="864 190 368 288">
+    <rect x="864" y="190" width="368" height="274" rx="8" fill="#FFFFFF" stroke="#C6D1DC" stroke-width="1.5"/>
+    <rect x="864" y="190" width="368" height="8" rx="8" fill="#0B1F33"/>
+    <text x="888" y="234" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="30" font-weight="700">管理端</text>
+    <rect x="1103" y="210" width="103" height="28" rx="14" fill="#FFF1E5"/>
+    <text x="1154.5" y="230" text-anchor="middle" fill="#AA4B00" font-family="Microsoft YaHei, Arial, sans-serif" font-size="16" font-weight="700">运行能力待测</text>
+    <text x="888" y="270" fill="#526374" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">问题线索</text>
+    <text x="888" y="298" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="20">
+      <tspan x="888" dy="0">大厅人流与窗口效能</tspan><tspan x="888" dy="28">服务质量与数据汇聚</tspan><tspan x="888" dy="28">突发响应与调度能力</tspan>
+    </text>
+    <rect x="888" y="384" width="320" height="64" rx="4" fill="#E9EEF4"/>
+    <text x="902" y="405" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">核验对象</text>
+    <text x="902" y="426" fill="#17212B" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18">
+      <tspan x="902" dy="0">运行数据口径 + 数据链路</tspan><tspan x="902" dy="20">场地与网络条件</tspan>
+    </text>
+  </g>
+
+  <g id="evidence-convergence" data-pptx-bounds="48 478 1184 150">
+    <path d="M232 464V486H640M640 486H1048M640 486V510" fill="none" stroke="#9AAABA" stroke-width="2"/>
+    <path d="M640 510L632 500H648Z" fill="#9AAABA"/>
+    <path d="M640 464V486M1048 464V486" fill="none" stroke="#9AAABA" stroke-width="2"/>
+    <rect x="48" y="510" width="866" height="108" rx="8" fill="#0B1F33"/>
+    <text x="72" y="542" fill="#B9E0FF" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">共同形成的最小核验输出</text>
+    <rect x="72" y="558" width="184" height="38" rx="4" fill="#173A5B"/>
+    <rect x="270" y="558" width="184" height="38" rx="4" fill="#173A5B"/>
+    <rect x="468" y="558" width="184" height="38" rx="4" fill="#173A5B"/>
+    <rect x="666" y="558" width="222" height="38" rx="4" fill="#173A5B"/>
+    <text x="164" y="584" text-anchor="middle" fill="#FFFFFF" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">事项清单</text>
+    <text x="362" y="584" text-anchor="middle" fill="#FFFFFF" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">流程图</text>
+    <text x="560" y="584" text-anchor="middle" fill="#FFFFFF" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">系统接口清单</text>
+    <text x="777" y="584" text-anchor="middle" fill="#FFFFFF" font-family="Microsoft YaHei, Arial, sans-serif" font-size="18" font-weight="700">业务量／时长／满意度基线</text>
+    <path d="M928 564H955V550L982 574L955 598V584H928Z" fill="#E68224"/>
+    <rect x="982" y="510" width="250" height="108" rx="8" fill="#FFF1E5" stroke="#E68224" stroke-width="2"/>
+    <text x="1107" y="550" text-anchor="middle" fill="#AA4B00" font-family="Microsoft YaHei, Arial, sans-serif" font-size="22" font-weight="700">再确定</text>
+    <text x="1107" y="580" text-anchor="middle" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="24" font-weight="700">建设范围与</text>
+    <text x="1107" y="607" text-anchor="middle" fill="#0B1F33" font-family="Microsoft YaHei, Arial, sans-serif" font-size="24" font-weight="700">试点优先级</text>
+  </g>
+
+  <g id="footer-source" data-pptx-bounds="48 648 1184 30">
+    <rect x="48" y="646" width="1184" height="1" fill="#C6D1DC"/>
+    <text x="48" y="670" fill="#667788" font-family="Microsoft YaHei, Arial, sans-serif" font-size="16">来源：五寨县“人工智能＋”政务服务规划方案（需求分析）。本页为核验框架，不代表五寨县现状。</text>
+    <text x="1232" y="670" text-anchor="end" fill="#667788" font-family="Arial, sans-serif" font-size="16">P05</text>
+  </g>
+</svg>

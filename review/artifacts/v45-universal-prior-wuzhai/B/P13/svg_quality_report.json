@@ -1,0 +1,115 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "final",
+  "target": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-b-no-prior-p13_ppt169_20260810",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "bf8582f202580362b59e935eaf405c1914106b53e523fe51f72cf1b49b3c67b6",
+    "file_count": 1,
+    "files": [
+      {
+        "file": "13_推进路径.svg",
+        "sha256": "3a923e6b9f48e6f8ff17ff39d954422fe9a12653cd9cb0003f57f5775a36b158"
+      }
+    ]
+  },
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "warnings": 1,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 1,
+      "issues": [
+        {
+          "file": "13_推进路径.svg",
+          "message": "Cannot verify root viewBox bounds for visible text with unsupported or unresolved geometry: <text> (x=68, y=320; text='核实现状、事项与数据底账'), <text> (x=68, y=394; text='明确建设边界与优先级'), <text> (x=80, y=540; text='形成可核验的事项、数据、接口与现场条件清…'), +7 more; use supported explicit text positioning when page fit matters"
+        }
+      ]
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {
+      "#007D69": [
+        "13_推进路径.svg"
+      ],
+      "#4A6484": [
+        "13_推进路径.svg"
+      ],
+      "#617084": [
+        "13_推进路径.svg"
+      ],
+      "#B9C8DB": [
+        "13_推进路径.svg"
+      ],
+      "#C6D1E0": [
+        "13_推进路径.svg"
+      ],
+      "#E6F6F2": [
+        "13_推进路径.svg"
+      ],
+      "#FFFFFF": [
+        "13_推进路径.svg"
+      ]
+    },
+    "fonts": {},
+    "sizes": {}
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "13_推进路径.svg",
+      "path": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-b-no-prior-p13_ppt169_20260810/svg_output/13_推进路径.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Cannot verify root viewBox bounds for visible text with unsupported or unresolved geometry: <text> (x=68, y=320; text='核实现状、事项与数据底账'), <text> (x=68, y=394; text='明确建设边界与优先级'), <text> (x=80, y=540; text='形成可核验的事项、数据、接口与现场条件清…'), +7 more; use supported explicit text positioning when page fit matters"
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "fonts": [
+          "Microsoft YaHei, Arial, sans-serif"
+        ],
+        "text_elements": 39,
+        "tspan_elements": 10,
+        "contextual_values": {
+          "colors": [
+            "#007D69",
+            "#4A6484",
+            "#617084",
+            "#B9C8DB",
+            "#C6D1E0",
+            "#E6F6F2",
+            "#FFFFFF"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "3a923e6b9f48e6f8ff17ff39d954422fe9a12653cd9cb0003f57f5775a36b158"
+    }
+  ]
+}

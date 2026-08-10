@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="arrowPrimary" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon points="0,0 10,5 0,10" fill="#173B4D"/>
+    </marker>
+    <marker id="arrowAccent" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon points="0,0 10,5 0,10" fill="#7E9C83"/>
+    </marker>
+  </defs>
+
+  <rect id="page-background" x="0" y="0" width="1280" height="720" fill="#F6F2EA" data-pptx-role="background"/>
+  <rect id="top-rule" x="0" y="0" width="1280" height="8" fill="#173B4D" data-pptx-role="decoration"/>
+
+  <g id="p05-header" data-pptx-bounds="56 32 1168 136">
+    <text x="56" y="57" fill="#173B4D" font-size="18" font-weight="bold" letter-spacing="1.2">P05｜差距核验</text>
+    <line x1="177" y1="51" x2="1210" y2="51" stroke="#C7C1B5" stroke-width="1"/>
+    <rect x="996" y="31" width="214" height="30" fill="#FCE8E2"/>
+    <text x="1103" y="52" fill="#C14D36" font-size="18" font-weight="bold" text-anchor="middle">待核验，不是现状结论</text>
+    <text x="56" y="102" fill="#173B4D" font-family="Songti SC, STSong, serif" font-size="44" font-weight="bold">三端体验诉求已经明确<tspan x="56" dy="49">但“真实差距”仍需逐项核验</tspan></text>
+  </g>
+
+  <g id="p05-evidence-boundary" data-pptx-bounds="56 175 1168 28">
+    <text x="56" y="195" fill="#5B6567" font-size="18">原始材料提出服务诉求；是否构成五寨县真实短板，须以业务数据、现场走访和系统盘点验证。</text>
+  </g>
+
+  <g id="p05-citizen-lane" data-pptx-bounds="56 206 360 268">
+    <rect x="56" y="206" width="360" height="268" fill="#FFFFFF" stroke="#C7C1B5" stroke-width="1"/>
+    <rect x="56" y="206" width="7" height="268" fill="#173B4D"/>
+    <text x="82" y="243" fill="#173B4D" font-size="30" font-weight="bold">群众端</text>
+    <text x="82" y="269" fill="#5B6567" font-size="18">材料提出的服务诉求</text>
+    <text x="82" y="303" fill="#1D272B" font-size="22">找窗口与看流程<tspan x="82" dy="27">填报材料与信息</tspan><tspan x="82" dy="27">排队等待与线下跑动</tspan></text>
+    <line x1="82" y1="382" x2="390" y2="382" stroke="#173B4D" stroke-width="2" marker-end="url(#arrowPrimary)"/>
+    <text x="82" y="411" fill="#C14D36" font-size="18" font-weight="bold">本地待测问题</text>
+    <text x="82" y="439" fill="#1D272B" font-size="22">一次问清、一次办成<tspan x="82" dy="25">是否受流程与体验摩擦影响？</tspan></text>
+  </g>
+
+  <g id="p05-window-lane" data-pptx-bounds="460 206 360 268">
+    <rect x="460" y="206" width="360" height="268" fill="#FFFFFF" stroke="#C7C1B5" stroke-width="1"/>
+    <rect x="460" y="206" width="7" height="268" fill="#173B4D"/>
+    <text x="486" y="243" fill="#173B4D" font-size="30" font-weight="bold">窗口端</text>
+    <text x="486" y="269" fill="#5B6567" font-size="18">材料提出的服务诉求</text>
+    <text x="486" y="303" fill="#1D272B" font-size="22">业务知识查询<tspan x="486" dy="27">材料核验与受理派单</tspan><tspan x="486" dy="27">回访与质检的重复工作</tspan></text>
+    <line x1="486" y1="382" x2="794" y2="382" stroke="#173B4D" stroke-width="2" marker-end="url(#arrowPrimary)"/>
+    <text x="486" y="411" fill="#C14D36" font-size="18" font-weight="bold">本地待测问题</text>
+    <text x="486" y="439" fill="#1D272B" font-size="22">重复工作量与受理链路<tspan x="486" dy="25">究竟在哪些环节集中发生？</tspan></text>
+  </g>
+
+  <g id="p05-management-lane" data-pptx-bounds="864 206 360 268">
+    <rect x="864" y="206" width="360" height="268" fill="#FFFFFF" stroke="#C7C1B5" stroke-width="1"/>
+    <rect x="864" y="206" width="7" height="268" fill="#173B4D"/>
+    <text x="890" y="243" fill="#173B4D" font-size="30" font-weight="bold">管理端</text>
+    <text x="890" y="269" fill="#5B6567" font-size="18">材料提出的服务诉求</text>
+    <text x="890" y="303" fill="#1D272B" font-size="22">大厅人流与窗口效能<tspan x="890" dy="27">服务质量与数据汇聚</tspan><tspan x="890" dy="27">突发响应与决策支撑</tspan></text>
+    <line x1="890" y1="382" x2="1198" y2="382" stroke="#173B4D" stroke-width="2" marker-end="url(#arrowPrimary)"/>
+    <text x="890" y="411" fill="#C14D36" font-size="18" font-weight="bold">本地待测问题</text>
+    <text x="890" y="439" fill="#1D272B" font-size="22">运行感知与决策数据<tspan x="890" dy="25">能否形成完整、及时的依据？</tspan></text>
+  </g>
+
+  <g id="p05-verification-output" data-pptx-bounds="56 502 1168 156">
+    <rect x="56" y="502" width="1168" height="126" fill="#E9E3D8"/>
+    <rect x="56" y="502" width="9" height="126" fill="#7E9C83"/>
+    <text x="86" y="536" fill="#173B4D" font-size="24" font-weight="bold">建议核验输出：把“三端问题”落到同一套可审查的事实底座</text>
+    <line x1="112" y1="578" x2="1168" y2="578" stroke="#7E9C83" stroke-width="3" marker-end="url(#arrowAccent)"/>
+    <circle cx="126" cy="578" r="16" fill="#7E9C83"/>
+    <circle cx="396" cy="578" r="16" fill="#7E9C83"/>
+    <circle cx="666" cy="578" r="16" fill="#7E9C83"/>
+    <circle cx="936" cy="578" r="16" fill="#7E9C83"/>
+    <text x="126" y="584" fill="#FFFFFF" font-size="18" font-weight="bold" text-anchor="middle">1</text>
+    <text x="396" y="584" fill="#FFFFFF" font-size="18" font-weight="bold" text-anchor="middle">2</text>
+    <text x="666" y="584" fill="#FFFFFF" font-size="18" font-weight="bold" text-anchor="middle">3</text>
+    <text x="936" y="584" fill="#FFFFFF" font-size="18" font-weight="bold" text-anchor="middle">4</text>
+    <text x="151" y="613" fill="#1D272B" font-size="20" font-weight="bold">事项清单</text>
+    <text x="421" y="613" fill="#1D272B" font-size="20" font-weight="bold">流程图</text>
+    <text x="691" y="613" fill="#1D272B" font-size="20" font-weight="bold">系统接口清单</text>
+    <text x="946" y="613" fill="#1D272B" font-size="18" font-weight="bold">业务量 / 时长 / 满意度基线</text>
+    <text x="86" y="651" fill="#5B6567" font-size="16">说明：以上为建议核验动作，不表示原始材料已经形成相关台账或提供本地基线数据。</text>
+  </g>
+
+  <g id="p05-source" data-pptx-bounds="780 670 444 32">
+    <text x="1224" y="690" fill="#5B6567" font-size="16" text-anchor="end">来源：原始规划材料“需求分析”“建设目标”｜P05</text>
+  </g>
+</svg>

@@ -1,0 +1,18 @@
+{
+  "page": "05_gap_validation.svg",
+  "page_role": "content",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [
+    ".review/png_before/05_gap_validation.png",
+    ".review/png_after/05_gap_validation.png"
+  ],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "使领导区分三端服务诉求与未经证实的本地差距，并支持先以核验台账和业务基线界定规划范围与试点优先级。",
+    "render_delivers": true,
+    "note": "结论标题优先；三端均按“材料诉求→本地待测问题”组织；底部四类核验输出构成共用事实底座。未发现越界、碰撞、可读性或关键要素缺失。"
+  }
+}

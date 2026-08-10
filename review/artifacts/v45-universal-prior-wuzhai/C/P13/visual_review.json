@@ -1,0 +1,32 @@
+{
+  "page": "13_推进路径.svg",
+  "page_role": "content",
+  "status": "needs_human",
+  "iterations_run": 1,
+  "screenshot_paths": [
+    ".preview/13_推进路径.png"
+  ],
+  "findings": [
+    {
+      "iter": 1,
+      "rule": "H6",
+      "severity": "hard",
+      "evidence": "The GATE 03 condition label at x=722 extends into the dark expansion plane beginning at x=890 and is visibly occluded in the rendered PNG.",
+      "fix_applied": null,
+      "verified_in_iter": null,
+      "backup_path": null
+    }
+  ],
+  "untouched_concerns": [],
+  "needs_human_items": [
+    {
+      "rule": "H6",
+      "suggested_fix_summary": "Reallocate the Gate 03 label into an unobscured stage-three zone or reshape the final expansion plane; this changes the locked page composition and is outside atomic visual review."
+    }
+  ],
+  "design_intent_check": {
+    "spec_says": "Gate 03 must make local evaluation and ongoing-operation conditions visible before expansion.",
+    "render_delivers": false,
+    "note": "The condition is partially hidden by the Stage 04 visual plane, so the phase-gate meaning is incomplete."
+  }
+}
