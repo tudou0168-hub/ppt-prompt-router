@@ -212,10 +212,10 @@ def master_handoff(a: argparse.Namespace, plan_path: str | None, source_intent: 
     """Router→Master boundary: typed paths + user task + short native activation."""
     activation = "调用 PPT Master 完成当前任务。完整读取当前 PPT Master SKILL.md 及实际命中的原生工作流，由 PPT Master 自主确定最终 Route。"
     if plan_path:
-        activation += "读取 presentation_plan.md 作为已完成的专业内容与页面语义导演稿，并结合原始材料、模板/参考和用户要求继续生产。"
+        activation += "读取 presentation_plan.md 作为已完成的专业内容与页面语义导演稿；以其中的页面任务、核心观点、内容关系、信息主次和表达意图作为 Strategist 的设计语义输入，结合原始材料、模板/参考和用户要求继续生产。"
     if source_intent not in {"fill_native", "enhance_native", "create_reusable_template"}:
         activation += "Generate PPTX 时按当前版本 Default Generate PPTX 原生完整流程执行。"
-    activation += "以最终汇报效果为优先，充分发挥本任务实际适用的原生完整、高级和条件能力，完成 Strategist、设计生产、Review、Export 与 Postflight。不要重新运行 PPT Prompt Router。"
+    activation += "由 PPT Master 依据自身当前版本原生流程完成设计、生产、Review、Export 与 Postflight。不要重新运行 PPT Prompt Router。"
 
     out = {
         "material_paths": list(a.material),

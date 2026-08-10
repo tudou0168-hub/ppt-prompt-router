@@ -8,8 +8,6 @@
 
 `presentation_plan.md`
 
-作为 PPT Master 后续 `design_spec.md` 的内容与语义来源。
-
 ---
 
 ## Goals
@@ -21,7 +19,7 @@
 - 为每页明确页面任务、核心观点、内容关系、信息主次和表达意图；
 - 让架构表达职责、边界和协同，而不是简单堆叠模块名称；
 - 将技术选型、接口细节、部署参数、性能指标和补充说明整理到 Speaker Notes；
-- 提供真实产品截图、系统截图、架构资料、接口表、流程、数据样例和项目素材，供 PPT Master 后续完成视觉设计。
+- 识别并保留真实产品截图、系统截图、架构资料、接口表、流程、数据样例和项目素材的证据价值。
 
 所有需求、能力、模块、接口、数据、安全机制、性能指标和实施安排严格依据原始材料。材料没有的技术组件、AI能力、指标和架构层级不自行补造。用户明确要求优先于本提示词的默认组织方式。
 
@@ -138,31 +136,26 @@
 
 ---
 
-## 与 PPT Master 衔接
+## 输出
 
-完成 `presentation_plan.md` 后，作为 `design_spec.md` 的语义来源进行字段映射：
+最终生成：
 
-- 页面总数、顺序、章节 → `§IX Content Outline / Page Roster`
-- 页面标题 → `Title`
-- 页面任务 → `Audience move`
-- 核心观点 → `Core message`
-- 内容关系 + 信息主次 + 表达意图 → `Layout` 的语义关系、层级和视觉重心
-- 页面内容 → `Content`
-- 可用素材 → `Images / §VIII`
-- Speaker Notes → `§X Speaker Notes Requirements`
+`presentation_plan.md`
 
-Stage 2 在上述语义策划基础上，结合当前 Style / Template 和 PPT Master 原生能力，完成：
+用于完整记录本次汇报的故事结构、逐页任务、核心观点、内容关系、信息主次、表达意图、页面内容、可用素材和 Speaker Notes。
 
-- Mode；
-- Visual Style；
-- Page Rhythm；
-- Visualization；
-- 图片处理；
-- 数据表达；
-- 字体与颜色；
-- 跨页视觉语言；
-- 其他项目级设计决策。
+完成前检查：
 
-最终形成完整 `design_spec.md`，再按照 PPT Master 原生流程派生 `spec_lock.md` 并进入 Executor 页面生产。
+- 是否完整落实用户明确要求；
+- 是否严格依据原始事实材料；
+- 是否形成清晰的整套故事主线；
+- 是否每页都有明确页面任务；
+- 是否每页只有清楚的核心观点；
+- 是否识别真实内容关系，而不是机械套结构；
+- 是否区分核心、支撑和补充信息；
+- 是否形成适合上屏的页面内容；
+- 是否保留必要事实素材与 Speaker Notes。
 
-页面策划负责讲清**讲什么、为什么讲、信息是什么关系、什么最重要**；具体 page-scale composition、版式、图形、SVG 和视觉实现由 PPT Master 完成。
+本阶段只完成专业内容和页面语义导演。
+
+完成 `presentation_plan.md` 后结束当前任务。

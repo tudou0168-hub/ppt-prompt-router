@@ -17,6 +17,8 @@ PPT Master 负责：最终 Route、Stage 1/2、模板处理、Strategist、Desig
 3. `presentation_plan.md` 负责“讲什么、为什么讲、真实关系、信息主次和表达意图”；具体页面设计由 PPT Master 自主完成。
 4. 发现用户实质改变核心任务、材料范围或页面规模时，从 Router 入口重新生成 Plan，再启动新的 Master Context。
 
+专业 Prompt 保持引擎无关：只完成专业内容与页面语义导演，不包含任何下游设计、生产或实现知识。Master 侧通过 `references/ppt_master_4_4_mapping_protocol.md` 理解 Plan 语义。
+
 ## Direct Plan 主流程
 
 1. Preflight：

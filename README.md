@@ -31,5 +31,6 @@ PPT Master 当前原生完整流程
 - Router 决定“用哪种专业导演方法、讲什么、关系和主次是什么”。
 - PPT Master 决定“怎么设计、怎么画、怎么生产和怎么导出”。
 - Router → Master 只传类型化路径与用户要求，不传 Router 内部上下文。
+- 专业 Prompt 不包含任何 Master 实现知识；`references/ppt_master_4_4_mapping_protocol.md` 仅在 Master 侧把 Plan 的演示语义转化为原生设计意图。
 
 测试原则见 `TESTING.md`：一类 PPT 每轮只生产 3–4 张代表页，发现第一处硬问题立即停止、定位根因、修程序并从 Router 入口重跑。

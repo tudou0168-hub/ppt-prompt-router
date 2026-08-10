@@ -57,8 +57,13 @@ def assert_representative_routes() -> None:
 def assert_prompt_contract() -> None:
     index = json.loads(route.INDEX.read_text(encoding="utf-8"))
     by_id = {x["id"]: x for x in index["prompts"]}
-    required_sections = ("## Goals", "## Skills", "## Workflows", "## 语义导演", "## 每页输出格式", "## 与 PPT Master 衔接")
+    required_sections = ("## Goals", "## Skills", "## Workflows", "## 语义导演", "## 每页输出格式", "## 输出")
     anchoring_markers = ("完整页面导演示例", "示例一", "示例二", "示例三", "示例四", "## P01｜", "## P02｜", "## P03｜")
+    downstream_terms = (
+        "ppt master", "design_spec", "stage 2", "spec lock", "executor", "§ix", "§viii",
+        "audience move", "core message", "layout", "native shape", "svg", "visualization",
+        "visual job router", "boolean", "animation", "page rhythm",
+    )
 
     for pid in DIRECT_PLAN_PROFILES:
         entry = by_id[pid]
@@ -74,6 +79,9 @@ def assert_prompt_contract() -> None:
             raise AssertionError(f"{pid} contains page-specific example anchoring")
         if "presentation_plan.md" not in text:
             raise AssertionError(f"{pid} missing final output contract")
+        lower = text.lower()
+        if any(term in lower for term in downstream_terms):
+            raise AssertionError(f"{pid} contains downstream implementation knowledge")
 
 
 def assert_path_only_director() -> None:
