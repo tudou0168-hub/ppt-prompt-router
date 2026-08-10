@@ -1,59 +1,55 @@
-# 审查交接：V15 path-only Direct Plan 与四类最小真实小样
+# 审查交接：Semantic Adapter 最小因果验证
 
 ## 本轮目标
 
-将 Reviewer 提供、已在沙箱验证的 V15 Direct Plan 实现与 `58aa8ab` 对齐；随后按“小样、逐类、Fail Fast”纪律验证新 Prompt 和 fresh PPT Master 交接。Router 不修改 PPT Master，也不生成整套 PPT。
+只验证 `presentation_plan.md` 的纯演示语义能否被 fresh PPT Master 的 Strategist 消费并转化为可靠的页面设计判断。不是迁移新 Profile，也不是精修某一页，更不修改 PPT Master。
 
 ## 修改内容
 
-- 机械同步 Reviewer 包中已变更的生产/运行文件：`scripts/route.py`、`scripts/regression.py`、`scripts/scoring.py`、`prompt-index.json`、`SKILL.md`、相关协议文档，以及 5 个 Direct Plan Prompt。
-- 5 个 Prompt 均为 Reviewer 最终版本，未自行润色、压缩、扩写或重新加入页面示例。
-- Direct Plan Director task 仅给出专业 Prompt、材料、模板/参考/workspace 路径、用户要求和 Plan 输出路径；已迁移 Profile 不叠加 Secondary Lens。
-- Router → fresh PPT Master 仍只传类型化路径、用户明确约束和短 activation，不传 Router 内部上下文。
+- 5 个 Direct Plan 专业 Prompt（年度总结、政务规划、工作汇报、决策会、产品技术）删除所有下游实现耦合；Prompt 只保留专业内容分析、故事组织、逐页演示语义导演和统一的 `presentation_plan.md` 输出边界。
+- `references/ppt_master_4_4_mapping_protocol.md` 改为 Master 侧的薄协议：页面任务、核心观点、内容关系、信息主次、表达意图、可用素材如何成为原生设计意图；不规定具体版式、图形、坐标、字体、颜色或 SVG。
+- `master_handoff.activation_prompt` 只新增一条语义激活：将 Plan 的页面任务、核心观点、内容关系、信息主次和表达意图作为 Strategist 输入。
+- 最小 regression 增加静态边界：5 个专业 Prompt 禁止出现 `PPT Master`、`design_spec`、`Stage 2`、`Spec Lock`、`Executor`、`§IX`、`§VIII` 及其他下游实现词。
 
-## 极简程序验证
+## 测试
 
-- `python3 scripts/regression.py`：通过。
-  - 6 条代表性路由；5 个 Direct Plan Profile；path-only Director；typed Master handoff；Prompt anti-anchoring；LIGHT/BYPASS/未迁移 Profile 无 Plan。
+- `python3 scripts/regression.py`：通过（6 条代表路由、5 个 Direct Plan Profile、path-only Director、typed Master handoff、LIGHT/BYPASS/未迁移 Profile 无 Plan）。
 - `python3 -m py_compile scripts/route.py scripts/regression.py scripts/scoring.py scripts/semantics.py scripts/template_intent.py`：通过。
 - `python3 -m json.tool prompt-index.json`：通过。
-- 临时目录 `install.py install`、`install.py validate`，以及已安装副本 regression：均通过。
+- 临时安装目录执行 `install.py install`、`install.py validate` 及安装副本 regression：通过。
 
-## 小样方法
+### 五寨县三页新项目盲测
 
-每类任务先用 Router Preflight 和独立 Director 生成/人工检查 `presentation_plan.md`，仅在 Plan 正确后启动 fresh PPT Master。每个 Master Context 只收到材料路径、Plan 路径、模板/参考/workspace 路径、用户要求和短 activation。项目先由宿主通过 PPT Master 原生 `project_manager` 初始化并导入材料；这不是 Router 状态机或 bootstrap。
+材料：`/Users/muzi/Desktop/源文件/五寨县“人工智能+”规划方案20260609v1.0.docx`
+项目：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-semantic-adapter-government-strategy_ppt169_20260810`
 
-两次早期试运行被排除：一次把只有 `analysis/` 的空目录交给 Master、一次沿用了旧 Plan 页码；均为测试宿主错误，未修改 Router。随后均从 Router 入口重新执行。
+Preflight 的 `government_strategy` 与 `planning_proposal` 并列，按本任务“面向领导的政务建设规划与决策沟通”人工仲裁为 `government_strategy`；不改 scoring。独立 Director 重新生成 15 页 Plan；fresh Master Context 只收到材料路径、Plan 路径、用户要求和短 activation。未传递 Router Prompt、Profile、Kernel、Lens、scoring 或此前 Context。
 
-## 真实证据与第一失真
+只生成实际 Plan 中选出的三页，未生成整套、未导出 PPTX：
 
-| Profile | 真实材料 | 选择结果 / Plan | 代表页与理由 | 结果 / 第一失真 |
+| 页面 | Plan → Spec → Lock | PNG 实际审阅 | 首次失真 | 责任判断 |
 | --- | --- | --- | --- | --- |
-| `government_strategy` | `/Users/muzi/Desktop/源文件/五寨县“人工智能+”规划方案20260609v1.0.docx` | 高置信度，Direct Plan，无 Lens；Plan 正确区分拟建内容、现状缺口和待决策事项。 | P04 现有基础/边界、P07 总体体系、P13 实施路径、P14 决策保障。 | **PASS**。SVG 质量 0 error；四张 PNG 已人工查看。无 Router / activation / Plan / Executor 阻断。 |
-| `work_report` | `/Users/muzi/Downloads/新郑市智慧城市综合应用业务系统建设项目项目运维服务报告模板.docx` | 高置信度，Direct Plan，无 Lens；Plan 把模板空值、需求汇总与明细冲突、历史日期和客户协同缺失明确为证据边界。 | P02 结果证据、P05 已完成交付、P06 风险、P08 客户协同。 | **PASS**。四页 SVG/PNG 已人工查看；每页 0 error。P02 页脚边界由 Executor 修正后通过，非 Router 问题。 |
-| `decision_meeting` | `/Users/muzi/Desktop/河南省、郑州市政务服务对标浙江经验的差距分析与提升建议.docx` | 高置信度，Direct Plan，无 Lens；Plan 未虚构多方案，转而呈现真实约束、可接受取舍、推荐路线和拍板动作。 | P05 刚性约束、P06 真实取舍、P07 推荐路线、P12 拍板动作。 | **PPT Master upstream**。四页 SVG 最终质量 0 error；Quick Look 将 16:9 SVG 错裁为 1280×1280，实时预览截图为空白，无法形成可信 PNG 视觉验收。立即停止。 |
-| `product_technical` | `/Users/muzi/Desktop/第三方业务系统实现”免证办、全程网办“解决方案.docx` | 高置信度，Direct Plan，无 Lens；Plan 区分原案例历史成效与新项目承诺，未补造部署、接口、安全或验收指标。 | P04 场景、P07 架构边界、P10 数据接口、P12 实施验收价值。 | **PPT Master upstream**。P07 页眉说明文字超出 `header` 边界 12.3%；在 Plan/Spec 正确后首次出现在 Executor/SVG 检查，按 Fail Fast 未修复、未生成 PNG、未导出。 |
+| P05 现有基础判断 | 保留“规划依托可确认 / 现状底数待核实”的事实边界与主次。 | 页码标签压住主标题。 | SVG/PNG | PPT Master Executor |
+| P08 总体体系 | 保留“三类业务能力由统一智能底座承接”的主空间关系。 | 底座内左右平台说明文字彼此重叠。 | SVG/PNG | PPT Master Executor |
+| P13 推进路径建议 | 保留“核实—试点—评估回看—扩展”的时序、门槛与风险保障。 | 阶段正文与“形成成果”行重叠，页码标签压住标题。 | SVG/PNG | PPT Master Executor |
 
-## 关键本地路径
+SVG 结构检查是 0 errors、3 项 CJK 可测性 warnings；但 PNG 肉眼审阅不通过，不能以结构检查替代视觉验收。
 
-PR 可下载的汇总证据包：`review/artifacts/v15-path-handoff-small-sample-20260810.zip`；内容说明见同目录 Markdown。
+## 关键证据
 
-- 政府战略 Plan：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-government-strategy-rerun_ppt169_20260810/analysis/presentation_plan.md`
-- 政府战略 PNG：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-government-strategy-rerun_ppt169_20260810/previews/`
-- 工作汇报 Plan：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-work-report_ppt169_20260810/analysis/presentation_plan.md`
-- 工作汇报 PNG：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-work-report_ppt169_20260810/validation/previews/`
-- 决策会 SVG / 质量：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-decision-meeting_ppt169_20260810/svg_output/`、`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-decision-meeting_ppt169_20260810/validation/svg_quality_report.json`
-- 技术方案 SVG / P07 报告：`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-product-technical_ppt169_20260810/svg_output/`、`/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v15-product-technical_ppt169_20260810/validation/p07_sample_quality.json`
+- Director Plan：`.../analysis/presentation_plan.md`
+- Master Design Spec：`.../design_spec.md`
+- Master Spec Lock：`.../spec_lock.md`
+- PNG：`.../.preview/05_现有基础判断.png`、`.../.preview/08_总体体系.png`、`.../.preview/13_推进路径建议.png`
+- SVG 质量报告：`.../validation/svg_quality_report.json`
+- 可下载证据包：`review/artifacts/semantic-adapter-wuzhai-small-sample-20260810.zip`
 
-## 已知问题与边界
+## 已知问题
 
-- 决策会的预览问题和技术方案的 SVG 文字边界问题均在 PPT Master Executor / Preview 层首次发生。没有证据支持通过修改 Router routing、Prompt、Plan、字体规则、几何规则或页面模板来绕过它们。
-- 仅政府战略与工作汇报能形成可信 PNG 的视觉小样通过；决策会和技术方案不能宣称最终视觉验收通过。
-- 这不是整套 PPT 验收：没有生成整套页面或 PPTX。
+本轮没有发现 Prompt、Plan 或 Plan → Strategist 翻译首次失真；三页均在 Executor/SVG 文字几何阶段首次出现可见重叠。按 Fail Fast 规则，未对页面做项目专用修补，未执行工作汇报的跨场景测试，也未修改 Router 以掩盖 Master 的执行层问题。
 
 ## 请 Reviewer 重点判断
 
-1. 是否同意：四个 Direct Plan Profile 的 Router 层已完成可继续迁移所需的最小因果验证；其中两个失败应独立升级为 PPT Master 上游问题，而非要求重写 Prompt？
-2. 是否同意项目初始化属于宿主的普通项目准备，Router 无需为此新增 bootstrap 状态、字段或协议？
-3. 请审计 `scripts/route.py` 的 path-only Director / typed Master handoff 是否仍存在内部上下文泄漏或不必要字段。
-4. 在 PPT Master 修复预览与 SVG 边界问题前，是否应暂停下一批 Profile 迁移，而不是扩增 Router 测试量？
+1. 是否同意：当前证据支持“语义 Adapter 已被 Strategist 消费”，但不能支持“最终三页视觉通过”；下一步应由 PPT Master 修复文字排版/几何质量，而不是继续改 Router Prompt？
+2. 是否同意：在代表页出现 Master Executor 首次失真后，停止工作汇报跨场景测试符合因果实验纪律？
+3. 请审查五个 Prompt 的下游耦合是否已清除，以及最小 activation 是否仍保持路径式、无内部上下文泄漏。
