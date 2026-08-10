@@ -28,6 +28,14 @@ SPECIAL_CASES = (
     ("business_proposal", "客户提案：智能招生经营提升试点合作与咨询建议"),
 )
 
+DIRECT_PLAN_PROFILES = (
+    "government_annual_summary",
+    "government_strategy",
+    "work_report",
+    "decision_meeting",
+    "product_technical",
+)
+
 
 def preflight(argv: list[str]) -> dict:
     return route.resolve(route.parser().parse_args(["--phase", "preflight", *argv]))
@@ -127,10 +135,28 @@ def assert_direct_plan_handoff() -> None:
         raise AssertionError("Router internals crossed the Master handoff boundary")
 
 
+def assert_direct_plan_profile_registry() -> None:
+    for profile_id in DIRECT_PLAN_PROFILES:
+        out = preflight([
+            "--prompt-id", profile_id, "--user-request", f"{profile_id} 专业任务",
+            "--material", "/tmp/source.docx",
+        ])
+        if out["execution_path"] != {
+            "id": "router_director_then_fresh_master",
+            "requires_presentation_plan": True,
+            "director_protocol": "direct_plan_v1",
+        }:
+            raise AssertionError(f"{profile_id} did not enter direct_plan_v1")
+        if out["director_task"]["status"] != "prepared":
+            raise AssertionError(f"{profile_id} did not prepare its Director task")
+        if "presentation_plan_path" not in out["master_handoff"]:
+            raise AssertionError(f"{profile_id} did not prepare the plan handoff")
+
+
 def assert_non_plan_paths() -> None:
     legacy_full = preflight([
-        "--prompt-id", "government_strategy", "--user-request", "政府专项规划与建设方案",
-        "--material", "/tmp/strategy.docx", "--reference-path", "/tmp/reference.pptx",
+        "--prompt-id", "business_proposal", "--user-request", "客户经营提升合作方案",
+        "--material", "/tmp/proposal.docx", "--reference-path", "/tmp/reference.pptx",
     ])
     light = preflight([
         "--pptx-intent", "fill_native", "--user-request", "保留页面壳，从材料重构生成政务半年总结",
@@ -151,8 +177,8 @@ def assert_non_plan_paths() -> None:
         raise AssertionError("legacy profile migration status was not exposed")
     try:
         route.resolve(route.parser().parse_args([
-            "--phase", "director", "--prompt-id", "government_strategy",
-            "--project-dir", "/tmp/legacy-director", "--user-request", "政府专项规划",
+            "--phase", "director", "--prompt-id", "business_proposal",
+            "--project-dir", "/tmp/legacy-director", "--user-request", "客户经营提升方案",
         ]))
     except ValueError:
         pass
@@ -187,6 +213,7 @@ def main() -> int:
         assert_profile(expected, request)
     non_default = assert_non_default_paths()
     assert_direct_plan_handoff()
+    assert_direct_plan_profile_registry()
     assert_non_plan_paths()
     assert_user_constraint_preservation()
     print(json.dumps({
@@ -194,6 +221,7 @@ def main() -> int:
         "profiles": len(index["prompts"]),
         "routing_cases": len(matrix) + len(SPECIAL_CASES),
         "non_default_cases": non_default,
+        "direct_plan_profiles": len(DIRECT_PLAN_PROFILES),
         "direct_plan_handoff": "passed",
     }, ensure_ascii=False, indent=2))
     return 0
