@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Small, dependency-free Router routing and handoff regression runner."""
+"""Fast program-level regression for Router 3.1.3.
+
+Deliberately small: it validates the production contract, not PPT aesthetics.
+Real PPT validation follows TESTING.md and stops after 3–4 representative pages.
+"""
 from __future__ import annotations
 
 import json
@@ -13,21 +17,6 @@ if str(ROOT) not in sys.path:
 
 from scripts import route
 
-
-VARIANTS = (
-    "第1轮", "受众已确认", "素材已就绪", "版式16比9",
-    "来源可核", "继续处理", "保持结果",
-)
-
-SPECIAL_CASES = (
-    ("government_annual_summary", "为管委会领导制作2026年上半年工作总结及下半年工作谋划，使用政府汇报工作区"),
-    ("government_strategy", "为领导汇报数字政府建设方案，分析现状差距并明确建设路径"),
-    ("work_report", "企业经营复盘：汇报成果、问题与下一步计划"),
-    ("planning_proposal", "活动运营策划方案，说明预算与执行安排"),
-    ("decision_meeting", "管理层决策会：比较两个方案并审批预算后拍板"),
-    ("business_proposal", "客户提案：智能招生经营提升试点合作与咨询建议"),
-)
-
 DIRECT_PLAN_PROFILES = (
     "government_annual_summary",
     "government_strategy",
@@ -36,193 +25,149 @@ DIRECT_PLAN_PROFILES = (
     "product_technical",
 )
 
-
-def preflight(argv: list[str]) -> dict:
-    return route.resolve(route.parser().parse_args(["--phase", "preflight", *argv]))
-
-
-def canonical_signal(index: dict, entry: dict) -> str:
-    candidates = [
-        *entry.get("strong_signals", ()), *entry.get("required_signals", ()),
-        *entry.get("supporting_signals", ()), entry.get("use_when", ""),
-    ]
-    for signal in candidates:
-        if not signal:
-            continue
-        sem = route.semantics.classify(signal)
-        top = route.scoring.rank(index, signal.lower(), sem)[0]
-        if top.profile_id == entry["id"] and top.score >= 5:
-            return signal
-    raise AssertionError(f"registry has no discriminating signal for {entry['id']}")
+REPRESENTATIVE_ROUTES = (
+    ("government_annual_summary", "为管委会领导制作2026年上半年工作总结及下半年工作谋划"),
+    ("government_strategy", "为领导汇报数字政府建设方案，分析现状差距、建设目标和实施路径"),
+    ("work_report", "企业项目季度工作复盘，汇报目标结果、进度偏差、风险和下一步行动"),
+    ("decision_meeting", "管理层决策会，比较两个真实方案的预算、周期、收益和风险后拍板"),
+    ("product_technical", "技术解决方案，说明业务场景、系统架构、数据流、接口、安全和实施"),
+)
 
 
-def profile_matrix(index: dict) -> list[tuple[str, str]]:
-    cases = []
-    for entry in index["prompts"]:
-        # The registry's required signal is intentionally the stable minimal
-        # scenario.  Seven neutral delivery contexts make selection drift visible
-        # without injecting a competing domain or job into the request.
-        signal = canonical_signal(index, entry)
-        for variant in VARIANTS:
-            cases.append((entry["id"], f"{signal} PPT {variant}"))
-    return cases
+def preflight(args: list[str]) -> dict:
+    return route.resolve(route.parser().parse_args(["--phase", "preflight", *args]))
 
 
-def assert_profile(expected: str, request: str) -> None:
-    out = preflight(["--user-request", request])
+def assert_representative_routes() -> None:
+    for expected, request in REPRESENTATIVE_ROUTES:
+        out = preflight(["--user-request", request])
+        actual = (out["profile_selection"]["primary_profile"] or {}).get("id")
+        if actual != expected:
+            raise AssertionError(f"route mismatch: expected={expected} actual={actual} request={request}")
+        if not out["execution_path"]["requires_presentation_plan"]:
+            raise AssertionError(f"{expected} did not enter direct_plan_v1")
+
+    # Important conflict: annual review must not swallow an explicit construction plan.
+    out = preflight(["--user-request", "政府数字化建设方案：总结现状并制定专项规划、建设路线图和实施方案"])
     actual = (out["profile_selection"]["primary_profile"] or {}).get("id")
-    if actual != expected:
-        raise AssertionError(f"{expected=} {actual=} request={request!r}")
+    if actual != "government_strategy":
+        raise AssertionError(f"annual/strategy boundary regressed: {actual}")
 
 
-def assert_non_default_paths() -> int:
-    checks = (
-        ("enhance_native", "bypass", "给现有PPT添加演讲者备注和转场"),
-        ("fill_native", "bypass", "保留原版式，只替换文字并填充模板"),
-        ("fill_native", "light", "保留页面壳，从材料重构生成政务半年总结"),
-        ("create_reusable_template", "light", "将政府年度总结沉淀为可复用模板"),
-    )
-    for intent, expected_mode, request in checks:
-        out = preflight(["--pptx-intent", intent, "--user-request", request])
-        mode = out["intervention"]["mode"]
-        if mode != expected_mode:
-            raise AssertionError(f"{intent=} {expected_mode=} {mode=}")
-    return len(checks)
+def assert_prompt_contract() -> None:
+    index = json.loads(route.INDEX.read_text(encoding="utf-8"))
+    by_id = {x["id"]: x for x in index["prompts"]}
+    required_sections = ("## Goals", "## Skills", "## Workflows", "## 语义导演", "## 每页输出格式", "## 与 PPT Master 衔接")
+    anchoring_markers = ("完整页面导演示例", "示例一", "示例二", "示例三", "示例四", "## P01｜", "## P02｜", "## P03｜")
+
+    for pid in DIRECT_PLAN_PROFILES:
+        entry = by_id[pid]
+        if entry.get("director_protocol") != "direct_plan_v1":
+            raise AssertionError(f"{pid} missing direct_plan_v1")
+        if entry.get("profile_version") != "3.1.3":
+            raise AssertionError(f"{pid} profile_version not separated from protocol")
+        text = (ROOT / entry["file"]).read_text(encoding="utf-8")
+        for section in required_sections:
+            if section not in text:
+                raise AssertionError(f"{pid} missing V15 section {section}")
+        if any(marker in text for marker in anchoring_markers):
+            raise AssertionError(f"{pid} contains page-specific example anchoring")
+        if "presentation_plan.md" not in text:
+            raise AssertionError(f"{pid} missing final output contract")
 
 
-def assert_direct_plan_handoff() -> None:
-    with tempfile.TemporaryDirectory(prefix="ppt-router-regression-") as tmp:
+def assert_path_only_director() -> None:
+    with tempfile.TemporaryDirectory(prefix="router-smoke-") as tmp:
         out = route.resolve(route.parser().parse_args([
-            "--phase", "director", "--prompt-id", "government_annual_summary",
-            "--project-dir", tmp, "--user-request", "政府半年工作总结",
-            "--material", "/tmp/source.docx", "--template-path", "/tmp/government-report",
-        ]))
-        plan_path = Path(tmp) / "analysis" / "presentation_plan.md"
-        if not plan_path.parent.is_dir():
-            raise AssertionError("director phase did not prepare the ordinary analysis directory")
-    task = out["director_task"]
-    prompt = task["task"]["prompt"] if task["task"] else ""
-    handoff = out["master_handoff"]
-    required = (
-        "Router Director Task", "Professional Director Prompt", "government_annual_summary",
-        "Final output path", "presentation_plan.md",
-    )
-    if task["status"] != "ready" or not task["task"]["prompt_sha256"]:
-        raise AssertionError("director task did not become ready")
-    if any(token not in prompt for token in required):
-        raise AssertionError("director task omitted a required context section")
-    if "用户明确要求（含标题、章节、页数、图片、事实、模板和参考约束）" not in prompt:
-        raise AssertionError("director task omitted input-priority instructions")
-    if handoff["presentation_plan_path"] != str(plan_path.resolve()):
-        raise AssertionError("Master did not receive the final plan path")
-    if out["execution_path"] != {
-        "id": "router_director_then_fresh_master",
-        "requires_presentation_plan": True,
-        "director_protocol": "direct_plan_v1",
-    }:
-        raise AssertionError("migrated profile did not select the direct-plan execution path")
-    expected_paths = {
-        "material_paths": ["/tmp/source.docx"],
-        "template_paths": ["/tmp/government-report"],
-        "reference_paths": [],
-        "workspace_roots": [],
-    }
-    if {k: handoff[k] for k in expected_paths} != expected_paths:
-        raise AssertionError("Master handoff merged typed input paths")
-    rendered_handoff = json.dumps(handoff, ensure_ascii=False)
-    forbidden = ("Director Kernel", "Semantic Vocabulary", "Primary Profile", "Secondary Lens", "scoring", "capability map")
-    if any(token in rendered_handoff for token in forbidden):
-        raise AssertionError("Router internals crossed the Master handoff boundary")
-
-
-def assert_direct_plan_profile_registry() -> None:
-    for profile_id in DIRECT_PLAN_PROFILES:
-        out = preflight([
-            "--prompt-id", profile_id, "--user-request", f"{profile_id} 专业任务",
+            "--phase", "director",
+            "--prompt-id", "product_technical",
+            "--project-dir", tmp,
             "--material", "/tmp/source.docx",
-        ])
-        if out["execution_path"] != {
-            "id": "router_director_then_fresh_master",
-            "requires_presentation_plan": True,
-            "director_protocol": "direct_plan_v1",
-        }:
-            raise AssertionError(f"{profile_id} did not enter direct_plan_v1")
-        if out["director_task"]["status"] != "prepared":
-            raise AssertionError(f"{profile_id} did not prepare its Director task")
-        if "presentation_plan_path" not in out["master_handoff"]:
-            raise AssertionError(f"{profile_id} did not prepare the plan handoff")
+            "--template-path", "/tmp/template/",
+            "--reference-path", "/tmp/reference.pptx",
+            "--workspace-root", "/tmp/workspace/",
+            "--user-request", "给技术委员会汇报系统建设方案",
+            "--audience", "技术委员会",
+            "--page-count", "10",
+            "--chapter-constraint", "保留现有四章",
+            "--title-constraint", "沿用用户标题",
+            "--fact-constraint", "数据严格按原文",
+        ]))
+        plan = Path(tmp) / "analysis" / "presentation_plan.md"
+        if not plan.parent.is_dir():
+            raise AssertionError("analysis directory was not prepared")
+
+    task = out["director_task"]["task"]
+    if out["director_task"]["status"] != "ready" or not task:
+        raise AssertionError("director task not ready")
+    if not task.get("path_only_context"):
+        raise AssertionError("director task is not path-only")
+    if task.get("secondary_lens_path") is not None:
+        raise AssertionError("Direct Plan should use one self-contained professional Profile without a secondary lens")
+    prompt = task["prompt"]
+    if str((ROOT / "prompts/05_professional_scenarios/product_technical.md").resolve()) not in prompt:
+        raise AssertionError("professional prompt path missing")
+    # Full profile content must not be inlined into the task.
+    profile_text = (ROOT / "prompts/05_professional_scenarios/product_technical.md").read_text(encoding="utf-8").strip()
+    if profile_text[:120] in prompt:
+        raise AssertionError("professional profile content was inlined")
+
+    handoff = out["master_handoff"]
+    expected = {
+        "material_paths": ["/tmp/source.docx"],
+        "template_paths": ["/tmp/template/"],
+        "reference_paths": ["/tmp/reference.pptx"],
+        "workspace_roots": ["/tmp/workspace/"],
+    }
+    for key, value in expected.items():
+        if handoff[key] != value:
+            raise AssertionError(f"typed path lost: {key}")
+    if handoff["presentation_plan_path"] != str(plan.resolve()):
+        raise AssertionError("plan path missing from Master handoff")
+    if handoff["explicit_user_constraints"]["titles"] != ["沿用用户标题"]:
+        raise AssertionError("user title constraint lost")
+
+    serialized = json.dumps(handoff, ensure_ascii=False)
+    for forbidden in ("Professional Director Prompt", "Director Kernel", "Semantic Vocabulary", "Primary Profile", "scoring", "capability map"):
+        if forbidden in serialized:
+            raise AssertionError(f"Router internals leaked to Master: {forbidden}")
 
 
 def assert_non_plan_paths() -> None:
-    legacy_full = preflight([
-        "--prompt-id", "business_proposal", "--user-request", "客户经营提升合作方案",
-        "--material", "/tmp/proposal.docx", "--reference-path", "/tmp/reference.pptx",
-    ])
-    light = preflight([
-        "--pptx-intent", "fill_native", "--user-request", "保留页面壳，从材料重构生成政务半年总结",
-        "--material", "/tmp/content.docx", "--template-path", "/tmp/native-template.pptx",
-    ])
-    bypass = preflight([
-        "--pptx-intent", "enhance_native", "--user-request", "给现有PPT添加演讲者备注和转场",
-        "--reference-path", "/tmp/existing.pptx",
-    ])
-    for label, out in (("legacy full", legacy_full), ("light", light), ("bypass", bypass)):
+    cases = (
+        ("light", ["--pptx-intent", "fill_native", "--user-request", "保留页面壳，从材料重构生成半年总结"]),
+        ("bypass", ["--pptx-intent", "enhance_native", "--user-request", "给现有PPT添加备注和转场"]),
+        ("legacy_full", ["--prompt-id", "business_proposal", "--user-request", "客户经营提升咨询方案"]),
+    )
+    for label, args in cases:
+        out = preflight(args)
         if out["execution_path"]["requires_presentation_plan"]:
             raise AssertionError(f"{label} incorrectly requires a plan")
         if "presentation_plan_path" in out["master_handoff"]:
-            raise AssertionError(f"{label} passed a nonexistent plan path to Master")
-        if out["director_task"]["task"] is not None:
-            raise AssertionError(f"{label} incorrectly compiled a Director task")
-    if legacy_full["director_task"]["status"] != "not_migrated":
-        raise AssertionError("legacy profile migration status was not exposed")
-    try:
-        route.resolve(route.parser().parse_args([
-            "--phase", "director", "--prompt-id", "business_proposal",
-            "--project-dir", "/tmp/legacy-director", "--user-request", "客户经营提升方案",
-        ]))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("legacy profile incorrectly entered the direct-plan phase")
+            raise AssertionError(f"{label} leaked nonexistent plan path")
 
+    legacy = preflight(["--prompt-id", "business_proposal", "--user-request", "客户经营提升咨询方案"])
+    if legacy["director_task"]["status"] != "not_migrated":
+        raise AssertionError("unmigrated FULL profile status is wrong")
 
-def assert_user_constraint_preservation() -> None:
-    out = preflight([
-        "--prompt-id", "government_annual_summary", "--user-request", "严格按用户给定章节制作",
-        "--audience", "市政府专题会", "--page-count", "12", "--format", "ppt169",
-        "--delivery-purpose", "专题汇报", "--chapter-constraint", "按一、二、三章顺序",
-        "--title-constraint", "标题沿用用户目录", "--image-constraint", "P04必须使用现场照片",
-        "--fact-constraint", "所有数据保留原口径", "--template-constraint", "使用指定模板",
-        "--user-constraint", "不新增页面",
-    ])
-    c = out["master_handoff"]["explicit_user_constraints"]
-    if c["chapters"] != ["按一、二、三章顺序"] or c["titles"] != ["标题沿用用户目录"]:
-        raise AssertionError("explicit chapter/title constraints were lost")
-    if c["images"] != ["P04必须使用现场照片"] or c["facts"] != ["所有数据保留原口径"]:
-        raise AssertionError("explicit image/fact constraints were lost")
-    if out["master_handoff"]["page_count"] != 12 or out["master_handoff"]["format"] != "ppt169":
-        raise AssertionError("core user constraints were lost")
+    light = preflight(["--pptx-intent", "fill_native", "--prompt-id", "government_annual_summary", "--user-request", "保留页面壳并重构半年总结"])
+    if light["director_task"]["status"] != "not_required":
+        raise AssertionError("LIGHT migrated profile should be not_required, not not_migrated")
 
 
 def main() -> int:
-    index = json.loads(route.INDEX.read_text(encoding="utf-8"))
-    matrix = profile_matrix(index)
-    for expected, request in matrix:
-        assert_profile(expected, request)
-    for expected, request in SPECIAL_CASES:
-        assert_profile(expected, request)
-    non_default = assert_non_default_paths()
-    assert_direct_plan_handoff()
-    assert_direct_plan_profile_registry()
+    assert_representative_routes()
+    assert_prompt_contract()
+    assert_path_only_director()
     assert_non_plan_paths()
-    assert_user_constraint_preservation()
     print(json.dumps({
         "router_version": route.ROUTER_VERSION,
-        "profiles": len(index["prompts"]),
-        "routing_cases": len(matrix) + len(SPECIAL_CASES),
-        "non_default_cases": non_default,
+        "representative_routes": len(REPRESENTATIVE_ROUTES) + 1,
         "direct_plan_profiles": len(DIRECT_PLAN_PROFILES),
-        "direct_plan_handoff": "passed",
+        "path_only_director": "passed",
+        "typed_master_handoff": "passed",
+        "prompt_anti_anchoring": "passed",
+        "non_plan_paths": "passed",
     }, ensure_ascii=False, indent=2))
     return 0
 

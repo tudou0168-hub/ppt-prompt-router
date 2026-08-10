@@ -1,10 +1,20 @@
-# Router Direct Plan → PPT Master 4.4+ 边界
+# Router Direct Plan → PPT Master 4.4+ Mapping
 
-已迁移 Profile 的 `presentation_plan.md` 是 Router 与 PPT Master 的唯一主要业务接口；未迁移 Profile、LIGHT 和 BYPASS 没有该文件，直接交给 PPT Master 原生流程。
+`presentation_plan.md` 是 Direct Plan Profile 与 PPT Master 的主要业务接口。
 
-- **Router Director**：仅当 Profile 声明 `director_protocol: direct_plan_v1` 时，读取原始材料和用户要求，在独立上下文写入计划；不生成后续生产物。
-- **PPT Master**：从自身 `SKILL.md` 与实际命中的原生流程开始，直接读取计划并结合原始事实、用户约束和 Stage 1 确认完成 Strategist、Design Spec / Lock、Executor、Review 与 Export。
+页面导演结构映射：
 
-计划使用自然语言栏目表达页面任务、核心观点、内容关系、信息主次、表达意图、页面内容、可用素材与 Speaker Notes。PPT Master 不需接收或机械翻译 Router 内部的六字段、Profile 或能力地图；它按自己的原生规则决定具体构图、Visual Style、Visualization、Native Shape、SVG 和其他条件能力。
+- 页面总数、顺序、章节 → Content Outline / Page Roster
+- 页面标题 → Title
+- 页面任务 → Audience Move
+- 核心观点 → Core Message
+- 内容关系 + 信息主次 + 表达意图 → Layout / Page Rhythm / Visualization 的语义输入
+- 页面内容 → Content
+- 可用素材 → Images / Evidence
+- Speaker Notes → Speaker Notes Requirements
 
-Profile 输入权威顺序：用户明确要求 → 原始事实材料 → 用户明确模板／参考要求 → Profile 专业默认经验。Master 继续以其原生确认结果处理最终生产选择。若存在计划且 Stage 1 实质改变核心任务、材料范围或页面规模，应以新的独立 Router 计划和新的 Master Context 恢复，而非在同一上下文往返切换技能。
+Router 不输出具体坐标、固定版式、Native Shape 参数、SVG 参数或 Executor 几何。
+
+PPT Master 结合原始材料、用户要求、模板/参考和 `presentation_plan.md`，自主完成当前版本的 Stage 1、Strategist / Stage 2、Design Spec / Lock、Executor、Review 与 Export。
+
+Router → Master 交接只包含类型化路径、用户明确要求和短 activation，不传 Router 内部 Prompt 内容、Profile 全文、Lens、Kernel、scoring 或调试历史。

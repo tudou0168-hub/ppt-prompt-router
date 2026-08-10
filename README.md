@@ -1,18 +1,35 @@
-# PPT Prompt Router 3.1.3 Stable
+# PPT Prompt Router 3.1.3
 
-PPT Master 4.4+ 专业导演增强层。
+PPT Prompt Router 是 PPT Master 4.4+ 的专业导演增强层，不是第二套 PPT 生成系统。
 
-核心偏好：
+生产链：
 
-> **不考虑 Token、工具调用和思考次数，以最终汇报效果为优先，充分发挥 PPT Master 原生完整能力。**
+```text
+用户材料/模板/参考/要求
+        ↓
+Router Preflight：选择专业 Profile
+        ↓
+Direct Plan Profile：独立 Context 读取路径并生成 presentation_plan.md
+        ↓  Router Context 结束
+fresh PPT Master Context
+        ↓
+只接收材料/Plan/模板/参考路径 + 用户要求 + 短 activation
+        ↓
+PPT Master 当前原生完整流程
+```
 
-## 本版关键变化
+当前 Direct Plan Profile：
 
-- 保持 **26 个** Director Profile，并修正政府阶段性总结与泛化政务汇报之间的优先级；
-- 仅显式标记 `director_protocol: direct_plan_v1` 的 Profile 在独立 Director Context 写入 `presentation_plan.md`，结束后才启动全新 PPT Master Context；
-- Router → Master 按 `material_paths`、可选计划路径、`template_paths`、`reference_paths`、`workspace_roots` 和用户明确约束做严格类型化交接；
-- `government_annual_summary` 是首个直接生成自然语言页面导演稿的 reference implementation；
-- PPT Master 直接读取计划并继续自行决定 Strategist、Visual Style、Visualization / Native Shape / SVG、Review 和 Export；
-- FULL / LIGHT / BYPASS 均明确有无 Plan；未迁移 Profile、LIGHT 与 BYPASS 不传不存在的计划路径。Stage 1 只有实质改变核心任务、材料范围或页面规模时才重启独立 Router → Master 链路。
+- government_annual_summary
+- government_strategy
+- work_report
+- decision_meeting
+- product_technical
 
-详细流程见 `SKILL.md`。
+核心边界：
+
+- Router 决定“用哪种专业导演方法、讲什么、关系和主次是什么”。
+- PPT Master 决定“怎么设计、怎么画、怎么生产和怎么导出”。
+- Router → Master 只传类型化路径与用户要求，不传 Router 内部上下文。
+
+测试原则见 `TESTING.md`：一类 PPT 每轮只生产 3–4 张代表页，发现第一处硬问题立即停止、定位根因、修程序并从 Router 入口重跑。

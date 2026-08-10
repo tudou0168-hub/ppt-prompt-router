@@ -1,24 +1,29 @@
-# presentation_plan.md 模板
+# presentation_plan.md Template
 
-```markdown
-# <项目名称>｜presentation plan
+<!-- router_trace
+router_version: <version>
+primary_profile: <profile_id>
+profile_sha256: <sha256>
+stage1_sha256: <sha256>
+-->
 
-## 汇报总纲
-- 汇报对象：
-- 核心任务：
-- 总判断：
-- 故事主线：
-- 事实边界：
+## Deck North Star
+- Audience:
+- Communication goal:
+- Core argument:
+- Story priority:
+- Fact boundary:
 
 ## P01｜<判断式标题>
-- 页面任务：
-- 核心观点：
-- 内容关系：
-- 信息主次：
-- 表达意图：
-- 页面内容：
-- 可用素材：
-- Speaker Notes：
-```
+- Core message:
+- page_role:
+- audience_move:
+- relationship:
+- hierarchy:
+- rhythm_intent:
+- visual_semantics:
+- Content:
+- Evidence / image material:
+- Speaker Notes:
 
-这是专业导演的自然语言交付结构，而不是 PPT Master 的字段接口。每页的“表达意图”应回答视觉主角、退后信息、阅读顺序、证据职责和相邻页面节奏；不指定坐标、尺寸、图形或 SVG 参数。
+逐页重复。`relationship=none` 表示页面以清楚层级、证据、文字或图片完成表达即可。

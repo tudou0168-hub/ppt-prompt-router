@@ -24,7 +24,7 @@ TARGET = "4.4+"
 
 
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="PPT Prompt Router 3.1.3 semantic director interface")
+    p = argparse.ArgumentParser(description="PPT Prompt Router 3.1.3 direct-plan interface")
     p.add_argument("--phase", choices=("preflight", "director"), default="preflight")
     p.add_argument("--project-name", default="")
     p.add_argument("--format", default="ppt169")
@@ -127,7 +127,6 @@ def sha_text(text: str) -> str:
 
 
 def user_constraints(a: argparse.Namespace) -> dict[str, list[str]]:
-    """Preserve explicit user instructions without inventing a second schema."""
     return {
         "chapters": a.chapter_constraint,
         "titles": a.title_constraint,
@@ -150,76 +149,79 @@ def execution_path(mode: str, profile: dict | None) -> tuple[str, bool, str | No
     return "fresh_master_without_plan", False, None
 
 
-def director_task(profile: dict, lens: str | None, plan_path: str, a: argparse.Namespace) -> dict:
-    """Build Router-only instructions.  This object must never cross into Master."""
-    profile_path = ROOT / profile["file"]
-    profile_text = file_text(profile_path)
-    lens_text = ""
-    lens_path = None
-    if lens:
-        p = ROOT / "lenses" / f"{lens}.md"
-        if p.is_file():
-            lens_path = str(p.resolve())
-            lens_text = file_text(p)
-    chunks = [
-        "# Router Director Task (Router context only)",
-        f"Router: {ROUTER_VERSION}",
-        f"Primary Profile: {profile['id']} / {profile.get('name_zh','')}",
-        "\n## Professional Director Prompt\n" + profile_text,
-        "\n## Run Inputs",
-        f"- Original user request: {a.user_request or '未单独提供'}",
-        f"- Material paths: {', '.join(a.material) or '未单独提供'}",
-        f"- Template paths: {', '.join(a.template_path) or '无'}",
-        f"- Reference paths: {', '.join(a.reference_path) or '无'}",
-        f"- Workspace roots: {', '.join(a.workspace_root) or '无'}",
-        f"- Audience: {a.audience or '由材料和用户要求判断'}",
-        f"- Page count: {a.page_count if a.page_count else '由用户要求和材料判断'}",
-        f"- Format: {a.format}",
-        f"- Delivery purpose: {a.delivery_purpose or '由用户要求判断'}",
-        "- Explicit user constraints: " + json.dumps(user_constraints(a), ensure_ascii=False),
-        f"- Final output path: {plan_path}",
-        "\n## Input Priority",
-        "用户明确要求（含标题、章节、页数、图片、事实、模板和参考约束） → 原始事实材料 → 用户明确模板/参考要求 → Profile专业默认经验。"
-        "前一层与后一层冲突时，严格服从前一层；仅在用户未指定时才使用 Profile 默认判断。",
-        "\n## Boundary",
-        "你处于独立 Router Director Context。读取以上材料并直接写入最终 presentation_plan.md；完成后结束。不要执行 PPT Master，不要生成 Design Spec、Spec Lock、SVG、图片、PPTX 或第二份计划。",
-    ]
-    if lens_text:
-        chunks.append("\n## Secondary Lens\n" + lens_text)
-    prompt = "\n".join(chunks).strip()
-    return {
-        "profile_path": str(profile_path.resolve()),
-        "profile_sha256": sha_text(profile_text),
-        "secondary_lens_path": lens_path,
-        "prompt": prompt,
-        "prompt_sha256": sha_text(prompt),
-    }
-
-
 def presentation_plan_path(project_dir: str | None) -> str:
     if project_dir:
         return str((Path(project_dir).expanduser() / "analysis" / "presentation_plan.md").resolve())
     return "analysis/presentation_plan.md"
 
 
+def director_task(profile: dict, lens: str | None, plan_path: str, a: argparse.Namespace) -> dict:
+    """Compile a small Router-only task. Professional content stays behind file paths."""
+    profile_path = (ROOT / profile["file"]).resolve()
+    profile_text = file_text(profile_path)
+    lens_path = None
+    if lens:
+        p = (ROOT / "lenses" / f"{lens}.md").resolve()
+        if p.is_file():
+            lens_path = str(p)
+
+    lines = [
+        "# Router Director Task",
+        f"Router: {ROUTER_VERSION}",
+        f"Primary Profile: {profile['id']}",
+        "",
+        "## Read these paths",
+        f"- Professional prompt: `{profile_path}`",
+    ]
+    if lens_path:
+        lines.append(f"- Optional secondary lens: `{lens_path}`")
+    lines.extend([
+        *[f"- Material: `{x}`" for x in a.material],
+        *[f"- Template: `{x}`" for x in a.template_path],
+        *[f"- Reference: `{x}`" for x in a.reference_path],
+        *[f"- Workspace: `{x}`" for x in a.workspace_root],
+        "",
+        "## User task",
+        a.user_request or "按原始材料和明确约束完成专业导演。",
+        f"- Audience: {a.audience or '由材料和用户要求判断'}",
+        f"- Page count: {a.page_count if a.page_count else '由用户要求和材料判断'}",
+        f"- Format: {a.format}",
+        f"- Delivery purpose: {a.delivery_purpose or '由用户要求判断'}",
+        "- Explicit constraints: " + json.dumps(user_constraints(a), ensure_ascii=False),
+        "",
+        "## Priority",
+        "用户明确要求 → 原始事实材料 → 用户明确模板/参考要求 → Professional Profile 的专业默认经验。",
+        "",
+        "## Output",
+        f"完整读取上述路径后，按 Professional Profile 直接写入 `{plan_path}`。",
+        "完成 presentation_plan.md 后结束当前 Router Director Context。",
+        "PPT Master、Design Spec、Spec Lock、SVG、图片和PPTX由后续 fresh PPT Master Context负责。",
+    ])
+    prompt = "\n".join(lines).strip()
+    return {
+        "profile_path": str(profile_path),
+        "profile_sha256": sha_text(profile_text),
+        "secondary_lens_path": lens_path,
+        "prompt": prompt,
+        "prompt_sha256": sha_text(prompt),
+        "path_only_context": True,
+    }
+
+
 def master_handoff(a: argparse.Namespace, plan_path: str | None, source_intent: str) -> dict:
-    """The only Router-to-Master boundary: paths plus a short native activation."""
-    activation = (
-        "调用 PPT Master 完成当前 PPT。从当前 PPT Master SKILL.md 开始，先按当前版本原生路由确定实际 Route。"
-    )
-    if source_intent not in {"fill_native", "enhance_native", "create_reusable_template"}:
-        activation += "当任务进入 Generate PPTX 时，执行 Default Generate PPTX 原生完整流程。"
+    """Router→Master boundary: typed paths + user task + short native activation."""
+    activation = "调用 PPT Master 完成当前任务。完整读取当前 PPT Master SKILL.md 及实际命中的原生工作流，由 PPT Master 自主确定最终 Route。"
     if plan_path:
-        activation += "读取给定的 presentation_plan.md 作为已完成的专业导演稿；原始事实材料和用户明确要求优先。"
-    activation += (
-        "充分使用本任务实际适用的 Strategist、Visualization、Native Shape、SVG、Charts/Diagrams、图片、Visual Job Router、"
-        "Live Preview、动画/转场、Review、Export、Postflight 及其他原生高级和条件能力。不要重新运行 PPT Prompt Router。"
-    )
+        activation += "读取 presentation_plan.md 作为已完成的专业内容与页面语义导演稿，并结合原始材料、模板/参考和用户要求继续生产。"
+    if source_intent not in {"fill_native", "enhance_native", "create_reusable_template"}:
+        activation += "Generate PPTX 时按当前版本 Default Generate PPTX 原生完整流程执行。"
+    activation += "以最终汇报效果为优先，充分发挥本任务实际适用的原生完整、高级和条件能力，完成 Strategist、设计生产、Review、Export 与 Postflight。不要重新运行 PPT Prompt Router。"
+
     out = {
-        "material_paths": a.material,
-        "template_paths": a.template_path,
-        "reference_paths": a.reference_path,
-        "workspace_roots": a.workspace_root,
+        "material_paths": list(a.material),
+        "template_paths": list(a.template_path),
+        "reference_paths": list(a.reference_path),
+        "workspace_roots": list(a.workspace_root),
         "original_user_task": a.user_request,
         "audience": a.audience,
         "page_count": a.page_count,
@@ -230,9 +232,9 @@ def master_handoff(a: argparse.Namespace, plan_path: str | None, source_intent: 
     }
     if plan_path:
         out["presentation_plan_path"] = plan_path
-        out["stage1_restart_rule"] = (
-            "仅当 Master Stage 1 实质改变核心任务、材料范围或页面规模时，停止当前 Master Context；"
-            "启动新的独立 Router Context 更新 presentation_plan.md 后，再启动新的 Master Context。"
+        out["content_contract_change_rule"] = (
+            "若用户实质改变核心任务、材料范围或页面规模，停止当前 Master Context，"
+            "从 Router 入口重新生成 presentation_plan.md，再启动新的 Master Context。"
         )
     return out
 
@@ -276,14 +278,18 @@ def resolve(a: argparse.Namespace) -> dict:
     resolved_profile = selected if (selected and not arbitrate) else None
     candidates = candidate_profiles(index, ranking) if arbitrate else []
     path, needs_plan, protocol = execution_path(mode, resolved_profile)
+    # A migrated Direct Plan Profile is self-contained.  Keep its Director context
+    # single-profile to reduce prompt dilution and cross-skill context pollution.
+    if needs_plan:
+        lens = None
+
     if a.phase == "director" and not needs_plan:
         raise ValueError("director phase needs a resolved profile migrated to director_protocol=direct_plan_v1")
 
     plan_path = presentation_plan_path(a.project_dir) if needs_plan else None
     if a.phase == "director" and plan_path and a.project_dir:
-        # Ordinary host-side work-directory preparation only.  Router owns no
-        # project lifecycle beyond ensuring its output directory exists.
         Path(plan_path).parent.mkdir(parents=True, exist_ok=True)
+
     workspace_intent = a.workspace_intent or ("explicit_use_requested" if a.workspace_root else "candidate")
     task = director_task(resolved_profile, lens, plan_path, a) if needs_plan and resolved_profile else None
 
@@ -324,7 +330,8 @@ def resolve(a: argparse.Namespace) -> dict:
             "status": (
                 "ready" if task and a.phase == "director"
                 else "prepared" if task
-                else "not_migrated" if resolved_profile
+                else "not_migrated" if (mode == "full" and resolved_profile and not supports_direct_plan(resolved_profile))
+                else "not_required" if resolved_profile
                 else "bypass"
             ),
             "output_path": plan_path,

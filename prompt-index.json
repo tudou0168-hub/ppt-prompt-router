@@ -38,7 +38,6 @@
       ],
       "maturity": "experimental",
       "profile_version": "3.1.3",
-      "director_protocol": "direct_plan_v1",
       "domains": [
         "business",
         "project"
@@ -56,7 +55,8 @@
         "招投标",
         "融资",
         "课堂授课"
-      ]
+      ],
+      "director_protocol": "direct_plan_v1"
     },
     {
       "id": "planning_proposal",
@@ -898,7 +898,6 @@
       ],
       "maturity": "validated",
       "profile_version": "3.1.3",
-      "director_protocol": "direct_plan_v1",
       "domains": [
         "government"
       ],
@@ -917,7 +916,8 @@
         "建设方案",
         "政策解读培训",
         "投标"
-      ]
+      ],
+      "director_protocol": "direct_plan_v1"
     },
     {
       "id": "government_strategy",
@@ -955,7 +955,6 @@
       ],
       "maturity": "validated",
       "profile_version": "3.1.3",
-      "director_protocol": "direct_plan_v1",
       "domains": [
         "government"
       ],
@@ -974,7 +973,8 @@
       "downrank_when": [
         "普通周报",
         "投标"
-      ]
+      ],
+      "director_protocol": "direct_plan_v1"
     },
     {
       "id": "business_proposal",
@@ -1053,7 +1053,6 @@
       ],
       "maturity": "experimental",
       "profile_version": "3.1.3",
-      "director_protocol": "direct_plan_v1",
       "domains": [
         "business",
         "management"
@@ -1066,7 +1065,8 @@
       "downrank_when": [
         "演讲",
         "课程作业"
-      ]
+      ],
+      "director_protocol": "direct_plan_v1"
     },
     {
       "id": "data_report",
@@ -1195,7 +1195,6 @@
       ],
       "maturity": "experimental",
       "profile_version": "3.1.3",
-      "director_protocol": "direct_plan_v1",
       "domains": [
         "technology",
         "product"
@@ -1210,11 +1209,12 @@
       "downrank_when": [
         "产品卖点",
         "品牌宣讲"
-      ]
+      ],
+      "director_protocol": "direct_plan_v1"
     }
   ],
   "router_version": "3.1.3",
   "target_ppt_master": "4.4.x",
-  "integration_contract": "profile-guidance-only",
-  "director_protocol": "V15"
+  "integration_contract": "typed-path-direct-plan-handoff",
+  "director_protocol": "direct_plan_v1"
 }

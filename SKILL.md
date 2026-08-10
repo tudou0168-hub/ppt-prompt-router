@@ -1,46 +1,86 @@
 ---
 name: ppt-prompt-router
-description: PPT Master 4.4+ 的专业导演路由层；在独立 Router Context 中生成专业 `presentation_plan.md`，然后以严格路径式交接启动全新 PPT Master Context。
+description: PPT Master 4.4+ 的专业导演路由层；根据真实任务选择专业 Prompt，在独立 Router Context 生成 presentation_plan.md，再通过严格路径式交接启动 fresh PPT Master Context。
 version: 3.1.3
 ---
 
 # PPT Prompt Router 3.1.3 Stable
 
-Router 是专业导演增强层，不是第二套 PPT 生成系统。Router 负责场景判断；仅当选中的 Profile 明确声明 `director_protocol: direct_plan_v1` 时，才在独立上下文中直接生成 `presentation_plan.md`。PPT Master 继续负责其原生 Route、确认、Strategist、Design Spec / Lock、Executor、质量流程和导出。
+Router 负责：判断任务场景、选择专业 Profile、在已迁移的 Direct Plan 场景中生成 `presentation_plan.md`。
 
-## Default Generate 主流程
+PPT Master 负责：最终 Route、Stage 1/2、模板处理、Strategist、Design Spec / Lock、Executor、Visualization、Native Shape、SVG、Charts / Diagrams、图片、Live Preview、动画/转场、Review、Export、Postflight 以及当前任务实际命中的其他原生能力。
 
-1. Router Preflight：运行 `python3 scripts/route.py --phase preflight ... --json`，得到 `FULL / LIGHT / BYPASS`、Primary Profile、`execution_path` 和非权威 Master Route Hint。
-2. 只有 `execution_path.requires_presentation_plan=true` 时，宿主才准备普通 `<project>/analysis/` 工作目录，并以独立 Router Director Context 运行：
+## 核心原则
+
+1. 用户明确要求 → 原始事实材料 → 用户明确模板/参考要求 → Profile 默认经验。
+2. Router 与 PPT Master 使用 fresh context，通过**路径**交接，不传 Router conversation、Profile 全文、Kernel、scoring、capability map 或调试历史。
+3. `presentation_plan.md` 负责“讲什么、为什么讲、真实关系、信息主次和表达意图”；具体页面设计由 PPT Master 自主完成。
+4. 发现用户实质改变核心任务、材料范围或页面规模时，从 Router 入口重新生成 Plan，再启动新的 Master Context。
+
+## Direct Plan 主流程
+
+1. Preflight：
+
+```bash
+python3 scripts/route.py --phase preflight ... --json
+```
+
+得到 `FULL / LIGHT / BYPASS`、Primary Profile、`execution_path` 和非权威 Master Route Hint。
+
+2. 仅当 `execution_path.requires_presentation_plan=true` 时，在独立 Router Director Context 运行：
 
 ```bash
 python3 scripts/route.py \
   --phase director \
-  --prompt-id <preflight选中的profile_id> \
+  --prompt-id <profile_id> \
   --project-dir <project_path> \
-  --material <原始材料路径> \
-  --user-request <简洁用户要求> \
+  --material <source_path> \
+  --user-request <user_request> \
   --json
 ```
 
-`director_task.task.prompt` 仅供这一个 Router Context 使用。它读取对应专业 Prompt 和原始材料，直接写入 `<project>/analysis/presentation_plan.md` 后结束；不生成 Design Spec、Spec Lock、SVG、图片或 PPTX。
+`director_task.task.prompt` 只提供专业 Prompt 路径、材料路径、模板/参考路径、用户要求和输出路径。Director 自己读取这些路径，直接写入：
 
-3. 启动**全新** PPT Master Context。只传递 `master_handoff` 的 `material_paths`、可选 `presentation_plan_path`、`template_paths`、`reference_paths`、`workspace_roots`、用户明确要求和短激活提示。不得把 Router conversation、Director Kernel、Profile、Lens、semantic vocabulary、scoring、capability map 或调试日志传入。
-4. 新 Context 从 PPT Master 当前 `SKILL.md` 开始，按它实际命中的原生流程执行。存在计划时直接读取它；不存在计划时不得传递虚构路径，也不得要求 Master 创建第二份计划。
+`<project>/analysis/presentation_plan.md`
 
-只有当 Master Stage 1 实质改变核心任务、材料范围或页面规模时，才停止当前 Master Context，重新启动独立 Router Context 更新计划，再启动新的 Master Context。普通确认不触发回流。
+完成后结束 Router Context。
 
-## Reference Implementation
+3. 启动 fresh PPT Master Context，只交接：
 
-`government_annual_summary` 是首个 Direct Plan Profile，注册表标识为 `director_protocol: direct_plan_v1`。它直接使用“页面任务、核心观点、内容关系、信息主次、表达意图、页面内容、可用素材、Speaker Notes”写计划，并给出成果数据、改革机制、下半年路径和问题建议的完整页面导演示例。
+- `material_paths`
+- 可选 `presentation_plan_path`
+- `template_paths`
+- `reference_paths`
+- `workspace_roots`
+- 原始用户任务和明确约束
+- 简短 `activation_prompt`
 
-其他 Profile 保留现有专业知识，但尚未逐个升级为 reference 级别的完整页面导演 Prompt；它们在完成自身迁移与真实验证前不产生 Plan，直接以类型化路径交接启动 fresh Master。
+PPT Master 从当前 `SKILL.md` 开始，按当前版本原生流程生产。
+
+## 已迁移 Direct Plan Profiles
+
+- `government_annual_summary`
+- `government_strategy`
+- `work_report`
+- `decision_meeting`
+- `product_technical`
+
+以上 Profile 统一采用 V15 的自然语言页面导演结构：
+
+- 页面任务
+- 核心观点
+- 内容关系
+- 信息主次
+- 表达意图
+- 页面内容
+- 可用素材
+- Speaker Notes
+
+专业方法由各 Profile 自己定义；不使用固定页面示例、固定页码或固定版式引导 Agent 模仿。
 
 ## 介入深度
 
-- **FULL + Direct Plan Profile**：Router Director → Plan → fresh PPT Master。
-- **FULL + 未迁移 Profile**：fresh PPT Master，无 Plan；Router 标明 `not_migrated`，不把旧 Profile 伪装成新协议。
+- **FULL + Direct Plan Profile**：Router Director → `presentation_plan.md` → fresh PPT Master。
+- **FULL + 未迁移 Profile**：fresh PPT Master，无 Plan，状态为 `not_migrated`。
 - **LIGHT**：fresh PPT Master，无 Plan。
 - **BYPASS**：fresh PPT Master，无 Plan。
-
-所有 Profile 都先服从：用户明确要求 → 原始事实材料 → 用户明确模板／参考要求 → Profile 专业默认经验。
