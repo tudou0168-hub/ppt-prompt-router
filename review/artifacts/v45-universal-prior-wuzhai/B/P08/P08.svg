@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <defs>
+    <linearGradient id="p08-panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#123150"/>
+      <stop offset="100%" stop-color="#0D2036"/>
+    </linearGradient>
+    <linearGradient id="p08-rail" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#10243B"/>
+      <stop offset="50%" stop-color="#173A55"/>
+      <stop offset="100%" stop-color="#10243B"/>
+    </linearGradient>
+  </defs>
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#081525"/>
+  <g id="grid" data-pptx-role="decoration" data-pptx-bounds="64 58 1152 540" stroke="#1B4868" stroke-width="1" stroke-opacity="0.32">
+    <line x1="64" y1="58" x2="1216" y2="58"/><line x1="64" y1="112" x2="1216" y2="112"/>
+    <line x1="64" y1="166" x2="1216" y2="166"/><line x1="64" y1="220" x2="1216" y2="220"/>
+    <line x1="64" y1="274" x2="1216" y2="274"/><line x1="64" y1="328" x2="1216" y2="328"/>
+    <line x1="64" y1="382" x2="1216" y2="382"/><line x1="64" y1="436" x2="1216" y2="436"/>
+    <line x1="64" y1="490" x2="1216" y2="490"/><line x1="64" y1="544" x2="1216" y2="544"/>
+    <line x1="64" y1="598" x2="1216" y2="598"/>
+  </g>
+  <g id="header" data-pptx-bounds="64 46 1152 134">
+    <rect x="64" y="46" width="74" height="26" rx="13" fill="#153B5C" stroke="#37C6F4" stroke-width="1"/>
+    <text x="101" y="64" text-anchor="middle" fill="#8EDFF7" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">P08</text>
+    <text x="154" y="65" fill="#73E2B4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="2">智能办事 / 事项闭环</text>
+    <text x="64" y="113" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="36" font-weight="700">围绕高频事项，降低填报、预审与跨层级办理摩擦</text>
+    <text x="64" y="151" fill="#B7CAD8" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22">先以事项流程重塑为前提，再让智能能力服务于“少填、少等、少跑、少重复”。</text>
+    <line x1="64" y1="180" x2="1216" y2="180" stroke="#2A6284" stroke-width="1"/>
+  </g>
+  <g id="scenario-capabilities" data-pptx-bounds="64 210 1152 224">
+    <g id="card-fill-precheck">
+      <rect x="64" y="210" width="268" height="224" rx="10" fill="url(#p08-panel)" stroke="#2C6D91" stroke-width="1.2"/>
+      <rect x="64" y="210" width="7" height="224" rx="3.5" fill="#37C6F4"/>
+      <text x="91" y="248" fill="#8EDFF7" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">01 / 填单与预审</text>
+      <text x="91" y="291" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="25" font-weight="700">减少“填得慢、填错”</text>
+      <line x1="91" y1="310" x2="305" y2="310" stroke="#2A6284" stroke-width="1"/>
+      <text x="91" y="340" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">自然语言引导 · 材料识别</text>
+      <text x="91" y="370" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">表单预填 · 合规校验</text>
+      <text x="91" y="407" fill="#77BBD5" font-family="Menlo, Consolas, monospace" font-size="13">高频事项优先验证</text>
+    </g>
+    <g id="card-enterprise-consult">
+      <rect x="352" y="210" width="268" height="224" rx="10" fill="url(#p08-panel)" stroke="#397C78" stroke-width="1.2"/>
+      <rect x="352" y="210" width="7" height="224" rx="3.5" fill="#73E2B4"/>
+      <text x="379" y="248" fill="#9BF0CA" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">02 / 惠企与咨询</text>
+      <text x="379" y="291" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="25" font-weight="700">减少“找不准、问不清”</text>
+      <line x1="379" y1="310" x2="593" y2="310" stroke="#2A6B6A" stroke-width="1"/>
+      <text x="379" y="340" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">企业画像—政策条件匹配</text>
+      <text x="379" y="370" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">对话式办事指引</text>
+      <text x="379" y="407" fill="#86D9B4" font-family="Menlo, Consolas, monospace" font-size="13">规则清晰后再接入</text>
+    </g>
+    <g id="card-grassroots">
+      <rect x="640" y="210" width="268" height="224" rx="10" fill="url(#p08-panel)" stroke="#8F6A32" stroke-width="1.2"/>
+      <rect x="640" y="210" width="7" height="224" rx="3.5" fill="#FFC65A"/>
+      <text x="667" y="248" fill="#FFD98D" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">03 / 基层延伸</text>
+      <text x="667" y="291" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="25" font-weight="700">减少“跑得远、办不了”</text>
+      <line x1="667" y1="310" x2="881" y2="310" stroke="#7E643A" stroke-width="1"/>
+      <text x="667" y="340" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">远程视频 · 身份核验</text>
+      <text x="667" y="370" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">材料上传 · 电子签名 · 云端办理</text>
+      <text x="667" y="407" fill="#F1C76A" font-family="Menlo, Consolas, monospace" font-size="13">承接能力须先核实</text>
+    </g>
+    <g id="card-traceability">
+      <rect x="928" y="210" width="288" height="224" rx="10" fill="url(#p08-panel)" stroke="#6267A6" stroke-width="1.2"/>
+      <rect x="928" y="210" width="7" height="224" rx="3.5" fill="#A6A7FF"/>
+      <text x="955" y="248" fill="#C4C5FF" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">04 / 服务留痕</text>
+      <text x="955" y="291" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="23" font-weight="700">减少“难追溯、难改进”</text>
+      <line x1="955" y1="310" x2="1189" y2="310" stroke="#5A5E90" stroke-width="1"/>
+      <text x="955" y="340" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">窗口录音质检</text>
+      <text x="955" y="370" fill="#C8D8E4" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18">云勘验过程可追溯</text>
+      <text x="955" y="407" fill="#B9BAFA" font-family="Menlo, Consolas, monospace" font-size="13">合规边界同步明确</text>
+    </g>
+  </g>
+  <g id="dependency-links" data-pptx-bounds="198 434 874 34" fill="none" stroke="#39718F" stroke-width="2">
+    <path d="M198 434V468H640"/>
+    <path d="M486 434V468H640"/>
+    <path d="M774 434V468H640"/>
+    <path d="M1072 434V468H640"/>
+    <circle cx="198" cy="468" r="4" fill="#37C6F4" stroke="none"/><circle cx="486" cy="468" r="4" fill="#73E2B4" stroke="none"/>
+    <circle cx="774" cy="468" r="4" fill="#FFC65A" stroke="none"/><circle cx="1072" cy="468" r="4" fill="#A6A7FF" stroke="none"/>
+  </g>
+  <g id="dependency-gate" data-pptx-bounds="64 486 1152 124">
+    <rect x="64" y="486" width="1152" height="124" rx="12" fill="url(#p08-rail)" stroke="#3B7394" stroke-width="1.2"/>
+    <text x="92" y="525" fill="#FFC65A" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="700" letter-spacing="1">实施前置依赖 / 先行核实</text>
+    <text x="92" y="562" fill="#F2F8FC" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="23" font-weight="700">能力模块必须落在可执行的业务规则与系统条件上</text>
+    <g id="dependency-tags" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700">
+      <rect x="649" y="510" width="103" height="34" rx="17" fill="#174563" stroke="#37C6F4" stroke-width="1"/><text x="700.5" y="533" text-anchor="middle" fill="#BDEBFA">事项标准</text>
+      <rect x="765" y="510" width="103" height="34" rx="17" fill="#174E48" stroke="#73E2B4" stroke-width="1"/><text x="816.5" y="533" text-anchor="middle" fill="#C5F5DD">材料规则</text>
+      <rect x="881" y="510" width="103" height="34" rx="17" fill="#5A4726" stroke="#FFC65A" stroke-width="1"/><text x="932.5" y="533" text-anchor="middle" fill="#FFE2A8">身份核验</text>
+      <rect x="997" y="510" width="174" height="34" rx="17" fill="#3A3C67" stroke="#A6A7FF" stroke-width="1"/><text x="1084" y="533" text-anchor="middle" fill="#D9D9FF">业务系统对接</text>
+    </g>
+    <text x="92" y="591" fill="#9CB5C6" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17">本地高频事项、材料字段、业务权限、可用接口及合法合规条件，决定首批闭环能否上线。</text>
+  </g>
+  <g id="footer" data-pptx-role="footer" data-pptx-bounds="64 650 1152 40">
+    <line x1="64" y1="650" x2="1216" y2="650" stroke="#214D6A" stroke-width="1"/>
+    <text x="64" y="679" fill="#86A3B5" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14">规划口径：模块与指标均为拟建方向或建设预期，不作为五寨县既有成果引用。</text>
+    <text x="1216" y="679" text-anchor="end" fill="#37C6F4" font-family="Menlo, Consolas, monospace" font-size="14">五寨县“人工智能+”政务服务规划方案</text>
+  </g>
+</svg>

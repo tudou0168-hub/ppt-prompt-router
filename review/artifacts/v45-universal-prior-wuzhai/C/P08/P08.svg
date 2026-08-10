@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"
+     data-pptx-page-role="content" font-family="Microsoft YaHei, Arial" fill="#EAF4FA">
+  <defs>
+    <linearGradient id="header-line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4DE1FF" stop-opacity="0"/>
+      <stop offset="0.22" stop-color="#4DE1FF" stop-opacity="0.85"/>
+      <stop offset="0.78" stop-color="#4DE1FF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#4DE1FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="spine-fill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4DE1FF" stop-opacity="0.25"/>
+      <stop offset="0.45" stop-color="#4DE1FF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#9CFF64" stop-opacity="0.82"/>
+    </linearGradient>
+    <linearGradient id="dependency-fill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFC857" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#FFC857" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#FFC857" stop-opacity="0.16"/>
+    </linearGradient>
+    <filter id="title-glow" x="-15%" y="-25%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#4DE1FF" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#07131F"/>
+  <path id="field-grid" data-pptx-role="decoration"
+        d="M40 154H1240 M40 184H1240 M40 540H1240 M40 568H1240 M40 596H1240"
+        fill="none" stroke="#4DE1FF" stroke-width="1" stroke-opacity="0.10"/>
+  <path id="corner-brackets" data-pptx-role="decoration"
+        d="M40 40H92 M40 40V88 M1240 40H1188 M1240 40V88 M40 680H92 M40 680V632 M1240 680H1188 M1240 680V632"
+        fill="none" stroke="#4DE1FF" stroke-width="2" stroke-opacity="0.45"/>
+
+  <g id="header" data-pptx-bounds="50 42 1130 118">
+    <text x="50" y="62" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" font-weight="bold" letter-spacing="1.2" fill="#4DE1FF">P08 / 智能办事能力闭环</text>
+    <text x="50" y="104" font-size="34" font-weight="bold" filter="url(#title-glow)">先在高频、规则清晰的事项中验证</text>
+    <text x="50" y="143" font-size="34" font-weight="bold" fill="#9CFF64">“少填、少等、少跑、少重复”闭环</text>
+    <text x="1180" y="62" text-anchor="end" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="1" fill="#EAF4FA" fill-opacity="0.72">拟建能力 / 决策沟通样页</text>
+    <rect x="50" y="164" width="1130" height="3" rx="1.5" fill="url(#header-line)"/>
+  </g>
+
+  <g id="flow-spine" data-pptx-bounds="60 194 1160 304">
+    <text x="60" y="212" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="1" fill="#EAF4FA" fill-opacity="0.66">办事场景 → 智能能力组合 → 直接减摩擦</text>
+    <rect x="78" y="387" width="1124" height="8" rx="4" fill="#102438"/>
+    <rect x="78" y="387" width="1124" height="8" rx="4" fill="url(#spine-fill)"/>
+    <text x="1203" y="380" text-anchor="end" font-size="13" font-weight="bold" fill="#9CFF64">以闭环可验证为先</text>
+  </g>
+
+  <g id="stage-fill-review" data-pptx-bounds="60 230 250 162">
+    <rect x="60" y="236" width="250" height="136" rx="12" fill="#102438" stroke="#4DE1FF" stroke-width="1.5" stroke-opacity="0.64"/>
+    <text x="82" y="262" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="0.8" fill="#4DE1FF">01 / 填报与材料</text>
+    <text x="82" y="293" font-size="21" font-weight="bold">填单 + 预审</text>
+    <text x="82" y="320" font-size="13" fill="#EAF4FA" fill-opacity="0.84">自然语言引导 · 材料识别<tspan x="82" dy="21">表单预填 · 合规校验</tspan></text>
+    <rect x="82" y="348" width="82" height="17" rx="8.5" fill="#4DE1FF" fill-opacity="0.18"/>
+    <text x="123" y="361" text-anchor="middle" font-size="13" font-weight="bold" fill="#4DE1FF">少填 / 少等</text>
+    <circle cx="185" cy="391" r="12" fill="#07131F" stroke="#4DE1FF" stroke-width="3"/>
+    <circle cx="185" cy="391" r="4" fill="#4DE1FF"/>
+  </g>
+
+  <g id="stage-enterprise-service" data-pptx-bounds="326 226 254 166">
+    <rect x="326" y="250" width="254" height="122" rx="12" fill="#102438" stroke="#4DE1FF" stroke-width="1.5" stroke-opacity="0.48"/>
+    <text x="348" y="276" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="0.8" fill="#4DE1FF">02 / 企业服务与咨询</text>
+    <text x="348" y="307" font-size="21" font-weight="bold">匹配 + 问清</text>
+    <text x="348" y="334" font-size="13" fill="#EAF4FA" fill-opacity="0.84">企业画像 ↔ 政策条件匹配<tspan x="348" dy="21">对话式办事指引</tspan></text>
+    <circle cx="451" cy="391" r="12" fill="#07131F" stroke="#4DE1FF" stroke-width="3"/>
+    <circle cx="451" cy="391" r="4" fill="#4DE1FF"/>
+  </g>
+
+  <g id="stage-cloud-service" data-pptx-bounds="596 226 340 166">
+    <rect x="596" y="226" width="340" height="146" rx="12" fill="#102438" stroke="#4DE1FF" stroke-width="2"/>
+    <rect x="596" y="226" width="6" height="146" rx="3" fill="#9CFF64"/>
+    <text x="622" y="252" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="0.8" fill="#9CFF64">03 / 基层远程办</text>
+    <text x="622" y="286" font-size="21" font-weight="bold">云综窗协同办理</text>
+    <text x="622" y="315" font-size="13" fill="#EAF4FA" fill-opacity="0.84">远程视频 + 身份核验 + 材料上传<tspan x="622" dy="21">电子签名 → 云端办理</tspan></text>
+    <rect x="622" y="344" width="72" height="17" rx="8.5" fill="#9CFF64" fill-opacity="0.18"/>
+    <text x="658" y="357" text-anchor="middle" font-size="13" font-weight="bold" fill="#9CFF64">少跑</text>
+    <circle cx="766" cy="391" r="14" fill="#07131F" stroke="#9CFF64" stroke-width="3"/>
+    <circle cx="766" cy="391" r="5" fill="#9CFF64"/>
+  </g>
+
+  <g id="stage-traceability" data-pptx-bounds="952 230 258 162">
+    <rect x="952" y="250" width="258" height="122" rx="12" fill="#102438" stroke="#4DE1FF" stroke-width="1.5" stroke-opacity="0.48"/>
+    <text x="974" y="276" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" letter-spacing="0.8" fill="#4DE1FF">04 / 窗口与勘验</text>
+    <text x="974" y="307" font-size="21" font-weight="bold">留痕 + 可追溯</text>
+    <text x="974" y="334" font-size="13" fill="#EAF4FA" fill-opacity="0.84">录音质检 · 过程归档<tspan x="974" dy="21">远程踏勘 · 全程留痕</tspan></text>
+    <circle cx="1081" cy="391" r="12" fill="#07131F" stroke="#4DE1FF" stroke-width="3"/>
+    <circle cx="1081" cy="391" r="4" fill="#4DE1FF"/>
+  </g>
+
+  <g id="shared-dependencies" data-pptx-bounds="50 430 1180 138">
+    <path d="M84 458H1196" fill="none" stroke="#FFC857" stroke-width="1.5" stroke-opacity="0.62" stroke-dasharray="6,3"/>
+    <text x="60" y="447" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" font-weight="bold" letter-spacing="0.8" fill="#FFC857">共同依赖 / 推进前置核验</text>
+    <rect x="60" y="470" width="1160" height="70" rx="14" fill="url(#dependency-fill)" stroke="#FFC857" stroke-width="1" stroke-opacity="0.58"/>
+    <text x="115" y="500" text-anchor="middle" font-size="19" font-weight="bold">事项标准</text>
+    <text x="115" y="523" text-anchor="middle" font-size="13" fill="#EAF4FA" fill-opacity="0.76">高频场景与流程边界</text>
+    <line x1="236" y1="485" x2="236" y2="526" stroke="#FFC857" stroke-width="1" stroke-opacity="0.42"/>
+    <text x="350" y="500" text-anchor="middle" font-size="19" font-weight="bold">材料规则</text>
+    <text x="350" y="523" text-anchor="middle" font-size="13" fill="#EAF4FA" fill-opacity="0.76">字段、要件与校验口径</text>
+    <line x1="471" y1="485" x2="471" y2="526" stroke="#FFC857" stroke-width="1" stroke-opacity="0.42"/>
+    <text x="585" y="500" text-anchor="middle" font-size="19" font-weight="bold">身份核验</text>
+    <text x="585" y="523" text-anchor="middle" font-size="13" fill="#EAF4FA" fill-opacity="0.76">线上线下一致确认</text>
+    <line x1="706" y1="485" x2="706" y2="526" stroke="#FFC857" stroke-width="1" stroke-opacity="0.42"/>
+    <text x="840" y="500" text-anchor="middle" font-size="19" font-weight="bold">系统对接</text>
+    <text x="840" y="523" text-anchor="middle" font-size="13" fill="#EAF4FA" fill-opacity="0.76">权限、接口与数据流</text>
+    <line x1="971" y1="485" x2="971" y2="526" stroke="#FFC857" stroke-width="1" stroke-opacity="0.42"/>
+    <text x="1095" y="500" text-anchor="middle" font-size="19" font-weight="bold">合法合规</text>
+    <text x="1095" y="523" text-anchor="middle" font-size="13" fill="#EAF4FA" fill-opacity="0.76">数据与业务条件核验</text>
+  </g>
+
+  <g id="footer-note" data-pptx-bounds="50 610 1180 54">
+    <rect x="50" y="610" width="1180" height="1" fill="#4DE1FF" fill-opacity="0.22"/>
+    <text x="50" y="638" font-size="13" fill="#FFC857">核验提示：材料中的“支持30个高频事项”“填表平均时长由15分钟缩短至3分钟”为建设预期，非五寨县既有成效。</text>
+    <text x="50" y="658" font-size="13" fill="#EAF4FA" fill-opacity="0.62">应先核实：高频事项、材料字段、业务系统权限、可用接口及合法合规条件。</text>
+    <text x="1230" y="658" text-anchor="end" font-family="Microsoft YaHei, Consolas, Arial" font-size="13" fill="#4DE1FF">五寨县“人工智能+”规划方案</text>
+  </g>
+</svg>

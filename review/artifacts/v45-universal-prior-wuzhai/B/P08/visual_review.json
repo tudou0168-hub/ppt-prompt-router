@@ -1,0 +1,17 @@
+{
+  "page": "P08.svg",
+  "page_role": "content",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [
+    ".preview/P08.before_visual_review.png"
+  ],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "四组办事场景能力应横向汇聚到事项标准、材料规则、身份核验与业务系统对接的共同依赖闸门；明确建设预期需经本地条件核实。",
+    "render_delivers": true,
+    "note": "阅读顺序清晰：标题和主张、四组平行能力、共同实施依赖、规划口径提示。未发现越界、溢出、碰撞、可读性或缺失关键元素问题；无须原子修复。"
+  }
+}

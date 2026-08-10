@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" data-pptx-page-role="content">
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F6F3ED"/>
+  <g id="page-header" data-pptx-bounds="48 28 1184 82">
+    <rect x="48" y="37" width="6" height="50" fill="#B52B32"/>
+    <text x="70" y="50" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" letter-spacing="1.2" fill="#B52B32">P05 / 民生机制</text>
+    <text x="70" y="88" font-size="42" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#173F63">以闭环协同和场景延伸，把服务做进基层与群众身边</text>
+    <text x="1232" y="50" font-size="16" text-anchor="end" fill="#18242E">审批服务局｜2026年上半年</text>
+  </g>
+  <line id="header-rule" data-pptx-role="decoration" x1="48" y1="110" x2="1232" y2="110" stroke="#C7D1D9" stroke-width="2"/>
+  <g id="form-loop" data-pptx-bounds="38 138 660 404">
+    <text x="48" y="165" font-size="20" font-weight="bold" fill="#173F63">“一表通”以全链条闭环减少基层重复报送</text>
+    <text x="48" y="195" font-size="18" fill="#18242E">数据一次采集、多方复用；仅呈现材料明确的闭环机制</text>
+    <line x1="92" y1="274" x2="550" y2="274" stroke="#C7D1D9" stroke-width="3"/>
+    <g id="form-step-deploy">
+      <circle cx="92" cy="274" r="40" fill="#173F63"/>
+      <text x="92" y="281" font-size="22" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">01</text>
+      <text x="92" y="338" font-size="24" font-weight="bold" text-anchor="middle" fill="#173F63">任务部署</text>
+      <text x="92" y="368" font-size="18" text-anchor="middle" fill="#18242E">专班统筹</text>
+    </g>
+    <g id="form-step-supervise">
+      <circle cx="321" cy="274" r="40" fill="#2E7D79"/>
+      <text x="321" y="281" font-size="22" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">02</text>
+      <text x="321" y="338" font-size="24" font-weight="bold" text-anchor="middle" fill="#173F63">督办整改</text>
+      <text x="321" y="368" font-size="18" text-anchor="middle" fill="#18242E">试点推进</text>
+    </g>
+    <g id="form-step-review">
+      <circle cx="550" cy="274" r="40" fill="#B52B32"/>
+      <text x="550" y="281" font-size="22" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">03</text>
+      <text x="550" y="338" font-size="24" font-weight="bold" text-anchor="middle" fill="#173F63">成效复盘</text>
+      <text x="550" y="368" font-size="18" text-anchor="middle" fill="#18242E">持续精简</text>
+    </g>
+    <g id="coverage-facts">
+      <rect x="48" y="414" width="602" height="96" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <text x="72" y="444" font-size="18" fill="#18242E">全覆盖摸排</text>
+      <text x="72" y="480" font-size="30" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#173F63">20 + 6 + 101</text>
+      <text x="310" y="480" font-size="18" fill="#18242E">部门 / 办事处 / 村（社区）</text>
+      <line x1="72" y1="494" x2="626" y2="494" stroke="#C7D1D9" stroke-width="1"/>
+      <text x="72" y="527" font-size="18" fill="#18242E">411 个账号</text>
+      <text x="312" y="527" font-size="18" fill="#18242E">区级报表精简至</text>
+      <text x="562" y="527" font-size="26" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#B52B32">112 项</text>
+    </g>
+  </g>
+  <g id="service-scenes" data-pptx-bounds="730 138 502 396">
+    <text x="730" y="165" font-size="20" font-weight="bold" fill="#173F63">跨部门场景与“有诉即办”形成体验支撑</text>
+    <g id="union-service">
+      <rect x="730" y="206" width="502" height="132" fill="#173F63"/>
+      <!-- icon: tabler-outline/building-community -->
+  <g transform="translate(758, 230) scale(2.25)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M8 9l5 5v7h-5v-4m0 4h-5v-7l5 -5m1 1v-6a1 1 0 0 1 1 -1h10a1 1 0 0 1 1 1v17h-8" />
+    <path d="M13 7l0 .01" />
+    <path d="M17 7l0 .01" />
+    <path d="M17 11l0 .01" />
+    <path d="M17 15l0 .01" />
+  </g>
+      <text x="836" y="244" font-size="20" fill="#FFFFFF">政务+工会服务平台</text>
+      <text x="836" y="302" font-size="52" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#FFFFFF">2万余人次</text>
+      <text x="836" y="325" font-size="17" fill="#E8EEF3">政务服务、法律维权、零工就业、休憩阅读</text>
+    </g>
+    <g id="appeal-service">
+      <rect x="730" y="360" width="502" height="150" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <!-- icon: tabler-outline/clipboard-list -->
+  <g transform="translate(758, 387) scale(1.91667)" fill="none" stroke="#B52B32" stroke-width="2">
+    <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+    <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
+    <path d="M9 12l.01 0" />
+    <path d="M13 12l2 0" />
+    <path d="M9 16l.01 0" />
+    <path d="M13 16l2 0" />
+  </g>
+      <text x="828" y="405" font-size="20" font-weight="bold" fill="#173F63">有诉即办，推动诉求在大厅化解</text>
+      <text x="758" y="469" font-size="54" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#B52B32">197 件</text>
+      <text x="982" y="465" font-size="20" fill="#18242E">上半年解决群众各类诉求</text>
+      <text x="758" y="495" font-size="17" fill="#18242E">已开展场景：政务+健康｜政务+婚检</text>
+    </g>
+  </g>
+  <g id="interpretation-band" data-pptx-bounds="48 560 1184 60">
+    <rect x="48" y="560" width="1184" height="60" fill="#E8EEF3"/>
+    <text x="72" y="597" font-size="20" font-weight="bold" fill="#173F63">机制负责减负，场景负责体验：</text>
+    <text x="352" y="597" font-size="20" fill="#18242E">“一表通”闭环与并列服务场景共同延伸基层政务服务触点。</text>
+  </g>
+  <g id="page-footer" data-pptx-bounds="48 650 1184 32">
+    <line x1="48" y1="650" x2="1232" y2="650" stroke="#C7D1D9" stroke-width="1"/>
+    <text x="48" y="676" font-size="16" fill="#18242E">数据来源：审批服务局2026年上半年工作总结；“政务+健康”“政务+婚检”为已开展场景</text>
+    <text x="1232" y="676" font-size="16" font-family="Menlo, Consolas, monospace" text-anchor="end" fill="#173F63">05</text>
+  </g>
+</svg>

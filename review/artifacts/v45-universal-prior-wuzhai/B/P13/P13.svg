@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Microsoft YaHei, Arial, sans-serif" data-pptx-page-role="content">
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon points="0,0 10,5 0,10" fill="#146CFF"/>
+    </marker>
+  </defs>
+
+  <rect id="page-background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+
+  <g id="header" data-pptx-bounds="48 42 1184 126">
+    <rect x="48" y="42" width="92" height="8" fill="#146CFF"/>
+    <text x="48" y="82" font-size="18" font-weight="bold" fill="#146CFF" letter-spacing="1">P13｜推进路径</text>
+    <text x="48" y="134" font-size="42" font-weight="bold" fill="#0B1F3A">先试点验证，再分步扩展</text>
+    <text x="50" y="160" font-size="18" fill="#1C2B3A">在基线未核实前，以阶段闸门决定建设是否进入下一步</text>
+    <text x="1204" y="82" font-size="14" text-anchor="end" fill="#617084">规划方案决策沟通</text>
+  </g>
+
+  <g id="decision-boundary" data-pptx-bounds="1088 196 144 396">
+    <rect x="1088" y="196" width="144" height="396" fill="#0B1F3A"/>
+    <rect x="1088" y="196" width="144" height="8" fill="#146CFF"/>
+    <text x="1110" y="242" font-size="18" font-weight="bold" fill="#FFFFFF">推进边界</text>
+    <line x1="1110" y1="260" x2="1210" y2="260" stroke="#4A6484" stroke-width="1"/>
+    <text x="1110" y="300" font-size="18" font-weight="bold" fill="#FFFFFF">不预设</text>
+    <text x="1110" y="330" font-size="18" fill="#FFFFFF">日期</text>
+    <text x="1110" y="358" font-size="18" fill="#FFFFFF">预算</text>
+    <text x="1110" y="386" font-size="18" fill="#FFFFFF">建设批次</text>
+    <line x1="1110" y1="418" x2="1210" y2="418" stroke="#4A6484" stroke-width="1"/>
+    <text x="1110" y="452" font-size="14" fill="#B9C8DB">以核实结果、</text>
+    <text x="1110" y="474" font-size="14" fill="#B9C8DB">试点实测与</text>
+    <text x="1110" y="496" font-size="14" fill="#B9C8DB">决策确认推进</text>
+  </g>
+
+  <g id="progress-rail" data-pptx-bounds="48 180 1000 30">
+    <line x1="81" y1="196" x2="1018" y2="196" stroke="#C6D1E0" stroke-width="4"/>
+    <line x1="81" y1="196" x2="1018" y2="196" stroke="#146CFF" stroke-width="4" marker-end="url(#arrow-blue)"/>
+  </g>
+
+  <g id="phase-discovery" data-pptx-bounds="48 176 232 404">
+    <rect x="48" y="210" width="232" height="370" fill="#FFFFFF" stroke="#C6D1E0" stroke-width="1"/>
+    <circle cx="76" cy="196" r="18" fill="#146CFF"/>
+    <text x="76" y="202" font-size="18" font-weight="bold" text-anchor="middle" fill="#FFFFFF">01</text>
+    <text x="68" y="254" font-size="22" font-weight="bold" fill="#0B1F3A">摸底与定标</text>
+    <rect x="68" y="274" width="40" height="4" fill="#146CFF"/>
+    <text x="68" y="320" font-size="18" fill="#1C2B3A">核实现状、事项与<tspan x="68" dy="28">数据底账</tspan></text>
+    <text x="68" y="394" font-size="18" fill="#1C2B3A">明确建设边界与<tspan x="68" dy="28">优先级</tspan></text>
+    <rect x="68" y="494" width="192" height="66" fill="#E6F6F2"/>
+    <text x="80" y="518" font-size="14" font-weight="bold" fill="#007D69">进入条件</text>
+    <text x="80" y="540" font-size="14" fill="#1C2B3A">形成可核验的事项、数据、<tspan x="80" dy="18">接口与现场条件清单</tspan></text>
+  </g>
+
+  <g id="phase-pilot" data-pptx-bounds="310 176 232 404">
+    <rect x="310" y="210" width="232" height="370" fill="#FFFFFF" stroke="#C6D1E0" stroke-width="1"/>
+    <circle cx="338" cy="196" r="18" fill="#146CFF"/>
+    <text x="338" y="202" font-size="18" font-weight="bold" text-anchor="middle" fill="#FFFFFF">02</text>
+    <text x="330" y="254" font-size="22" font-weight="bold" fill="#0B1F3A">场景试点</text>
+    <rect x="330" y="274" width="40" height="4" fill="#146CFF"/>
+    <text x="330" y="320" font-size="18" fill="#1C2B3A">选择高频、规则清晰、<tspan x="330" dy="28">数据条件较好的场景</tspan></text>
+    <text x="330" y="394" font-size="18" fill="#1C2B3A">验证服务—受理—反馈<tspan x="330" dy="28">闭环</tspan></text>
+    <rect x="330" y="494" width="192" height="66" fill="#E6F6F2"/>
+    <text x="342" y="518" font-size="14" font-weight="bold" fill="#007D69">进入条件</text>
+    <text x="342" y="540" font-size="14" fill="#1C2B3A">明确人工兜底、责任接口与<tspan x="342" dy="18">运行条件</tspan></text>
+  </g>
+
+  <g id="phase-evaluation" data-pptx-bounds="572 176 232 404">
+    <rect x="572" y="210" width="232" height="370" fill="#FFFFFF" stroke="#C6D1E0" stroke-width="1"/>
+    <circle cx="600" cy="196" r="18" fill="#146CFF"/>
+    <text x="600" y="202" font-size="18" font-weight="bold" text-anchor="middle" fill="#FFFFFF">03</text>
+    <text x="592" y="254" font-size="22" font-weight="bold" fill="#0B1F3A">评估与固化</text>
+    <rect x="592" y="274" width="40" height="4" fill="#146CFF"/>
+    <text x="592" y="320" font-size="18" fill="#1C2B3A">复盘体验、效率、质量、<tspan x="592" dy="28">合规与运维</tspan></text>
+    <text x="592" y="394" font-size="18" fill="#1C2B3A">形成可复用的标准流程</text>
+    <rect x="592" y="494" width="192" height="66" fill="#E6F6F2"/>
+    <text x="604" y="518" font-size="14" font-weight="bold" fill="#007D69">进入条件</text>
+    <text x="604" y="540" font-size="14" fill="#1C2B3A">确认本地实测成效、风险与<tspan x="604" dy="18">可持续运营条件</tspan></text>
+  </g>
+
+  <g id="phase-expand" data-pptx-bounds="834 176 232 404">
+    <rect x="834" y="210" width="232" height="370" fill="#FFFFFF" stroke="#C6D1E0" stroke-width="1"/>
+    <circle cx="862" cy="196" r="18" fill="#146CFF"/>
+    <text x="862" y="202" font-size="18" font-weight="bold" text-anchor="middle" fill="#FFFFFF">04</text>
+    <text x="854" y="254" font-size="22" font-weight="bold" fill="#0B1F3A">分步扩展</text>
+    <rect x="854" y="274" width="40" height="4" fill="#146CFF"/>
+    <text x="854" y="320" font-size="18" fill="#1C2B3A">扩展至更多事项、窗口<tspan x="854" dy="28">和基层网点</tspan></text>
+    <text x="854" y="394" font-size="18" fill="#1C2B3A">统筹底座能力</text>
+    <rect x="854" y="494" width="192" height="66" fill="#E6F6F2"/>
+    <text x="866" y="518" font-size="14" font-weight="bold" fill="#007D69">进入条件</text>
+    <text x="866" y="540" font-size="14" fill="#1C2B3A">决策确认扩展范围、节奏与<tspan x="866" dy="18">保障安排</tspan></text>
+  </g>
+
+  <g id="feedback-loop" data-pptx-bounds="332 590 516 66">
+    <path d="M688 590 C688 634 450 634 450 590" fill="none" stroke="#146CFF" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <rect x="490" y="618" width="170" height="24" fill="#F7F9FC"/>
+    <text x="575" y="636" font-size="14" text-anchor="middle" fill="#146CFF">评估发现问题 → 返回试点优化</text>
+  </g>
+
+  <g id="footer" data-pptx-bounds="48 674 1184 32">
+    <line x1="48" y1="674" x2="1232" y2="674" stroke="#C6D1E0" stroke-width="1"/>
+    <text x="48" y="698" font-size="14" fill="#617084">四步为建议性实施方法；具体起止时间、投资和建设批次待决策后制定</text>
+    <text x="1232" y="698" font-size="14" text-anchor="end" fill="#617084">13</text>
+  </g>
+</svg>

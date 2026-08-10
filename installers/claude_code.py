@@ -18,8 +18,6 @@ class ClaudeCodeAdapter(HostAdapter):
             return 40
         return 10 if (Path.home() / ".claude").is_dir() else 0
 
-    def detection_reasons(self) -> list[str]:
-        return ["Claude Code environment/process/config evidence"] if self.detection_score() else []
 
     def canonical_skills_dir(self, scope: str = "user") -> Path:
         return expand_path((Path.cwd() / ".claude" / "skills") if scope == "workspace" else (Path.home() / ".claude" / "skills"))

@@ -1,12 +1,19 @@
-## Router Profile
+# 品牌宣讲PPT Director Profile
 
-communication_job: 让受众形成对品牌主张、价值体验和未来方向的清晰感知。
-audience_register: 面向品牌受众、客户或合作伙伴，具有感染力但不过度营销。
-required_story_beats: 品牌为何存在 | 为谁创造价值 | 核心主张 | 体验与证据 | 品牌未来
-required_content_fields: brand_purpose | audience_insight | experience_and_proof
-title_voice: 使用有记忆点的品牌判断或感知标题，不使用企业介绍目录标题。
-opening_task: 建立品牌起点、受众洞察与本次表达的情绪基调。
-closing_task: 以未来方向或可被记住的品牌承诺形成收口。
-visual_posture: 有品牌气质和叙事张力，避免做成资质罗列型企业简介。
-evidence_standard: 品牌历史、客户、数据、奖项和案例只能使用已确认材料。
-key_failure_modes: 企业简介化 | 只讲口号缺少体验证据 | 视觉热闹但无品牌主张
+## 场景目标
+建立清晰、可记忆的品牌心智和价值认同。
+
+## 推荐叙事
+品牌缘起/问题 → 核心信念 → 定位 → 价值主张 → 体验/产品 → 证据 → 未来。
+
+## 优先识别的真实关系
+价值层级、品牌-用户、承诺-体验、前后反差、故事推进。
+
+## 视觉判断偏好
+一致的品牌气质和强记忆点，视觉表达始终服务品牌心智。
+
+## 优化重点
+价值主张通过体验、产品与证据落地，品牌故事围绕用户心智和差异化持续推进。
+
+## 交接方式
+结合当前材料形成逐页内容时，使用 Director Kernel 定义的六字段语义接口；具体构图、能力选择、实现手段和生产步骤交由 PPT Master 原生 Strategist / Executor 完成。

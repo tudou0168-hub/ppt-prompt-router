@@ -18,11 +18,7 @@ class HermesAdapter(HostAdapter):
             return 40
         return 10 if (Path.home() / ".hermes").is_dir() else 0
 
-    def detection_reasons(self) -> list[str]:
-        return ["Hermes environment/process/config evidence"] if self.detection_score() else []
 
-    def supports_workspace(self) -> bool:
-        return False
 
     def canonical_skills_dir(self, scope: str = "user") -> Path:
         if scope == "workspace":

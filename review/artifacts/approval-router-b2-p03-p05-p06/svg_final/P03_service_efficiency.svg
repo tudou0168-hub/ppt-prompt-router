@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" data-pptx-page-role="content">
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F6F3ED"/>
+  <g id="page-header" data-pptx-bounds="48 28 1184 80">
+    <rect x="48" y="37" width="6" height="50" fill="#B52B32"/>
+    <text x="70" y="50" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" letter-spacing="1.2" fill="#B52B32">P03 / 服务质效</text>
+    <text x="70" y="88" font-size="42" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#173F63">办件增长、效率提升、线上协同</text>
+    <text x="1232" y="50" font-size="16" text-anchor="end" fill="#18242E">审批服务局｜2026年上半年</text>
+  </g>
+  <line id="header-rule" data-pptx-role="decoration" x1="48" y1="108" x2="1232" y2="108" stroke="#C7D1D9" stroke-width="2"/>
+  <g id="hero-volume" data-pptx-bounds="48 132 500 390">
+    <text x="48" y="155" font-size="18" font-weight="bold" fill="#2E7D79">大厅累计办理各类业务</text>
+    <text x="48" y="284" font-size="108" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#173F63">434,069</text>
+    <text x="50" y="319" font-size="26" font-weight="bold" fill="#18242E">件</text>
+    <line x1="48" y1="344" x2="438" y2="344" stroke="#173F63" stroke-width="4"/>
+    <text x="48" y="379" font-size="24" fill="#18242E">日均办件量</text>
+    <text x="205" y="380" font-size="34" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#173F63">3,529</text>
+    <text x="346" y="379" font-size="20" fill="#18242E">件</text>
+    <rect x="48" y="415" width="250" height="68" rx="8" fill="#B52B32"/>
+    <text x="70" y="443" font-size="18" fill="#FFFFFF">同比增长</text>
+    <text x="70" y="471" font-size="32" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#FFFFFF">+12.9%</text>
+  </g>
+  <g id="online-collaboration" data-pptx-bounds="500 132 330 390">
+    <rect x="500" y="132" width="330" height="390" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+    <text x="526" y="164" font-size="18" font-weight="bold" fill="#2E7D79">线上协同</text>
+    <text x="526" y="193" font-size="22" font-weight="bold" fill="#173F63">线上办件占比 52.6%</text>
+    <g id="chartArea">
+      <!-- chart-plot-area: donut | center: 665,316 | outer-radius: 90 | inner-radius: 64 -->
+      <circle cx="665" cy="316" r="90" fill="none" stroke="#E8EEF3" stroke-width="26"/>
+      <circle cx="665" cy="316" r="90" fill="none" stroke="#2E7D79" stroke-width="26" stroke-linecap="butt" stroke-dasharray="297.85 267.64" transform="rotate(-90 665 316)"/>
+    </g>
+    <text x="665" y="311" font-size="44" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#173F63">52.6%</text>
+    <text x="665" y="340" font-size="17" text-anchor="middle" fill="#18242E">228,367 件</text>
+    <line x1="526" y1="438" x2="804" y2="438" stroke="#C7D1D9" stroke-width="1"/>
+    <text x="526" y="470" font-size="18" fill="#18242E">同比提高</text>
+    <text x="804" y="470" font-size="30" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#B52B32">0.7 个百分点</text>
+  </g>
+  <g id="enterprise-sidebar" data-pptx-bounds="860 132 372 390">
+    <text x="860" y="155" font-size="18" font-weight="bold" fill="#B52B32">企业服务结构</text>
+    <text x="860" y="220" font-size="68" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#173F63">63.8%</text>
+    <text x="860" y="250" font-size="22" fill="#18242E">企业主体业务占总量</text>
+    <text x="860" y="281" font-size="20" fill="#18242E">276,924 件</text>
+    <line x1="860" y1="309" x2="1232" y2="309" stroke="#C7D1D9" stroke-width="2"/>
+    <text x="860" y="342" font-size="17" fill="#18242E">市场主体存量（截至6月30日）</text>
+    <text x="1232" y="342" font-size="25" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#173F63">118,456 户</text>
+    <text x="860" y="373" font-size="17" fill="#18242E">较去年净增长</text>
+    <text x="1232" y="373" font-size="25" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#2E7D79">6,822 户</text>
+    <text x="860" y="423" font-size="17" fill="#18242E">纳税人</text>
+    <text x="1232" y="423" font-size="25" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#173F63">85,720 户</text>
+    <text x="860" y="454" font-size="17" fill="#18242E">较去年增长</text>
+    <text x="1232" y="454" font-size="25" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="end" fill="#2E7D79">10,835 户</text>
+  </g>
+  <g id="interpretation-band" data-pptx-bounds="48 550 1184 70">
+    <rect x="48" y="550" width="1184" height="70" fill="#E8EEF3"/>
+    <!-- icon: tabler-outline/chart-bar -->
+  <g transform="translate(72, 567) scale(1.5)" fill="none" stroke="#173F63" stroke-width="2">
+    <path d="M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -6" />
+    <path d="M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -10" />
+    <path d="M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -14" />
+    <path d="M4 20h14" />
+  </g>
+    <text x="126" y="579" font-size="20" font-weight="bold" fill="#173F63">业务增长与线上协同并行：</text>
+    <text x="126" y="608" font-size="20" fill="#18242E">以 43.41 万件累计办件为底座，线上办理占比过半、企业主体业务占比近三分之二。</text>
+  </g>
+  <g id="page-footer" data-pptx-bounds="48 650 1184 32">
+    <line x1="48" y1="650" x2="1232" y2="650" stroke="#C7D1D9" stroke-width="1"/>
+    <text x="48" y="676" font-size="16" fill="#18242E">数据来源：审批服务局2026年上半年工作总结；统计口径：2026年上半年</text>
+    <text x="1232" y="676" font-size="16" font-family="Menlo, Consolas, monospace" text-anchor="end" fill="#173F63">03</text>
+  </g>
+</svg>

@@ -1,0 +1,132 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "final",
+  "target": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-b-no-prior-p05_ppt169_20260810",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "29d262c15204e654ac5f5a25221bbddc5869d5f8080f06e11a8f75a4e6232c69",
+    "file_count": 1,
+    "files": [
+      {
+        "file": "05_gap_validation.svg",
+        "sha256": "bea7ceb2b9bc10730bf5cdcc25b35f72f01a9b3df5235dbb37b09e30973b6e11"
+      }
+    ]
+  },
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "warnings": 0,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 0,
+      "issues": []
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {
+      "#087C6E": [
+        "05_gap_validation.svg"
+      ],
+      "#159A8A": [
+        "05_gap_validation.svg"
+      ],
+      "#173A5B": [
+        "05_gap_validation.svg"
+      ],
+      "#526374": [
+        "05_gap_validation.svg"
+      ],
+      "#667788": [
+        "05_gap_validation.svg"
+      ],
+      "#9AAABA": [
+        "05_gap_validation.svg"
+      ],
+      "#AA4B00": [
+        "05_gap_validation.svg"
+      ],
+      "#B9E0FF": [
+        "05_gap_validation.svg"
+      ],
+      "#E7F6F3": [
+        "05_gap_validation.svg"
+      ],
+      "#EAF3FB": [
+        "05_gap_validation.svg"
+      ],
+      "#FFF1E5": [
+        "05_gap_validation.svg"
+      ]
+    },
+    "fonts": {
+      "Arial, sans-serif": [
+        "05_gap_validation.svg"
+      ]
+    },
+    "sizes": {}
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "05_gap_validation.svg",
+      "path": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-b-no-prior-p05_ppt169_20260810/svg_output/05_gap_validation.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "fonts": [
+          "Arial, sans-serif",
+          "Microsoft YaHei, Arial, sans-serif"
+        ],
+        "text_elements": 32,
+        "tspan_elements": 13,
+        "contextual_values": {
+          "colors": [
+            "#087C6E",
+            "#159A8A",
+            "#173A5B",
+            "#526374",
+            "#667788",
+            "#9AAABA",
+            "#AA4B00",
+            "#B9E0FF",
+            "#E7F6F3",
+            "#EAF3FB",
+            "#FFF1E5"
+          ],
+          "font_families": [
+            "Arial, sans-serif"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "bea7ceb2b9bc10730bf5cdcc25b35f72f01a9b3df5235dbb37b09e30973b6e11"
+    }
+  ]
+}

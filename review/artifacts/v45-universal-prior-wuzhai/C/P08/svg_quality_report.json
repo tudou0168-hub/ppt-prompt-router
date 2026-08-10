@@ -1,0 +1,83 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "final",
+  "target": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-c-universal-prior_ppt169_20260810",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "7d017769b83b524c974d68fe6ef30316157d2204986ac39af3a85c579af49c0e",
+    "file_count": 1,
+    "files": [
+      {
+        "file": "08_smart-service.svg",
+        "sha256": "9bbb278523ff308a3c080f93c3234eba61b3c0af065d9318ef7040fa26a6f64c"
+      }
+    ]
+  },
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "warnings": 1,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 1,
+      "issues": [
+        {
+          "file": "08_smart-service.svg",
+          "message": "Cannot verify root viewBox bounds for visible text with unsupported or unresolved geometry: <text> (x=82, y=320; text='自然语言引导 · 材料识别表单预填 · …'), <text> (x=348, y=334; text='企业画像 ↔ 政策条件匹配对话式办事指引'), <text> (x=622, y=315; text='远程视频 + 身份核验 + 材料上传电子…'), +1 more; use supported explicit text positioning when page fit matters"
+        }
+      ]
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {},
+    "fonts": {},
+    "sizes": {}
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "08_smart-service.svg",
+      "path": "/Users/muzi/Documents/ppt-master/skills/ppt-master/projects/router-regression-20260809/v45-wuzhai-c-universal-prior_ppt169_20260810/svg_output/08_smart-service.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Cannot verify root viewBox bounds for visible text with unsupported or unresolved geometry: <text> (x=82, y=320; text='自然语言引导 · 材料识别表单预填 · …'), <text> (x=348, y=334; text='企业画像 ↔ 政策条件匹配对话式办事指引'), <text> (x=622, y=315; text='远程视频 + 身份核验 + 材料上传电子…'), +1 more; use supported explicit text positioning when page fit matters"
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "fonts": [
+          "Microsoft YaHei, Arial",
+          "Microsoft YaHei, Consolas, Arial"
+        ],
+        "text_elements": 34,
+        "tspan_elements": 4
+      },
+      "passed": true,
+      "source_sha256": "9bbb278523ff308a3c080f93c3234eba61b3c0af065d9318ef7040fa26a6f64c"
+    }
+  ]
+}

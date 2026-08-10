@@ -1,0 +1,15 @@
+{
+  "page": "P05_grassroots_service.svg",
+  "page_role": "content",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [".preview/P05_grassroots_service.png"],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "区分一表通闭环与并列服务场景，解释基层减负与群众体验。",
+    "render_delivers": true,
+    "note": "左侧只呈现一表通闭环，右侧以并列成效块承接群众服务，未误画为单一流程。"
+  }
+}

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" data-pptx-page-role="content">
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F6F3ED"/>
+  <g id="page-header" data-pptx-bounds="48 28 1184 82">
+    <rect x="48" y="37" width="6" height="50" fill="#B52B32"/>
+    <text x="70" y="50" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" letter-spacing="1.2" fill="#B52B32">P06 / 下半年谋划</text>
+    <text x="70" y="88" font-size="42" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#173F63">六项重点并列推进，把阶段改革转化为常态服务能力</text>
+    <text x="1232" y="50" font-size="16" text-anchor="end" fill="#18242E">审批服务局｜2026年下半年</text>
+  </g>
+  <line id="header-rule" data-pptx-role="decoration" x1="48" y1="110" x2="1232" y2="110" stroke="#C7D1D9" stroke-width="2"/>
+  <g id="capability-anchor" data-pptx-bounds="48 130 1184 94">
+    <rect x="48" y="130" width="1184" height="94" fill="#173F63"/>
+    <text x="78" y="166" font-size="18" font-weight="bold" fill="#E8EEF3">下半年总体目标</text>
+    <text x="78" y="205" font-size="34" font-family="Songti SC, STSong, SimSun, serif" font-weight="bold" fill="#FFFFFF">让高效便捷的政务服务触手可及、时刻在线</text>
+    <text x="1188" y="205" font-size="20" text-anchor="end" fill="#E8EEF3">阶段成果 → 常态服务能力</text>
+  </g>
+  <g id="priority-grid" data-pptx-bounds="48 246 1184 350">
+    <g id="priority-01">
+      <rect x="48" y="246" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="82" cy="282" r="18" fill="#B52B32"/>
+      <text x="82" y="288" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">01</text>
+      <text x="116" y="287" font-size="23" font-weight="bold" fill="#173F63">攻坚任务与民生实事</text>
+      <line x1="76" y1="310" x2="392" y2="310" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="76" y="346" font-size="21" fill="#18242E">网络计划书、挂图作战</text>
+      <text x="76" y="377" font-size="17" fill="#18242E">牵头任务抓节点，配合任务强台账</text>
+    </g>
+    <g id="priority-02">
+      <rect x="454" y="246" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="488" cy="282" r="18" fill="#2E7D79"/>
+      <text x="488" y="288" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">02</text>
+      <text x="522" y="287" font-size="23" font-weight="bold" fill="#173F63">招商包保</text>
+      <line x1="482" y1="310" x2="798" y2="310" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="482" y="346" font-size="21" fill="#18242E">推动项目落地、服务47家企业</text>
+      <text x="482" y="377" font-size="17" fill="#18242E">诉求“收集—办理—反馈—销号”</text>
+    </g>
+    <g id="priority-03">
+      <rect x="860" y="246" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="894" cy="282" r="18" fill="#173F63"/>
+      <text x="894" y="288" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">03</text>
+      <text x="928" y="287" font-size="23" font-weight="bold" fill="#173F63">审批改革</text>
+      <line x1="888" y1="310" x2="1204" y2="310" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="888" y="346" font-size="21" fill="#18242E">承接新事项，巩固已上线成效</text>
+      <text x="888" y="377" font-size="17" fill="#18242E">聚焦多次跑、往返跑堵点</text>
+    </g>
+    <g id="priority-04">
+      <rect x="48" y="422" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="82" cy="458" r="18" fill="#173F63"/>
+      <text x="82" y="464" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">04</text>
+      <text x="116" y="463" font-size="23" font-weight="bold" fill="#173F63">专区增值</text>
+      <line x1="76" y1="486" x2="392" y2="486" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="76" y="522" font-size="21" fill="#18242E">资源联动与服务下沉</text>
+      <text x="76" y="553" font-size="17" fill="#18242E">丰富内容，打通惠企服务末梢</text>
+    </g>
+    <g id="priority-05">
+      <rect x="454" y="422" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="488" cy="458" r="18" fill="#B52B32"/>
+      <text x="488" y="464" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">05</text>
+      <text x="522" y="463" font-size="23" font-weight="bold" fill="#173F63">数字赋能</text>
+      <line x1="482" y1="486" x2="798" y2="486" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="482" y="522" font-size="21" fill="#18242E">高小·i、免证办、一表通</text>
+      <text x="482" y="553" font-size="17" fill="#18242E">继续研发建设与动态承接并行</text>
+    </g>
+    <g id="priority-06">
+      <rect x="860" y="422" width="372" height="154" fill="#FFFFFF" stroke="#C7D1D9" stroke-width="2"/>
+      <circle cx="894" cy="458" r="18" fill="#2E7D79"/>
+      <text x="894" y="464" font-size="18" font-family="Menlo, Consolas, monospace" font-weight="bold" text-anchor="middle" fill="#FFFFFF">06</text>
+      <text x="928" y="463" font-size="23" font-weight="bold" fill="#173F63">服务下沉</text>
+      <line x1="888" y1="486" x2="1204" y2="486" stroke="#E8EEF3" stroke-width="2"/>
+      <text x="888" y="522" font-size="21" fill="#18242E">15分钟便民服务圈、有诉即办</text>
+      <text x="888" y="553" font-size="17" fill="#18242E">惠企服务与微创新持续拓展</text>
+    </g>
+  </g>
+  <g id="page-footer" data-pptx-bounds="48 650 1184 32">
+    <line x1="48" y1="650" x2="1232" y2="650" stroke="#C7D1D9" stroke-width="1"/>
+    <text x="48" y="676" font-size="16" fill="#18242E">依据下半年工作谋划；“高小·i”属继续研发建设，未表述为既成能力</text>
+    <text x="1232" y="676" font-size="16" font-family="Menlo, Consolas, monospace" text-anchor="end" fill="#173F63">06</text>
+  </g>
+</svg>

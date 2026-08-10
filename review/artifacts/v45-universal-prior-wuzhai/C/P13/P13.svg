@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="PingFang SC, Microsoft YaHei, sans-serif" data-pptx-page-role="content">
+  <defs>
+    <marker id="p13-arrow-end" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <polygon points="0,0 10,5 0,10" fill="#0B3A6E"/>
+    </marker>
+    <marker id="p13-feedback-end" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon points="0,0 8,4 0,8" fill="#1E78C8"/>
+    </marker>
+  </defs>
+
+  <rect id="p13-background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <rect id="p13-primary-plane" data-pptx-role="decoration" x="0" y="0" width="18" height="720" fill="#0B3A6E"/>
+
+  <g id="p13-header" data-pptx-bounds="56 42 1170 108">
+    <text x="56" y="88" font-size="40" font-weight="700" fill="#0B3A6E">扩展不是既定下一步：应以摸底、试点和评估结果控制节奏</text>
+    <text x="58" y="128" font-size="18" fill="#53677C">建议性推进方法｜日期、预算、批次和责任安排待后续决策制定</text>
+    <text x="1180" y="88" font-size="18" font-weight="700" fill="#1E78C8">P13</text>
+  </g>
+
+  <g id="p13-core-message" data-pptx-bounds="56 168 1120 60">
+    <rect x="56" y="178" width="8" height="38" fill="#1E78C8"/>
+    <text x="84" y="207" font-size="32" font-weight="700" fill="#152536">先验证，再扩展；每道闸门都要求真实条件通过。</text>
+  </g>
+
+  <g id="p13-roadmap" data-pptx-bounds="56 246 1148 278">
+    <line x1="98" y1="346" x2="1170" y2="346" stroke="#0B3A6E" stroke-width="4" marker-end="url(#p13-arrow-end)"/>
+
+    <g id="p13-gate-01">
+      <rect x="294" y="282" width="3" height="92" fill="#1E78C8"/>
+      <text x="310" y="299" font-size="16" font-weight="700" fill="#1E78C8">GATE 01</text>
+      <text x="310" y="322" font-size="16" fill="#53677C">条件可核验</text>
+    </g>
+    <g id="p13-gate-02">
+      <rect x="570" y="282" width="3" height="92" fill="#1E78C8"/>
+      <text x="586" y="299" font-size="16" font-weight="700" fill="#1E78C8">GATE 02</text>
+      <text x="586" y="322" font-size="16" fill="#53677C">闭环可运行</text>
+    </g>
+    <g id="p13-gate-03">
+      <rect x="846" y="282" width="3" height="92" fill="#1E78C8"/>
+      <text x="762" y="299" font-size="16" font-weight="700" fill="#1E78C8">GATE 03</text>
+      <text x="722" y="322" font-size="16" fill="#53677C">本地评估与运维条件通过</text>
+    </g>
+
+    <g id="p13-stage-01">
+      <circle cx="118" cy="346" r="20" fill="#0B3A6E"/>
+      <text x="104" y="352" font-size="16" font-weight="700" fill="#F7F9FC">01</text>
+      <text x="78" y="409" font-size="24" font-weight="700" fill="#0B3A6E">摸底与定标</text>
+      <text x="78" y="439" font-size="16" fill="#152536"><tspan x="78">核实现状、事项与数据底账</tspan><tspan x="78" dy="25">明确建设边界与优先级</tspan></text>
+    </g>
+
+    <g id="p13-stage-02">
+      <circle cx="394" cy="346" r="20" fill="#0B3A6E"/>
+      <text x="380" y="352" font-size="16" font-weight="700" fill="#F7F9FC">02</text>
+      <text x="354" y="409" font-size="24" font-weight="700" fill="#0B3A6E">场景试点</text>
+      <text x="354" y="439" font-size="16" fill="#152536"><tspan x="354">选择高频、规则清晰的场景</tspan><tspan x="354" dy="25">验证服务闭环</tspan></text>
+    </g>
+
+    <g id="p13-stage-03">
+      <rect x="630" y="326" width="40" height="40" fill="#1E78C8"/>
+      <text x="642" y="352" font-size="16" font-weight="700" fill="#F7F9FC">03</text>
+      <text x="630" y="409" font-size="24" font-weight="700" fill="#0B3A6E">评估与固化</text>
+      <text x="630" y="439" font-size="16" fill="#152536"><tspan x="630">复盘体验、效率、质量、合规</tspan><tspan x="630" dy="25">形成标准流程</tspan></text>
+    </g>
+
+    <g id="p13-stage-04">
+      <rect x="890" y="258" width="314" height="258" fill="#0B3A6E"/>
+      <text x="920" y="330" font-size="64" font-weight="700" fill="#88AEDD">04</text>
+      <text x="922" y="379" font-size="28" font-weight="700" fill="#F7F9FC">分步扩展</text>
+      <text x="922" y="416" font-size="18" fill="#F7F9FC"><tspan x="922">按成熟度扩展更多事项、窗口</tspan><tspan x="922" dy="28">和基层网点；统筹底座能力</tspan></text>
+      <line x1="922" y1="470" x2="1164" y2="470" stroke="#88AEDD" stroke-width="2"/>
+      <text x="922" y="497" font-size="16" font-weight="700" fill="#88AEDD">扩展范围由评估结论决定</text>
+    </g>
+  </g>
+
+  <g id="p13-feedback-loop" data-pptx-bounds="354 538 500 58">
+    <path d="M650 518V548H420" fill="none" stroke="#1E78C8" stroke-width="2" marker-end="url(#p13-feedback-end)"/>
+    <text x="448" y="579" font-size="18" fill="#1E78C8">评估发现问题 → 返回试点优化</text>
+  </g>
+
+  <g id="p13-footer" data-pptx-bounds="56 640 1148 42">
+    <line x1="56" y1="640" x2="1204" y2="640" stroke="#C7D4E2" stroke-width="1"/>
+    <text x="56" y="672" font-size="16" fill="#53677C">注：本页不预设日期、预算、采购方式、建设批次或责任单位；原始材料未提供这些已确认信息。</text>
+  </g>
+</svg>

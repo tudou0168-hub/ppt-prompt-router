@@ -1,0 +1,15 @@
+{
+  "page": "P06_h2_priorities.svg",
+  "page_role": "content",
+  "status": "ok",
+  "iterations_run": 1,
+  "screenshot_paths": [".preview/P06_h2_priorities.png"],
+  "findings": [],
+  "untouched_concerns": [],
+  "needs_human_items": [],
+  "design_intent_check": {
+    "spec_says": "以常态服务能力为锚点，六项重点并列展示且不暗示先后流程。",
+    "render_delivers": true,
+    "note": "目标锚点与六项等权任务矩阵形成清晰的能力地图，并保留高小·i的研发建设边界。"
+  }
+}
